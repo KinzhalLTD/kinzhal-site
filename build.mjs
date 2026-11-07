@@ -29,7 +29,7 @@ p,li{color:var(--ink2)}.card{background:var(--panel);border:1px solid var(--line
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .game{display:block;text-decoration:none;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;transition:border-color .2s,transform .2s}
 .game:hover{border-color:var(--pink);transform:translateY(-2px)}
-.ico{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:20px;color:#07060c;margin-bottom:10px}
+.ico{width:46px;height:46px;border-radius:12px;display:block;object-fit:cover;margin-bottom:10px;background:#120e1f}
 .muted{color:var(--ink2);font-size:14px}.pill{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);margin-top:6px}
 .pill.live{border-color:#3dffa955;color:var(--good)}
 .btn{display:inline-block;padding:10px 18px;border-radius:999px;border:1px solid var(--pink);color:var(--ink);text-decoration:none;font-weight:700;box-shadow:0 0 14px #ff2bd655;margin:4px 6px 4px 0}
@@ -37,7 +37,7 @@ p,li{color:var(--ink2)}.card{background:var(--panel);border:1px solid var(--line
 footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:var(--ink2);font-size:14px;display:flex;gap:16px;flex-wrap:wrap}
 footer a{color:var(--cyan)}`;
 
-const page = ({ title, desc, rel, body, noindex }) => `<!doctype html>
+const page = ({ title, desc, rel, body, noindex, icon }) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -45,11 +45,10 @@ const page = ({ title, desc, rel, body, noindex }) => `<!doctype html>
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${D}/${rel}">
-<link rel="icon" href="/favicon.ico">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+${icon ? `<link rel="icon" href="${icon.href}"${icon.svg ? ' type="image/svg+xml"' : ''}>\n<link rel="apple-touch-icon" href="${icon.png || '/apple-touch-icon.png'}">` : '<link rel="icon" href="/favicon.ico">\n<link rel="apple-touch-icon" href="/apple-touch-icon.png">'}
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
-<meta property="og:image" content="${D}/og-image.jpg">
+<meta property="og:image" content="${icon && icon.png ? D + icon.png : D + '/og-image.jpg'}">
 <meta name="theme-color" content="#07060c">
 ${noindex ? '<meta name="robots" content="noindex">' : ''}
 <style>${CSS}</style>
@@ -119,7 +118,7 @@ const support = (name, nameAr) => `
 <h3>إجابات سريعة</h3><ul><li><b>استعادة المشتريات:</b> الإعدادات داخل اللعبة ← استعادة المشتريات بنفس حساب Apple.</li><li><b>إعلانات كثيرة؟</b> الإعلانات البينية تظهر بين المراحل فقط، و«إزالة الإعلانات» توقفها.</li><li><b>فقدان التقدم:</b> يُحفظ على الجهاز، وحذف التطبيق يحذفه.</li><li><b>الاسترداد</b> عبر Apple في reportaproblem.apple.com.</li></ul></div>`;
 
 const statusPill = g => g.status === 'live' ? '<span class="pill live">On the App Store</span>' : '<span class="pill">Coming soon</span>';
-const ico = g => `<div class="ico" style="background:radial-gradient(circle at 30% 20%,#fff8,${esc(g.color)} 60%);box-shadow:0 0 14px ${esc(g.color)}66">${esc(g.name.slice(0, 1))}</div>`;
+const ico = g => `<img class="ico" src="${ICON[g.slug].href}" alt="${esc(g.name)} icon" width="46" height="46" loading="lazy" style="box-shadow:0 0 14px ${esc(g.color)}66">`;
 const ordered = [...GAMES].sort((a, b) => (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1));
 
 // Start clean, then copy the images and icons from static/.
@@ -128,6 +127,43 @@ fs.mkdirSync(OUT, { recursive: true });
 for (const [f, b64] of Object.entries(ASSETS)) fs.writeFileSync(path.join(OUT, f), Buffer.from(b64, 'base64'));
 // Optional: a static/ folder can override or add images.
 if (fs.existsSync('static')) for (const f of fs.readdirSync('static')) fs.copyFileSync(path.join('static', f), path.join(OUT, f));
+
+/* ---------- game icons ----------
+   1. icons/<slug>.png (or .jpg / .webp) in this repo, if you add one
+   2. otherwise the real App Store icon, downloaded at build time when games.json has appStoreId
+   3. otherwise a neon icon drawn from the game's genre */
+const GLYPH = [
+  [/brick/i, '<g fill="#07060c"><rect x="14" y="18" width="16" height="9" rx="2"/><rect x="34" y="18" width="16" height="9" rx="2"/><rect x="24" y="31" width="16" height="9" rx="2"/></g><circle cx="32" cy="50" r="5" fill="#07060c"/>'],
+  [/bounce|ball|volley/i, '<circle cx="32" cy="30" r="13" fill="#07060c"/><ellipse cx="32" cy="52" rx="14" ry="3" fill="#07060c" opacity=".5"/>'],
+  [/chess/i, '<path fill="#07060c" d="M24 50h18l-2-6h-2l1-10c4-3 5-8 2-13-3-4-9-5-13-3l-3 5 4 1-5 6 3 2 6-3-1 12h-4z"/>'],
+  [/factory|educational|puzzle · levels|levels/i, '<g fill="#07060c"><circle cx="32" cy="32" r="8"/><path d="M29 12h6l1 6 5 2 5-4 4 4-4 5 2 5 6 1v6l-6 1-2 5 4 5-4 4-5-4-5 2-1 6h-6l-1-6-5-2-5 4-4-4 4-5-2-5-6-1v-6l6-1 2-5-4-5 4-4 5 4 5-2z" fill-opacity=".9"/></g><circle cx="32" cy="32" r="5" fill="#fff" opacity=".7"/>'],
+  [/word|crossword/i, '<g fill="#07060c"><rect x="14" y="14" width="10" height="10" rx="2"/><rect x="27" y="14" width="10" height="10" rx="2"/><rect x="40" y="14" width="10" height="10" rx="2"/><rect x="27" y="27" width="10" height="10" rx="2"/><rect x="27" y="40" width="10" height="10" rx="2"/></g>'],
+  [/race|racing/i, '<path fill="#07060c" d="M18 14v38h4V36h22l-4-7 4-7H22v-8z"/>'],
+  [/cook|burger/i, '<g fill="#07060c"><path d="M14 30c0-9 8-14 18-14s18 5 18 14z"/><rect x="13" y="33" width="38" height="5" rx="2"/><path d="M14 41h36c0 6-4 9-10 9H24c-6 0-10-3-10-9z"/></g>'],
+  [/desert|dune|sand|roguelite|mirage/i, '<g fill="#07060c"><circle cx="42" cy="20" r="6"/><path d="M8 50c8-10 16-12 24-6s14 4 24-4v14H8z"/></g>'],
+  [/runner|run|vault/i, '<path fill="#07060c" d="M14 34h24l-8-10h8l12 14-12 14h-8l8-10H14z"/>'],
+  [/space|orbit|nova|stellar|star|drift|drop|glide|launch|cyber|aether/i, '<g fill="#07060c"><path d="M32 10c8 6 11 16 9 26l-9 6-9-6c-2-10 1-20 9-26z"/><path d="M23 36l-6 10 9-3zM41 36l6 10-9-3z"/><path d="M28 46h8l-4 8z"/></g><circle cx="32" cy="25" r="4" fill="#fff" opacity=".75"/>'],
+  [/aim|shot|long/i, '<g fill="none" stroke="#07060c" stroke-width="4"><circle cx="32" cy="32" r="16"/><circle cx="32" cy="32" r="7"/></g><circle cx="32" cy="32" r="3" fill="#07060c"/>']
+];
+const genIcon = g => {
+  const hit = GLYPH.find(([re]) => re.test(g.genre + ' ' + g.name));
+  const inner = hit ? hit[1] : `<text x="32" y="43" font-family="system-ui,sans-serif" font-size="30" font-weight="800" text-anchor="middle" fill="#07060c">${esc(g.name.slice(0, 1))}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><radialGradient id="g" cx="30%" cy="20%" r="90%"><stop offset="0" stop-color="#ffffff" stop-opacity=".75"/><stop offset=".55" stop-color="${esc(g.color)}"/><stop offset="1" stop-color="${esc(g.color)}"/></radialGradient></defs><rect width="64" height="64" rx="15" fill="url(#g)"/>${inner}</svg>`;
+};
+const ICON = {};
+for (const g of GAMES) {
+  const own = ['png', 'jpg', 'jpeg', 'webp'].map(x => `icons/${g.slug}.${x}`).find(f => fs.existsSync(f));
+  if (own) { const ext = path.extname(own); const dest = `${g.slug}/icon${ext}`; fs.mkdirSync(path.join(OUT, g.slug), { recursive: true }); fs.copyFileSync(own, path.join(OUT, dest)); ICON[g.slug] = { href: '/' + dest, png: '/' + dest, src: 'file' }; continue; }
+  if (g.appStoreId) {
+    try {
+      const j = await (await fetch(`https://itunes.apple.com/lookup?id=${encodeURIComponent(g.appStoreId)}&country=sa`)).json();
+      const art = j.results?.[0]?.artworkUrl512 || j.results?.[0]?.artworkUrl100;
+      if (art) { const buf = Buffer.from(await (await fetch(art)).arrayBuffer()); const dest = `${g.slug}/icon.png`; fs.mkdirSync(path.join(OUT, g.slug), { recursive: true }); fs.writeFileSync(path.join(OUT, dest), buf); ICON[g.slug] = { href: '/' + dest, png: '/' + dest, src: 'appstore' }; continue; }
+    } catch (e) { console.warn(`App Store icon for ${g.slug} failed: ${e.message}`); }
+  }
+  const dest = `${g.slug}/icon.svg`; fs.mkdirSync(path.join(OUT, g.slug), { recursive: true }); fs.writeFileSync(path.join(OUT, dest), genIcon(g)); ICON[g.slug] = { href: '/' + dest, svg: true, src: 'drawn' };
+}
+console.log('Icons:', Object.entries(ICON).reduce((a, [, v]) => (a[v.src] = (a[v.src] || 0) + 1, a), {}));
 write('index.html', page({ title: `${SITE.company} · Games`, desc: `Mobile and PC games by ${SITE.company}, made in Saudi Arabia.`, rel: '', body: `
 <section style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px;align-items:center;margin:16px 0 28px" class="hero">
 <div><h1>Games made in Saudi Arabia</h1><p>${esc(SITE.company)} builds arcade, puzzle and adventure games in Arabic and English for iPhone and PC.</p><a class="btn" href="#games">Our games</a><a class="btn" href="/support/" style="border-color:var(--cyan);box-shadow:0 0 14px #27e2ff55">Support</a></div>
@@ -138,12 +174,12 @@ write('index.html', page({ title: `${SITE.company} · Games`, desc: `Mobile and 
 
 for (const [k, fn, t, d] of [['privacy', privacy, 'Privacy policy', 'How Kinzhal games handle data.'], ['terms', terms, 'Terms of use', 'Terms for Kinzhal games.'], ['support', support, 'Support', 'Help for Kinzhal games.']]) {
   write(`${k}/index.html`, page({ title: `${t} · ${SITE.company}`, desc: d, rel: `${k}/`, body: fn('Kinzhal games', 'ألعاب كينجال') }));
-  for (const g of GAMES) write(`${g.slug}/${k}/index.html`, page({ title: `${t} · ${g.name}`, desc: `${t} for ${g.name}.`, rel: `${g.slug}/${k}/`, body: fn(g.name, g.nameAr) }));
+  for (const g of GAMES) write(`${g.slug}/${k}/index.html`, page({ title: `${t} · ${g.name}`, desc: `${t} for ${g.name}.`, rel: `${g.slug}/${k}/`, icon: ICON[g.slug], body: fn(g.name, g.nameAr) }));
 }
 for (const g of GAMES) {
   const store = g.appStoreId ? `<a class="btn" href="https://apps.apple.com/app/id${esc(g.appStoreId)}">Download on the App Store</a>` : '';
   const steam = g.steamAppId ? `<a class="btn" href="https://store.steampowered.com/app/${esc(g.steamAppId)}/" style="border-color:#66c0f4;box-shadow:0 0 14px #66c0f455">Wishlist on Steam</a>` : '';
-  write(`${g.slug}/index.html`, page({ title: `${g.name} · ${SITE.company}`, desc: `${g.name} — ${g.genre}. A game by ${SITE.company}.`, rel: `${g.slug}/`, body: `
+  write(`${g.slug}/index.html`, page({ title: `${g.name} · ${SITE.company}`, desc: `${g.name} — ${g.genre}. A game by ${SITE.company}.`, rel: `${g.slug}/`, icon: ICON[g.slug], body: `
 <div class="card">${ico(g)}<h1>${esc(g.name)}</h1><p class="muted">${esc(g.genre)}</p>${statusPill(g)}<div style="margin-top:14px">${store}${steam}</div>
 <p style="margin-top:14px"><a href="/${g.slug}/privacy/">Privacy policy</a> · <a href="/${g.slug}/terms/">Terms</a> · <a href="/${g.slug}/support/">Support</a></p></div>
 <div class="card ar" dir="rtl" lang="ar"><h2 style="margin-top:0">${esc(g.nameAr || g.name)}</h2><p class="muted">${esc(g.genreAr || g.genre)}</p><p><a href="/${g.slug}/privacy/">سياسة الخصوصية</a> · <a href="/${g.slug}/terms/">الشروط</a> · <a href="/${g.slug}/support/">الدعم</a></p></div>` }));
