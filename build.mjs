@@ -117,7 +117,8 @@ const support = (name, nameAr) => `
 <p>راسلنا على <a href="mailto:${esc(SITE.email)}">${esc(SITE.email)}</a> مع نوع الجهاز وإصدار iOS ووصف المشكلة. نرد خلال يومي عمل (الأحد–الخميس بتوقيت الرياض).</p>
 <h3>إجابات سريعة</h3><ul><li><b>استعادة المشتريات:</b> الإعدادات داخل اللعبة ← استعادة المشتريات بنفس حساب Apple.</li><li><b>إعلانات كثيرة؟</b> الإعلانات البينية تظهر بين المراحل فقط، و«إزالة الإعلانات» توقفها.</li><li><b>فقدان التقدم:</b> يُحفظ على الجهاز، وحذف التطبيق يحذفه.</li><li><b>الاسترداد</b> عبر Apple في reportaproblem.apple.com.</li></ul></div>`;
 
-const statusPill = g => g.status === 'live' ? '<span class="pill live">On the App Store</span>' : '<span class="pill">Coming soon</span>';
+// "On the App Store" / "On Steam" only when the game really has a store ID; everything else is "Coming soon".
+const statusPill = g => g.appStoreId ? '<span class="pill live">On the App Store</span>' : g.steamAppId ? '<span class="pill live">On Steam</span>' : g.status === 'live' ? '<span class="pill" style="border-color:#ff2bd655;color:#ff9be9">Coming soon to iPhone</span>' : '<span class="pill">Coming soon</span>';
 const ico = g => `<img class="ico" src="${ICON[g.slug].href}" alt="${esc(g.name)} icon" width="46" height="46" loading="lazy" style="box-shadow:0 0 14px ${esc(g.color)}66">`;
 const ordered = [...GAMES].sort((a, b) => (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1));
 
