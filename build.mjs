@@ -3,6 +3,7 @@
 // Add a game: add one entry to games.json (slug, name, nameAr, genre, genreAr, status, color, appStoreId), run the build.
 import fs from 'node:fs';
 import path from 'node:path';
+import { ASSETS } from './assets.mjs';
 
 const SITE = JSON.parse(fs.readFileSync('site.json', 'utf8'));
 const GAMES = JSON.parse(fs.readFileSync('games.json', 'utf8'));
@@ -124,7 +125,9 @@ const ordered = [...GAMES].sort((a, b) => (a.status === 'live' ? 0 : 1) - (b.sta
 // Start clean, then copy the images and icons from static/.
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
-for (const f of fs.readdirSync('static')) fs.copyFileSync(path.join('static', f), path.join(OUT, f));
+for (const [f, b64] of Object.entries(ASSETS)) fs.writeFileSync(path.join(OUT, f), Buffer.from(b64, 'base64'));
+// Optional: a static/ folder can override or add images.
+if (fs.existsSync('static')) for (const f of fs.readdirSync('static')) fs.copyFileSync(path.join('static', f), path.join(OUT, f));
 write('index.html', page({ title: `${SITE.company} · Games`, desc: `Mobile and PC games by ${SITE.company}, made in Saudi Arabia.`, rel: '', body: `
 <section style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px;align-items:center;margin:16px 0 28px" class="hero">
 <div><h1>Games made in Saudi Arabia</h1><p>${esc(SITE.company)} builds arcade, puzzle and adventure games in Arabic and English for iPhone and PC.</p><a class="btn" href="#games">Our games</a><a class="btn" href="/support/" style="border-color:var(--cyan);box-shadow:0 0 14px #27e2ff55">Support</a></div>
