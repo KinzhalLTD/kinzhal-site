@@ -1,6 +1,0 @@
-{
-  "name": "kinzhal-site",
-  "private": true,
-  "type": "module",
-  "scripts": { "build": "node build.mjs", "check": "node check.mjs" }
-}
