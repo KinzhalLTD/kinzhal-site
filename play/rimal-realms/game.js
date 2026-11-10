@@ -33,7 +33,7 @@ function newState(name, color) {
   };
   s.fields[0] = { t: 'farm', l: 1 }; s.fields[1] = { t: 'lumber', l: 1 }; s.fields[2] = { t: 'quarry', l: 1 }; s.fields[5] = { t: 'mine', l: 1 };
   genWorld(s);
-  return s;
+  return META.migrate(s);
 }
 
 function genWorld(s) {
@@ -65,7 +65,7 @@ function makeCamp(id, [x, y], r = Math.random) {
 function freeSpot() { const occ = new Set(S.world.map(o => o.x + ',' + o.y)); occ.add(S.home.x + ',' + S.home.y); for (let i = 0; i < 500; i++) { const x = 1 + Math.floor(Math.random() * (W - 2)), y = 1 + Math.floor(Math.random() * (H - 2)); if (!occ.has(x + ',' + y) && Math.hypot(x - 20, y - 20) > 2.5) return [x, y]; } return [1, 1]; }
 
 function save() { try { S.last = now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage blocked: game still runs */ } }
-function load() { try { const j = localStorage.getItem(SAVE_KEY); if (j) { const s = JSON.parse(j); if (s && s.v === 1) return s; } } catch (e) { } return null; }
+function load() { try { const j = localStorage.getItem(SAVE_KEY); if (j) { const s = JSON.parse(j); if (s && s.v === 1) return META.migrate(s); } } catch (e) { } return null; }
 
 /* ======================= economy ======================= */
 const tech = id => (S.tech[id] || 0) * (TECHM[id]?.eff || 0);
@@ -76,6 +76,7 @@ function rates() {
   S.fields.forEach(f => { if (f && f.l) r[BLD[f.t].field] += fieldRate(f.l); });
   for (const k of ['grain', 'timber', 'stone', 'ore']) r[k] = r[k] * (1 + tech(prodBoost[k])) + 120;
   r.gold = 200 + 160 * S.b.citadel + 260 * S.b.market;
+  const vb = 1 + vipLvl() * .03; for (const k of RES) r[k] *= vb;
   r.upkeep = troopCount(S.troops) * 0.25; // grain eaten per hour
   r.grain -= r.upkeep;
   return r;
@@ -96,6 +97,7 @@ function might() {
   m += heroMight() + Object.values(S.tech).reduce((a, l) => a + l * 60, 0);
   return Math.floor(m);
 }
+const vigorMax = () => 60 + S.b.mews * 2 + vipLvl() * 5;
 const heroCap = () => 10 + S.b.mews * 3;
 const squadBonus = () => S.squad.reduce((a, id) => a + (S.heroes[id] ? S.heroes[id].lvl * S.heroes[id].stars * .004 : 0), 0);
 const maxMarches = () => 2 + (S.tech.slots || 0);
@@ -109,7 +111,7 @@ function costOf(id, toL) {
 }
 const timeOf = (id, toL) => BLD[id].base * Math.pow(1.58, toL - 1) / (1 + tech('build'));
 const afford = c => Object.entries(c).every(([k, v]) => k === 'gems' ? S.gems >= v : (S.res[k] || 0) >= v);
-const pay = c => { for (const [k, v] of Object.entries(c)) { if (k === 'gems') S.gems -= v; else S.res[k] -= v; } };
+const pay = c => { for (const [k, v] of Object.entries(c)) { if (k === 'gems') spendGems(v); else S.res[k] -= v; } };
 function give(r, label) {
   const parts = [];
   for (const [k, v] of Object.entries(r || {})) {
@@ -154,8 +156,9 @@ function startUpgrade(key, typeForEmpty) {
 function finishBuild(q) {
   if (q.key[0] === 'f' && q.key !== 'farm') S.fields[+q.key.slice(1)].l = q.to; else S.b[q.key] = q.to;
   S.queue = S.queue.filter(x => x !== q);
+  S.stats.builds = (S.stats.builds || 0) + 1; META.xp(q.id === 'citadel' ? 60 : 20); buildFx(q);
   toast(`${BLD[q.id].name} reached level ${q.to}`, 'good'); sfx('done');
-  if (q.id === 'citadel') { burst(); log(`Your Citadel rose to level ${q.to}.`); }
+  if (q.id === 'citadel') { log(`Your Citadel rose to level ${q.to}.`); citadelBanner(q.to); }
 }
 
 /* ======================= training & healing ======================= */
@@ -217,12 +220,12 @@ function applyHelp(h) {
 
 /* ======================= speed-ups ======================= */
 function timerRef(kind, key) { return kind === 'b' ? S.queue.find(q => q.key === key) : kind === 't' ? S.training : kind === 'r' ? S.rq : null; }
-const freeLimit = 5 * 60e3;
+const freeLimit = () => (5 + vipLvl() * 2) * 60e3;
 function speedUp(kind, key, how) {
   const t = timerRef(kind, key); if (!t) return;
   const left = t.end - now();
-  if (how === 'free') { if (left > freeLimit || kind !== 'b') return; t.end = now(); }
-  else if (how === 'gems') { const g = gemCost(left); if (S.gems < g) return toast('Not enough gems', 'bad'); S.gems -= g; t.end = now(); }
+  if (how === 'free') { if (left > freeLimit() || kind !== 'b') return; t.end = now(); }
+  else if (how === 'gems') { const g = gemCost(left); if (S.gems < g) return toast('Not enough gems', 'bad'); spendGems(g); t.end = now(); }
   else { if (!S.items[how]) return; S.items[how]--; t.end -= ITEMS[how].sec * 1000; }
   sfx('click'); tick(); render(); if ($('#sheet').open) openSpeed(kind, key);
 }
@@ -311,14 +314,14 @@ function arrive(m) {
   let body = `<p><b>${res.win ? 'Victory!' : 'Defeat.'}</b> ${res.rounds} rounds.</p><p>Your losses: ${troopsHTML(res.lossA)} <span class="muted">(${fmt(healed)} sent to the Infirmary)</span></p><p>Enemy losses: ${troopsHTML(res.lossD)}</p>`;
   if (res.win) {
     if (o.kind === 'camp') {
-      S.stats.camps++; S.stats.campMax = Math.max(S.stats.campMax, o.lvl);
+      META.xp(30); S.stats.camps++; S.stats.campMax = Math.max(S.stats.campMax, o.lvl);
       const L = o.lvl; m.loot = { gold: 300 * L * L, grain: 800 * L, timber: 600 * L, stone: 400 * L, ore: 150 * L };
       const extra = { items: { gift: 1 + (L >= 5 ? 1 : 0) } }; if (Math.random() < .35) extra.items.sp5 = 1 + Math.floor(L / 3); if (Math.random() < .25) extra.gems = 5 * L;
       if (L >= 4 && Math.random() < .3) extra.shards = { [pick(HEROES).id]: 1 + Math.floor(L / 4) };
       body += `<p>Spoils: ${give(extra)} and resources carried home.</p>`;
       o.respawnAt = now() + 4 * 60e3; o.dead = true;
     } else if (o.kind === 'city') {
-      S.stats.rivals++; const take = {}; for (const k of RES) { take[k] = Math.floor(Math.min(o.res[k] * .4, loadOf(m.troops) / 5)); o.res[k] -= take[k]; }
+      META.xp(60); S.stats.rivals++; const take = {}; for (const k of RES) { take[k] = Math.floor(Math.min(o.res[k] * .4, loadOf(m.troops) / 5)); o.res[k] -= take[k]; }
       m.loot = take; body += `<p>You plundered ${RES.map(k => ART.icon(k, 14) + fmt(take[k])).join(' ')}</p>`; o.lvl = Math.max(1, o.lvl); o.angry = (o.angry || 0) + 1;
     } else if (o.kind === 'throne') {
       if (troopCount(o.troops) === 0) { S.throne = true; body += '<p><b>The Oasis Throne is yours. All the sands bow to you, Sovereign.</b></p>'; burst(); burst(); log('You captured the Oasis Throne!'); }
@@ -332,6 +335,7 @@ function arrive(m) {
 }
 function marchHome(m) {
   for (const [k, n] of Object.entries(m.troops)) S.troops[k] = (S.troops[k] || 0) + n;
+  if (m.kind === 'gather') META.xp(15);
   if (m.kind === 'gather') S.stats.gathered += Object.values(m.loot).reduce((a, b) => a + b, 0);
   const t = give(m.loot); if (t) toast(`March home: ${t}`, 'good');
   S.marches = S.marches.filter(x => x !== m);
@@ -359,7 +363,7 @@ function resolveRaid() {
     for (const k of RES) { lost[k] = Math.floor(Math.max(0, S.res[k] - safe) * .25); S.res[k] -= lost[k]; }
     body += `<p><b>Your city was plundered:</b> ${RES.map(k => ART.icon(k, 14) + fmt(lost[k])).join(' ')}</p><p class="muted">Upgrade the Vault and Ramparts, train more troops, or use a Mirage Veil.</p>`;
     S.shieldUntil = now() + 20 * 60e3; body += '<p>A short 20-minute veil now protects you.</p>';
-  } else { const g = 10 + Math.floor(Math.random() * 20); S.gems += g; body += `<p><b>Your defenders held!</b> +${g} gems</p>`; const o = S.world.find(w => w.id === inc.from); if (o) for (const k in o.troops) o.troops[k] = Math.floor(o.troops[k] * .9); }
+  } else { S.stats.defWins = (S.stats.defWins || 0) + 1; META.xp(40); const g = 10 + Math.floor(Math.random() * 20); S.gems += g; body += `<p><b>Your defenders held!</b> +${g} gems</p>`; const o = S.world.find(w => w.id === inc.from); if (o) for (const k in o.troops) o.troops[k] = Math.floor(o.troops[k] * .9); }
   report(`${res.win ? 'City raided' : 'Defence won'} · ${inc.name}`, body, res.win ? 'loss' : 'win'); sfx(res.win ? 'loss' : 'win');
 }
 
@@ -373,8 +377,8 @@ function tick() {
   const t = now(); let dt = (t - lastTick) / 1000; lastTick = t; if (dt < 0) dt = 0;
   produce(dt);
   for (const q of [...S.queue]) if (q.end <= t) finishBuild(q);
-  if (S.training && S.training.end <= t) { const { k, n } = S.training; S.troops[k] = (S.troops[k] || 0) + n; S.stats.trained += n; S.training = null; const [ty, ti] = tparse(k); toast(`${fmt(n)} ${TROOP[ty].name} ${'I'.repeat(ti)} ready`, 'good'); sfx('done'); }
-  if (S.rq && S.rq.end <= t) { S.tech[S.rq.id] = S.rq.to; toast(`${TECHM[S.rq.id].name} level ${S.rq.to} complete`, 'good'); sfx('done'); S.rq = null; }
+  if (S.training && S.training.end <= t) { const { k, n } = S.training; S.troops[k] = (S.troops[k] || 0) + n; S.stats.trained += n; S.training = null; META.xp(10); const [ty, ti] = tparse(k); toast(`${fmt(n)} ${TROOP[ty].name} ${'I'.repeat(ti)} ready`, 'good'); sfx('done'); }
+  if (S.rq && S.rq.end <= t) { S.tech[S.rq.id] = S.rq.to; toast(`${TECHM[S.rq.id].name} level ${S.rq.to} complete`, 'good'); sfx('done'); S.rq = null; META.xp(25); }
   for (const h of [...S.helps]) if (h.at <= t) { applyHelp(h); S.helps.splice(S.helps.indexOf(h), 1); }
   for (const m of [...S.marches]) {
     if (m.state === 'out' && t >= m.arrive) arrive(m);
@@ -386,7 +390,7 @@ function tick() {
     if (o.kind === 'city' && Math.random() < dt / 60) { for (const k in o.troops) o.troops[k] += Math.ceil(o.troops[k] * .01); for (const k of RES) o.res[k] = Math.min(o.res[k] + 400 * o.lvl, 60000 * o.lvl); }
   }
   // vigor regen 1 per 40s, max 60 (+mews)
-  const vmax = 60 + S.b.mews * 2;
+  const vmax = vigorMax();
   if (S.vigor < vmax) { const gain = Math.floor((t - S.vigorT) / 40000); if (gain > 0) { S.vigor = Math.min(vmax, S.vigor + gain); S.vigorT += gain * 40000; } } else S.vigorT = t;
   // raids
   if (!S.incoming && S.b.citadel >= 4 && t >= S.raidAt) { if (S.shieldUntil > t) scheduleRaid(); else startRaid(); }
@@ -403,22 +407,14 @@ function produce(dt) {
   }
 }
 
-/* ======================= audio (tiny synth) ======================= */
-let AC = null, muted = false;
-function sfx(kind) {
-  if (muted) return;
-  try {
-    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
-    const seq = { click: [[660, .04]], build: [[392, .07], [523, .09]], done: [[523, .08], [659, .08], [784, .14]], horn: [[220, .18], [277, .22]], win: [[523, .1], [659, .1], [784, .1], [1046, .25]], loss: [[330, .15], [262, .25]], alarm: [[880, .12], [660, .12], [880, .12]], hit: [[180, .05]], skill: [[784, .06], [988, .12]] }[kind] || [[440, .05]];
-    let t = AC.currentTime;
-    for (const [f, d] of seq) { const o = AC.createOscillator(), g = AC.createGain(); o.type = kind === 'horn' ? 'sawtooth' : 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(.08, t); g.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + d + .02); t += d * .9; }
-  } catch (e) { }
-}
+/* ======================= audio ======================= */
+const sfx = k => FX.sound(k);
 
 /* ======================= UI helpers ======================= */
 function toast(msg, kind = '') { const el = document.createElement('div'); el.className = 'toast ' + kind; el.innerHTML = msg; $('#toasts').appendChild(el); setTimeout(() => el.classList.add('out'), 2600); setTimeout(() => el.remove(), 3100); }
 function floatNote(msg) { const el = document.createElement('div'); el.className = 'float-note'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 1800); }
-function burst() { const c = document.createElement('div'); c.className = 'burst'; for (let i = 0; i < 28; i++) { const s = document.createElement('i'); s.style.setProperty('--a', (i * 360 / 28) + 'deg'); s.style.setProperty('--d', (90 + Math.random() * 120) + 'px'); s.style.background = pick(['#ffd36b', '#3fd7c8', '#ff7a59', '#f2e6cf']); c.appendChild(s); } document.body.appendChild(c); setTimeout(() => c.remove(), 1200); }
+function burst() { FX.confetti(); }
+function burstOld() { const c = document.createElement('div'); c.className = 'burst'; for (let i = 0; i < 28; i++) { const s = document.createElement('i'); s.style.setProperty('--a', (i * 360 / 28) + 'deg'); s.style.setProperty('--d', (90 + Math.random() * 120) + 'px'); s.style.background = pick(['#ffd36b', '#3fd7c8', '#ff7a59', '#f2e6cf']); c.appendChild(s); } document.body.appendChild(c); setTimeout(() => c.remove(), 1200); }
 const sheet = () => $('#sheet');
 function openSheet(title, html, wide) { const d = sheet(); d.classList.toggle('wide', !!wide); $('#sheetTitle').innerHTML = title; $('#sheetBody').innerHTML = html; if (!d.open) d.showModal(); }
 function closeSheet() { if (sheet().open) sheet().close(); }
@@ -427,11 +423,14 @@ const bar = (p, cls = '') => `<div class="bar ${cls}"><i style="width:${clamp(p 
 /* ======================= HUD ======================= */
 function renderHud() {
   const r = rates(), c = cap();
-  $('#hudName').textContent = S.name; $('#hudMight').innerHTML = `${ART.icon('might', 14)} ${fmt(might())}`;
-  $('#hudRes').innerHTML = RES.map(k => `<div class="res ${S.res[k] >= c ? 'full' : ''}" title="${RNAME[k]}: ${fmt(r[k])}/h, storage ${fmt(c)}">${ART.icon(k, 18)}<b>${fmt(S.res[k])}</b><small class="${r[k] < 0 ? 'neg' : ''}">${r[k] >= 0 ? '+' : ''}${fmt(r[k])}/h</small></div>`).join('') +
-    `<div class="res gem">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b></div>`;
+  const mt = might(); $('#hudName').textContent = S.name; $('#hudMight').innerHTML = `${ART.icon('might', 14)} ${fmt(mt)} <span class="vipchip" data-act="sub" data-s="vip">VIP ${vipLvl()}</span>`;
+  if (renderHud.m && mt > renderHud.m) { const c = FX.centerOf($('#hudMight')); FX.text(c.x + 30, c.y + 10, `+${fmt(mt - renderHud.m)} Might`, 'might'); $('#hudMight').classList.remove('gain'); void $('#hudMight').offsetWidth; $('#hudMight').classList.add('gain'); }
+  renderHud.m = mt;
+  $('#hudRes').innerHTML = RES.map(k => `<div class="res ${S.res[k] >= c ? 'full' : ''}" data-res="${k}" title="${RNAME[k]}: ${fmt(r[k])}/h, storage ${fmt(c)}">${ART.icon(k, 18)}<b>${fmt(S.res[k])}</b><small class="${r[k] < 0 ? 'neg' : ''}">${r[k] >= 0 ? '+' : ''}${fmt(r[k])}/h</small></div>`).join('') +
+    `<div class="res gem" data-res="gems" data-act="sub" data-s="gems">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b><span class="plus">+</span></div>`;
   $('#mailDot').hidden = !S.unread; $('#mailDot').textContent = S.unread;
-  const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); $('#questDot').hidden = !(qd || now() >= S.chestAt);
+  const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); const passReady = Math.min(30, Math.floor(S.pass.xp / 120)) > Object.keys(S.pass.claimed).length; $('#questDot').hidden = !(qd || now() >= S.chestAt || passReady);
+  $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0);
   const shield = S.shieldUntil > now();
   $('#status').innerHTML = (S.incoming ? `<button class="alert" data-act="incoming">⚠ ${esc(S.incoming.name)} attacks in ${fmtT((S.incoming.arrive - now()) / 1000)}</button>` : '') +
     (shield ? `<span class="veil">${ART.icon('shield', 14)} Veil ${fmtT((S.shieldUntil - now()) / 1000)}</span>` : '');
@@ -440,7 +439,7 @@ function renderQueues() {
   const t = now(), rows = [];
   for (let i = 0; i < builders(); i++) {
     const q = S.queue[i];
-    if (q) { const left = (q.end - t) / 1000; rows.push(`<div class="q" data-act="speed" data-kind="b" data-key="${q.key}">${ART.icon('help', 16)}<div><b>${BLD[q.id].name} → ${q.to}</b>${bar(1 - (q.end - t) / q.total)}<small>${fmtT(left)}</small></div>${left * 1000 <= freeLimit ? '<span class="free">FREE</span>' : ''}</div>`); }
+    if (q) { const left = (q.end - t) / 1000; rows.push(`<div class="q" data-act="speed" data-kind="b" data-key="${q.key}">${ART.icon('help', 16)}<div><b>${BLD[q.id].name} → ${q.to}</b>${bar(1 - (q.end - t) / q.total)}<small>${fmtT(left)}</small></div>${left * 1000 <= freeLimit() ? '<span class="free">FREE</span>' : ''}</div>`); }
     else rows.push(`<div class="q idle" data-act="tab" data-tab="city">${ART.icon('help', 16)}<div><b>Builder idle</b><small>Tap a building</small></div></div>`);
   }
   if (S.training) { const tr = S.training, [ty, ti] = tparse(tr.k); rows.push(`<div class="q" data-act="speed" data-kind="t">${ART.troop(ty, ti, 18)}<div><b>${fmt(tr.n)} ${TROOP[ty].name}</b>${bar(1 - (tr.end - t) / tr.total)}<small>${fmtT((tr.end - t) / 1000)}</small></div></div>`); }
@@ -455,26 +454,75 @@ function renderQueues() {
 }
 
 /* ======================= City view ======================= */
+const DAY_MS = 10 * 60e3;
+const dayP = () => (((now() - (S.created || 0)) % DAY_MS) + DAY_MS) % DAY_MS / DAY_MS;
+function nightAmt() { const p = dayP(); return p < .45 ? 0 : p < .55 ? (p - .45) / .1 : p < .9 ? 1 : 1 - (p - .9) / .1; }
+function warmAmt() { const p = dayP(); const d = x => Math.max(0, 1 - Math.abs(p - x) / .07); return Math.max(d(.5), d(.95), p < .05 ? 1 - p / .07 : 0); }
+function cityAmbient() {
+  const camel = c => `<g><ellipse cx="0" cy="4" rx="14" ry="3" fill="#0002"/><path d="M-12 0c0-6 4-9 10-9 2-6 8-6 9 0h4l3-6 3 1-2 7c1 3 0 6-3 7H-10z" fill="#c9a26b"/><path d="M-9 1v8M-3 1v8M5 1v8M9 1v8" stroke="#8a6a3c" stroke-width="2"/><circle cx="1" cy="-14" r="3" fill="#a06a44"/><path d="M-3-12h8v6h-8z" fill="${c}"/></g>`;
+  const bird = `<g class="flap"><path d="M-12 0c4-6 8-6 12 0 4-6 8-6 12 0-4-2-8-2-12 2-4-4-8-4-12-2z" fill="#1b1430" opacity=".75"/></g>`;
+  const guard = `<g><circle r="4" fill="#5a3418"/><circle cy="-5" r="2.6" fill="#c98f5e"/><path d="M4-9v12" stroke="#cfd8e2" stroke-width="1.4"/></g>`;
+  const wall = 'M500 112L850 290L500 468L150 290Z';
+  return `<path id="caravanPath" d="M-80 668C160 640 330 680 500 652S820 610 1080 650" fill="none"/>
+    <path id="wallPath" d="${wall}" fill="none"/>
+    <g class="amb-caravan">${[0, 1, 2, 3].map(i => `<g>${camel(['#b3433a', '#2f7d8c', '#e8a33d', '#7a4fb3'][i])}<animateMotion dur="70s" repeatCount="indefinite" rotate="auto" begin="-${i * 1.3}s"><mpath href="#caravanPath"/></animateMotion></g>`).join('')}</g>
+    ${[0, 1, 2].map(i => `<g>${guard}<animateMotion dur="48s" repeatCount="indefinite" begin="-${i * 16}s"><mpath href="#wallPath"/></animateMotion></g>`).join('')}
+    <g class="water"><ellipse cx="880" cy="120" rx="58" ry="20" fill="none" stroke="#c8fff6" stroke-width="2" opacity=".5"><animate attributeName="rx" values="40;70;40" dur="5s" repeatCount="indefinite"/><animate attributeName="opacity" values=".6;0;.6" dur="5s" repeatCount="indefinite"/></ellipse><ellipse cx="860" cy="125" rx="20" ry="6" fill="none" stroke="#c8fff6" stroke-width="1.5" opacity=".5"><animate attributeName="rx" values="10;34;10" dur="3.6s" repeatCount="indefinite"/></ellipse></g>`;
+}
+function citySky() {
+  const bird = `<g class="flap"><path d="M-12 0c4-6 8-6 12 0 4-6 8-6 12 0-4-2-8-2-12 2-4-4-8-4-12-2z" fill="#1b1430" opacity=".7"/></g>`;
+  return `${[[640, 220, 150, 26], [360, 300, 110, 34]].map(([x, y, r, d], i) => `<g transform="translate(${x} ${y})"><g><animateTransform attributeName="transform" type="rotate" from="${i ? 360 : 0}" to="${i ? 0 : 360}" dur="${d}s" repeatCount="indefinite"/><g transform="translate(${r} 0) rotate(${i ? -90 : 90})">${bird}</g></g></g>`).join('')}
+    <g opacity=".09" fill="#1b1430">${[0, 1].map(i => `<ellipse cx="0" cy="${180 + i * 300}" rx="${220 - i * 60}" ry="${70 - i * 20}"><animate attributeName="cx" from="-300" to="1300" dur="${90 + i * 40}s" begin="-${i * 50}s" repeatCount="indefinite"/></ellipse>`).join('')}</g>`;
+}
+function cityLanterns() {
+  const pts = [...Object.values(INNER), ...FIELD_POS.slice(0, 6)].map(([x, y]) => [x + 26, y - 6]);
+  return pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="17" fill="url(#lglow)"/><circle cx="${x}" cy="${y}" r="3" fill="#ffe7a8"/>`).join('');
+}
 function renderCity() {
+  const cv = $('#cityView');
+  if (!$('#cityDyn')) {
+    cv.innerHTML = `<svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" width="1000" height="700" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" width="1000" height="700" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
+    requestAnimationFrame(() => { cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2; });
+  }
   const items = [];
   for (const [id, [x, y]] of Object.entries(INNER)) {
-    const L = S.b[id] || 0, d = BLD[id], locked = d.unlock > S.b.citadel, q = inQueue(id);
-    items.push({ y, html: `<g class="bld ${locked ? 'locked' : ''} ${L ? '' : 'unbuilt'}" data-act="bld" data-key="${id}" transform="translate(${x} ${y})">${L ? ART.building(id, L) : ART.building('empty')}${q ? `<g class="hammer"><circle cx="0" cy="-60" r="13" fill="#1b1430"/><path d="M-6-62l8-8 4 4-8 8zM0-64l6 6" stroke="#ffd36b" stroke-width="2.5"/></g>` : ''}<g transform="translate(0 22)"><rect x="-44" y="-9" width="88" height="17" rx="8.5" fill="#1b1430cc"/><text y="3.5" text-anchor="middle">${locked ? '🔒 ' : ''}${d.name.replace('House of Wisdom', 'Wisdom').replace('Sandstone ', '').replace('Treasury ', '').replace('House ', '')}${L ? ' ' + L : ''}</text></g></g>` });
+    const L = S.b[id] || 0, d = BLD[id], locked = d.unlock > S.b.citadel, q = inQueue(id), can = !locked && !q && upgradeCheck(id).ok;
+    items.push({ y, html: `<g class="bld ${locked ? 'locked' : ''} ${L ? '' : 'unbuilt'}" data-act="bld" data-key="${id}" transform="translate(${x} ${y})">${L ? ART.building(id, L) : ART.building('empty')}${q ? scaffold(id === 'citadel' ? 70 : 46) : ''}${can && L ? '<g class="upar" transform="translate(40 -40)"><circle r="10" fill="#6fe39a" stroke="#0b3a22" stroke-width="2"/><path d="M0-5l5 6h-3v4h-4v-4h-3z" fill="#0b3a22"/></g>' : ''}<g transform="translate(0 22)"><rect x="-46" y="-9" width="92" height="18" rx="9" fill="#140f22d9" stroke="#e8a33d55"/><text y="4" text-anchor="middle">${locked ? '🔒 ' : ''}${d.name.replace('House of Wisdom', 'Wisdom').replace('Sandstone ', '').replace('Treasury ', '').replace('House ', '')}${L ? ' ' + L : ''}</text></g></g>` });
   }
   const open = openPlots();
   FIELD_POS.forEach(([x, y], i) => {
     const f = S.fields[i], key = 'f' + i, q = inQueue(key);
-    if (i >= open) { items.push({ y, html: `<g class="bld locked" transform="translate(${x} ${y})" data-act="lockedfield" data-n="${Math.ceil((i - 3) / 2)}">${ART.building('empty')}<text y="28" text-anchor="middle" class="lbl">🔒</text></g>` }); return; }
-    items.push({ y, html: `<g class="bld" data-act="field" data-i="${i}" transform="translate(${x} ${y})">${f ? ART.building(f.t, f.l) : ART.building('empty')}${q ? `<g class="hammer"><circle cx="0" cy="-38" r="11" fill="#1b1430"/><path d="M-5-40l7-7 3 3-7 7z" stroke="#ffd36b" stroke-width="2"/></g>` : ''}${f && f.l ? `<g transform="translate(0 20)"><circle r="10" fill="#1b1430cc"/><text y="4" text-anchor="middle">${f.l}</text></g>` : ''}</g>` });
+    if (i >= open) { items.push({ y, html: `<g class="bld locked" transform="translate(${x} ${y})" data-act="lockedfield">${ART.building('empty')}<text y="28" text-anchor="middle" class="lbl">🔒</text></g>` }); return; }
+    items.push({ y, html: `<g class="bld" data-act="field" data-i="${i}" transform="translate(${x} ${y})">${f ? ART.building(f.t, f.l) : ART.building('empty')}${q ? scaffold(30) : ''}${f && f.l ? `<g transform="translate(0 20)"><circle r="10" fill="#140f22d9" stroke="#e8a33d88"/><text y="4" text-anchor="middle">${f.l}</text></g>` : ''}</g>` });
   });
   items.sort((a, b) => a.y - b.y);
-  const banner = `<g transform="translate(500 92)"><path d="M0 0v-40" stroke="#5a3418" stroke-width="3"/><path d="M0-40h40l-8 9 8 9H0z" fill="${S.color}"/></g>`;
-  const smoke = S.queue.length ? '<circle class="dust" cx="500" cy="300" r="40"/>' : '';
+  const banner = `<g transform="translate(500 92)"><path d="M0 0v-40" stroke="#5a3418" stroke-width="3"/><path class="wave" d="M0-40h40l-8 9 8 9H0z" fill="${S.color}"/></g>`;
   const troopsN = troopCount(S.troops);
-  const camp = troopsN ? `<g transform="translate(560 540)" class="bld" data-act="tab" data-tab="army">${Array.from({ length: Math.min(6, Math.ceil(troopsN / 150)) }, (_, i) => `<g transform="translate(${(i % 3) * 30} ${Math.floor(i / 3) * 22})"><path d="M-10 10l10-18 10 18z" fill="#f2ede4"/><path d="M0-8v-6" stroke="#5a3418"/><path d="M0-14l6 2-6 2z" fill="${S.color}"/></g>`).join('')}<text x="30" y="56" text-anchor="middle" class="lbl">${fmt(troopsN)} troops</text></g>` : '';
-  const cv = $('#cityView'), first = !cv.firstChild;
-  cv.innerHTML = `<svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}${banner}${smoke}${items.map(i => i.html).join('')}${camp}</svg>`;
-  if (first) cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2;
+  const camp = troopsN ? `<g transform="translate(560 540)" class="bld" data-act="tab" data-tab="army">${Array.from({ length: Math.min(6, Math.ceil(troopsN / 150)) }, (_, i) => `<g transform="translate(${(i % 3) * 30} ${Math.floor(i / 3) * 22})"><path d="M-10 10l10-18 10 18z" fill="#f2ede4"/><path d="M0-8v-6" stroke="#5a3418"/><path class="wave" d="M0-14l6 2-6 2z" fill="${S.color}"/></g>`).join('')}<text x="30" y="56" text-anchor="middle" class="lbl">${fmt(troopsN)} troops</text></g>` : '';
+  $('#cityDyn').innerHTML = banner + items.map(i => i.html).join('') + camp;
+  $('#cityTop').innerHTML = META.bubbles();
+  cityLight();
+  const n = META.readyCount();
+  $('#cityUi').innerHTML = META.guide() + (n >= 2 ? `<button class="collect" data-act="harvestall">${ART.icon('crate', 18)} Collect all <b>${n}</b></button>` : '');
+}
+function scaffold(h) { return `<g class="scaf"><path d="M-${h * .6} 4V-${h}M${h * .6} 4V-${h}M-${h * .6}-${h * .5}H${h * .6}M-${h * .6}-${h}H${h * .6}M-${h * .6} 4L${h * .6}-${h * .5}" stroke="#7e4a22" stroke-width="3" fill="none"/><g class="hammer" transform="translate(0 -${h + 14})"><circle r="13" fill="#140f22"/><path d="M-6-2l8-8 4 4-8 8zM0-4l6 6" stroke="#ffd36b" stroke-width="2.5"/></g><circle class="puff" cx="-10" cy="0" r="8" fill="#f2e6cf"/><circle class="puff p2" cx="12" cy="-4" r="6" fill="#f2e6cf"/></g>`; }
+function cityLight() {
+  const n = nightAmt(), w = warmAmt();
+  const na = $('#nightA'), wa = $('#warmA'), la = $('#lanterns'); if (!na) return;
+  na.setAttribute('opacity', (n * .42).toFixed(3)); wa.setAttribute('opacity', (w * .22).toFixed(3)); la.setAttribute('opacity', n.toFixed(3));
+  $('#cityView').classList.toggle('night', n > .5);
+}
+function buildFx(q) {
+  if (tab !== 'city') return;
+  const el = q.key[0] === 'f' ? document.querySelector(`[data-act=field][data-i="${q.key.slice(1)}"]`) : document.querySelector(`#cityDyn [data-key="${q.key}"]`);
+  if (!el) return; const c = FX.centerOf(el);
+  FX.burst(c.x, c.y, { n: 40, shape: 'star', size: 5, speed: 7, ring: '#ffd36b', life: 1.1 }); FX.text(c.x, c.y - 40, `Level ${q.to}!`, 'lvl');
+}
+function citadelBanner(to) {
+  const unl = Object.values(BLD).filter(b => b.unlock === to).map(b => b.name);
+  const plots = Math.min(16, 4 + to * 2) - Math.min(16, 4 + (to - 1) * 2);
+  const sub = [unl.length ? 'Unlocked: ' + unl.join(', ') : '', plots ? `+${plots} field plots` : '', `Storage ${fmt(cap())}`].filter(Boolean).join(' · ');
+  FX.banner(`Citadel Level ${to}`, sub, { art: `<svg viewBox="-80 -140 160 160" width="150" height="150">${ART.building('citadel', to)}</svg>` });
 }
 function openField(i) {
   const f = S.fields[i], key = 'f' + i;
@@ -512,7 +560,7 @@ function upgradeNow(key) {
   const id = idOf(key), to = lvlOf(key) + 1, c = costOf(id, to), g = gemCost(timeOf(id, to) * 1000) + gemFill(c);
   const chk = upgradeCheck(key); if (!chk.ok && !chk.short && !chk.busy) return toast(chk.why, 'bad');
   if (S.gems < g) return toast('Not enough gems', 'bad');
-  S.gems -= g; for (const k in c) S.res[k] = Math.max(0, S.res[k] - c[k]);
+  spendGems(g); for (const k in c) S.res[k] = Math.max(0, S.res[k] - c[k]);
   finishBuild({ key, id, to }); closeSheet(); render();
 }
 
@@ -540,7 +588,7 @@ function openSpeed(kind, key) {
   const left = t.end - now(), title = kind === 'b' ? `${BLD[t.id].name} → ${t.to}` : kind === 't' ? 'Troop training' : TECHM[t.id].name;
   const its = ['sp5', 'sp60', 'sp480'].filter(i => S.items[i]).map(i => `<button class="btn" data-act="usesp" data-kind="${kind}" data-key="${key || ''}" data-i="${i}">${ART.icon('clock', 14)} ${ITEMS[i].name} ×${S.items[i]}</button>`).join('');
   openSheet('Speed up', `<p><b>${title}</b></p>${bar(1 - left / t.total)}<p>Time left: <b>${fmtT(left / 1000)}</b></p>
-    ${kind === 'b' && left <= freeLimit ? `<button class="btn gold" data-act="usesp" data-kind="b" data-key="${key}" data-i="free">Finish free</button>` : ''}
+    ${kind === 'b' && left <= freeLimit() ? `<button class="btn gold" data-act="usesp" data-kind="b" data-key="${key}" data-i="free">Finish free</button>` : ''}
     <div class="btns">${its || '<span class="muted">No hourglasses in your bag.</span>'}</div>
     <button class="btn gold" data-act="usesp" data-kind="${kind}" data-key="${key || ''}" data-i="gems">${ART.icon('gem', 14)} ${gemCost(left)} Finish now</button>`);
 }
@@ -559,7 +607,7 @@ function renderHeroes() {
   const card = h => { const st = S.heroes[h.id] || { lvl: 0, stars: 0, shards: 0 }; const own = st.stars > 0; return `<button class="hero ${own ? '' : 'dim'} ${S.squad.includes(h.id) ? 'insq' : ''}" data-act="hero" data-id="${h.id}">${ART.portrait(h, 76)}<b>${h.name}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small><span class="stars">${own ? '★'.repeat(st.stars) : `${st.shards}/${STAR_SHARDS[1]} shards`}</span></button>`; };
   return `<h2>Heroes</h2><div class="squad"><span>Squad</span>${[0, 1, 2].map(i => S.squad[i] ? `<span class="slot">${ART.portrait(HERO[S.squad[i]], 44)}</span>` : '<span class="slot empty">+</span>').join('')}<span class="muted">Squad leads your armies: +${(squadBonus() * 100).toFixed(1)}% troop ATK</span></div>
   <div class="heroes">${owned.map(card).join('')}${rest.map(card).join('')}</div>
-  <div class="card stagecard"><div><h3>${ART.icon('vigor', 18)} Hero Trials</h3><p class="muted">Lead your squad through the sands. Each stage costs 6 Vigor. Vigor: <b>${S.vigor}</b> / ${60 + S.b.mews * 2}</p></div><button class="btn gold" data-act="stages">Open campaign</button></div>`;
+  <div class="card stagecard"><div><h3>${ART.icon('vigor', 18)} Hero Trials</h3><p class="muted">Lead your squad through the sands. Each stage costs 6 Vigor. Vigor: <b>${S.vigor}</b> / ${vigorMax()}</p></div><button class="btn gold" data-act="stages">Open campaign</button></div>`;
 }
 function openHero(id) {
   const h = HERO[id], st = S.heroes[id] || { lvl: 0, stars: 0, shards: 0, xp: 0 }, own = st.stars > 0;
@@ -585,7 +633,7 @@ function heroXP(id, xp) {
 
 /* ======================= Hero Trials (campaign battle) ======================= */
 function stageFoes(ch, n) {
-  const C = CHAPTERS[ch - 1], idx = (ch - 1) * 6 + n - 1, k = 2 * (1 + idx * .25 + idx * idx * STAGE_K);
+  const C = CHAPTERS[ch - 1], idx = (ch - 1) * 6 + n - 1, k = 1.55 * (1 + idx * .22 + idx * idx * STAGE_K);
   const mk = (kind, mult = 1, name) => { const f = FOES[kind]; return { id: kind + Math.random(), name: name || f.name, kind, hp: Math.round(f.hp * k * mult), max: Math.round(f.hp * k * mult), atk: Math.round(f.atk * k * (mult > 1 ? 1.15 : 1)), def: Math.round(f.def * k * .6), spd: f.spd, en: 0, foe: true }; };
   if (n === 6) return [mk(C.foes[0]), mk(C.boss.kind, C.boss.hp, C.boss.name), mk(C.foes[1])];
   return [0, 1, 2].map(i => mk(C.foes[(i + n) % 3]));
@@ -601,77 +649,167 @@ function openStages() {
   openSheet(`${ART.icon('vigor', 18)} Hero Trials · Vigor ${S.vigor}`, html + (S.items.vigor ? `<button class="btn" data-act="usevigor">${ART.icon('vigor', 14)} Drink Qahwa Flask (${S.items.vigor})</button>` : ''), true);
 }
 let fight = null;
-let STAGE_K = .004;
+let STAGE_K = .0086;
+const ARENA = [
+  { sky: ['#ffcf8a', '#e8743d'], far: '#c98a52', mid: '#b5783f', near: '#d9a868', sun: '#fff1c4' },
+  { sky: ['#2b1d55', '#c9643d'], far: '#6b4a5e', mid: '#8a5a4a', near: '#b98a5c', sun: '#ffd0a0' },
+  { sky: ['#123047', '#5fa3b8'], far: '#2f6f80', mid: '#4f97a6', near: '#9fd0de', sun: '#e6fbff' },
+  { sky: ['#1b0f16', '#7e2f2f'], far: '#3a1f24', mid: '#5a2a2a', near: '#7a4a3a', sun: '#ff8a5a' }
+];
+function arenaSVG(ch) {
+  const A = ARENA[ch - 1] || ARENA[0];
+  const spikes = ch === 3 ? '<g fill="#bfe6f0" opacity=".7"><path d="M40 470l14-90 14 90z"/><path d="M330 450l10-70 12 70z"/><path d="M300 470l8-50 9 50z"/></g>' : ch === 4 ? '<g fill="#ff7a59" opacity=".5"><circle cx="80" cy="330" r="3"/><circle cx="250" cy="300" r="2"/><circle cx="330" cy="360" r="3"/></g>' : '';
+  return `<svg class="arena" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="ask" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${A.sky[0]}"/><stop offset=".65" stop-color="${A.sky[1]}"/></linearGradient><radialGradient id="asun"><stop offset="0" stop-color="${A.sun}"/><stop offset="1" stop-color="${A.sun}" stop-opacity="0"/></radialGradient></defs>
+  <rect width="400" height="700" fill="url(#ask)"/><circle cx="290" cy="190" r="110" fill="url(#asun)" opacity=".7"/><circle cx="290" cy="190" r="42" fill="${A.sun}"/>
+  <path d="M0 330C80 280 160 300 240 270S360 280 400 260V700H0z" fill="${A.far}"/>${spikes}
+  <path d="M0 420C100 370 200 400 300 370S380 380 400 370V700H0z" fill="${A.mid}"/>
+  <path d="M0 520C120 480 240 520 400 490V700H0z" fill="${A.near}"/><ellipse cx="200" cy="600" rx="190" ry="40" fill="#0002"/></svg>`;
+}
 function startStage(key) {
   if (S.vigor < 6) return toast('Not enough Vigor — rest a while or drink a Qahwa Flask', 'bad');
   const squad = S.squad.filter(id => S.heroes[id] && S.heroes[id].stars > 0); if (!squad.length) return toast('Pick heroes for your squad', 'bad');
   S.vigor -= 6; const [ch, n] = key.split('-').map(Number);
   const heroes = squad.map(id => { const s = heroStats(id); return { id, name: HERO[id].name.split(' ')[0], hero: HERO[id], hp: s.hp, max: s.hp, atk: s.atk, def: s.def, spd: s.spd, en: 20 }; });
-  fight = { key, heroes, foes: stageFoes(ch, n), turn: 0, buff: 0, shield: 0, auto: !!S.autoSkill, over: false, log: [] };
-  closeSheet(); $('#battle').hidden = false; drawFight(); fight.timer = setInterval(fightStep, 520);
+  fight = { key, ch, n, heroes, foes: stageFoes(ch, n), turn: 0, buff: 0, shield: 0, auto: !!S.autoSkill, speed: S.fightSpeed || 1, over: false, q: [], next: now() + 1500, pauseUntil: 0 };
+  closeSheet(); const b = $('#battle'); b.hidden = false; buildFight(); FX.setMood('battle'); FX.sound('horn');
+  if (n === 6) setTimeout(() => FX.banner(`<span class="bossword">BOSS</span>${esc(CHAPTERS[ch - 1].boss.name)}`, `Chapter ${ch} · ${CHAPTERS[ch - 1].name}`, { cls: 'boss', ms: 1700, sound: 'alarm', art: ART.enemy(CHAPTERS[ch - 1].boss.kind, 110) }), 200);
+  fight.timer = setInterval(fightLoop, 50);
 }
-function drawFight() {
-  const f = fight, unit = (u, side) => `<div class="unit ${u.hp <= 0 ? 'dead' : ''} ${u.stun ? 'stun' : ''}" id="u-${side}-${u.id}" ${side === 'h' && u.hp > 0 ? `data-act="cast" data-id="${u.id}"` : ''}>${side === 'h' ? ART.portrait(u.hero, 84) : ART.enemy(u.kind, 84)}<b>${esc(u.name)}</b>${bar(u.hp / u.max, 'hp')}${side === 'h' ? bar(u.en / 100, 'en' + (u.en >= 100 ? ' full' : '')) : ''}</div>`;
-  $('#battle').innerHTML = `<div class="bfield"><div class="btop"><b>Stage ${f.key}</b><span>${f.shield ? '🛡 Bastion ' : ''}${f.buff ? '✦ Star Chart' : ''}</span><label><input type="checkbox" data-act="auto" ${f.auto ? 'checked' : ''}> Auto skills</label></div>
-    <div class="row foes">${f.foes.map(u => unit(u, 'f')).join('')}</div><div class="vs">VS</div><div class="row mine">${f.heroes.map(u => unit(u, 'h')).join('')}</div>
-    <p class="hint">Tap a hero when the gold bar is full to unleash their skill.</p></div>`;
+function buildFight() {
+  const f = fight;
+  const unit = (u, side) => `<div class="unit ${side === 'h' ? 'hero-u' : 'foe-u'} ${u.max > 2 * (f.foes[0]?.max || 0) && side === 'f' ? 'boss' : ''}" id="u-${side}-${u.id}" ${side === 'h' ? `data-act="cast" data-id="${u.id}"` : ''}>
+    <div class="pf">${side === 'h' ? ART.portrait(u.hero, 88) : ART.enemy(u.kind, 88)}<span class="tapme">SKILL!</span></div><b>${esc(u.name)}</b>
+    <div class="hpbar"><i class="trail"></i><i class="fill"></i></div>${side === 'h' ? '<div class="enbar"><i></i></div>' : ''}<div class="fx-st"></div></div>`;
+  $('#battle').innerHTML = `${arenaSVG(f.ch)}<div class="dust"></div><div class="bfield">
+    <div class="btop"><button class="bt" data-act="retreat">✕</button><div class="stage-t"><small>Chapter ${f.ch} · ${CHAPTERS[f.ch - 1].name}</small><b>Stage ${f.key}</b></div><span id="bstat"></span><button class="bt" data-act="bspeed" id="bspeed">${f.speed}×</button><label class="bt auto"><input type="checkbox" data-act="auto" ${f.auto ? 'checked' : ''}>Auto</label></div>
+    <div class="row foes">${f.foes.map(u => unit(u, 'f')).join('')}</div>
+    <div class="vs"><span>Turn <b id="bturn">1</b></span></div>
+    <div class="row mine">${f.heroes.map(u => unit(u, 'h')).join('')}</div>
+    <p class="hint">${f.auto ? 'Auto skills on' : 'Tap a glowing hero to unleash their skill'}</p></div><div class="stage-intro"><small>Hero Trials</small><b>Stage ${f.key}</b><span>Fight!</span></div>`;
+  updFight();
+}
+function updUnit(u, side) {
+  const el = document.getElementById(`u-${side}-${u.id}`); if (!el) return;
+  const p = clamp(u.hp / u.max, 0, 1) * 100;
+  el.querySelector('.fill').style.width = p + '%'; el.querySelector('.trail').style.width = p + '%';
+  el.classList.toggle('low', p < 30 && p > 0); el.classList.toggle('stun', !!u.stun);
+  if (u.hp <= 0 && !el.classList.contains('dead')) { el.classList.add('dead'); const c = FX.centerOf(el); FX.burst(c.x, c.y, { n: 26, colors: side === 'f' ? ['#ff7a59', '#ffd36b', '#3a2414'] : ['#9fc3e6', '#fff'], speed: 5 }); }
+  if (side === 'h') { el.querySelector('.enbar i').style.width = u.en + '%'; el.classList.toggle('ready', u.en >= 100 && u.hp > 0 && !fight.auto); }
+}
+function updFight() {
+  const f = fight; if (!f) return;
+  f.foes.forEach(u => updUnit(u, 'f')); f.heroes.forEach(u => updUnit(u, 'h'));
+  const t = $('#bturn'); if (t) t.textContent = f.turn + 1;
+  const st = $('#bstat'); if (st) st.innerHTML = (f.shield ? '<i class="st sh">🛡 Bastion</i>' : '') + (f.buff ? '<i class="st bf">✦ Star Chart</i>' : '');
 }
 const alive = a => a.filter(u => u.hp > 0);
-function hitFx(side, id, txt, cls = '') { const el = document.getElementById(`u-${side}-${id}`); if (!el) return; const n = document.createElement('span'); n.className = 'dmg ' + cls; n.textContent = txt; el.appendChild(n); el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); setTimeout(() => n.remove(), 900); }
-function dealTo(target, raw, side) {
-  let d = Math.max(1, Math.round(raw * raw / (raw + target.def * 1.2) * (0.9 + Math.random() * .2)));
+function hitFx(side, id, txt, cls = '', delay = 0) {
+  setTimeout(() => {
+    const el = document.getElementById(`u-${side}-${id}`); if (!el) return;
+    const n = document.createElement('span'); n.className = 'dmg ' + cls; n.textContent = txt; n.style.left = (35 + Math.random() * 30) + '%'; el.appendChild(n); setTimeout(() => n.remove(), 1000);
+    if (cls !== 'heal') { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); const c = FX.centerOf(el); FX.burst(c.x, c.y - 10, { n: cls === 'crit' ? 22 : 9, shape: 'spark', size: 4, speed: cls === 'crit' ? 9 : 6, colors: cls === 'crit' ? ['#ffd36b', '#fff', '#ff7a59'] : ['#fff3c4', '#ffd36b'], g: .05, life: .45 }); }
+    else { const c = FX.centerOf(el); FX.burst(c.x, c.y, { n: 12, colors: ['#6fe39a', '#c8ffd9'], g: -.08, speed: 2.5, life: .9 }); }
+    updUnit(fight ? [...fight.heroes, ...fight.foes].find(u => u.id === id) || { hp: 1, max: 1, en: 0 } : { hp: 1, max: 1, en: 0 }, side);
+  }, delay);
+}
+function dealTo(target, raw, side, delay = 0, critChance = .1) {
+  const crit = Math.random() < critChance;
+  let d = Math.max(1, Math.round(raw * raw / (raw + target.def * 1.2) * (0.9 + Math.random() * .2) * (crit ? 1.6 : 1)));
   if (side === 'h' && fight.shield) d = Math.round(d * .5);
   target.hp = Math.max(0, target.hp - d); if (side === 'h') target.en = Math.min(100, target.en + 8);
-  hitFx(side, target.id, '-' + fmt(d)); return d;
+  hitFx(side, target.id, (crit ? 'CRIT ' : '') + fmt(d), crit ? 'crit' : '', delay);
+  if (delay < 400) setTimeout(() => FX.sound(crit ? 'crit' : 'hit'), delay);
+  if (crit) setTimeout(() => FX.shake($('#battle .bfield'), 6, 200), delay);
+  return d;
+}
+function lunge(side, u, target) {
+  const el = document.getElementById(`u-${side}-${u.id}`), tg = target && document.getElementById(`u-${side === 'h' ? 'f' : 'h'}-${target.id}`); if (!el) return 0;
+  const ranged = side === 'h' && ['Ranged', 'Mage', 'Engineer', 'Support'].includes(u.hero.role);
+  const sp = fight.speed;
+  if (ranged && tg) {
+    const a = FX.centerOf(el), b = FX.centerOf(tg), p = document.createElement('div'); p.className = 'proj ' + u.hero.role.toLowerCase(); document.body.appendChild(p);
+    const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    p.animate([{ transform: `translate(${a.x}px,${a.y}px) rotate(${ang}deg)` }, { transform: `translate(${b.x}px,${b.y}px) rotate(${ang}deg)` }], { duration: 220 / sp, easing: 'ease-in' }).onfinish = () => p.remove();
+    el.animate([{ transform: 'none' }, { transform: 'translateY(-6px) scale(1.04)' }, { transform: 'none' }], { duration: 220 / sp });
+    FX.sound('arrow'); return 220 / sp;
+  }
+  const dir = side === 'h' ? -1 : 1;
+  el.animate([{ transform: 'none' }, { transform: `translateY(${dir * 46}px) scale(1.08)`, offset: .45 }, { transform: 'none' }], { duration: 300 / sp, easing: 'cubic-bezier(.3,0,.3,1)' });
+  return 130 / sp;
 }
 function castSkill(u) {
-  const f = fight, sk = u.hero.skill, atk = u.atk * (f.buff ? 1.4 : 1); u.en = 0; sfx('skill');
+  const f = fight, sk = u.hero.skill, atk = u.atk * (f.buff ? 1.4 : 1); u.en = 0;
+  FX.cutIn(ART.portrait(u.hero, 150), u.hero.name, sk.name, u.hero.look.bg);
+  const delay = 520 / f.speed; f.pauseUntil = now() + 1000 / f.speed;
   const foes = alive(f.foes);
-  if (sk.kind === 'aoe' || sk.kind === 'stun') foes.forEach(t => { dealTo(t, atk * sk.mult, 'f'); if (sk.kind === 'stun') t.stun = 1; });
-  else if (sk.kind === 'single' && foes[0]) dealTo(foes[0], atk * sk.mult, 'f');
-  else if (sk.kind === 'crit' && foes.length) dealTo(foes.reduce((a, b) => a.hp < b.hp ? a : b), atk * sk.mult, 'f');
-  else if (sk.kind === 'heal') alive(f.heroes).forEach(h => { const v = Math.round(atk * sk.mult); h.hp = Math.min(h.max, h.hp + v); hitFx('h', h.id, '+' + fmt(v), 'heal'); });
-  else if (sk.kind === 'shield') { f.shield = 3; }
-  else if (sk.kind === 'buff') { f.buff = 3; }
-  const el = document.getElementById('u-h-' + u.id); if (el) { const b = document.createElement('div'); b.className = 'skillname'; b.textContent = sk.name; el.appendChild(b); setTimeout(() => b.remove(), 1100); }
+  // effects apply now (so the outcome never depends on timers); the visuals land after the cut-in
+  if (sk.kind === 'aoe' || sk.kind === 'stun') foes.forEach(t => { dealTo(t, atk * sk.mult, 'f', delay, .2); if (sk.kind === 'stun') t.stun = 1; });
+  else if (sk.kind === 'single' && foes[0]) dealTo(foes[0], atk * sk.mult, 'f', delay, .3);
+  else if (sk.kind === 'crit' && foes.length) dealTo(foes.reduce((a, b) => a.hp < b.hp ? a : b), atk * sk.mult, 'f', delay, .6);
+  else if (sk.kind === 'heal') alive(f.heroes).forEach(h => { const v = Math.round(atk * sk.mult); h.hp = Math.min(h.max, h.hp + v); hitFx('h', h.id, '+' + fmt(v), 'heal', delay); });
+  else if (sk.kind === 'shield') f.shield = 3;
+  else if (sk.kind === 'buff') f.buff = 3;
+  setTimeout(() => {
+    if (!fight) return;
+    const big = (els, colors) => els.forEach(el => { const c = FX.centerOf(el); FX.burst(c.x, c.y, { n: 40, shape: 'star', size: 5, speed: 8, colors, ring: colors[0], life: 1 }); });
+    const foeEls = [...document.querySelectorAll('#battle .row.foes .unit')], mine = [...document.querySelectorAll('#battle .row.mine .unit:not(.dead)')];
+    if (sk.kind === 'aoe' || sk.kind === 'stun') { big(foeEls, sk.kind === 'stun' ? ['#c9b8e8', '#e3c08a', '#fff'] : ['#ffd36b', '#ff7a59', '#fff']); FX.shake($('#battle'), 14, 420); }
+    else if (sk.kind === 'single' || sk.kind === 'crit') FX.shake($('#battle'), 12, 360);
+    else if (sk.kind === 'shield') big(mine, ['#3fd7c8', '#9ff4ea', '#fff']);
+    else if (sk.kind === 'buff') big(mine, ['#ffd36b', '#9b7bff', '#fff']);
+    updFight();
+  }, delay);
 }
-function fightStep() {
+function fightLoop() {
   const f = fight; if (!f || f.over) return;
-  const order = [...alive(f.heroes).map(u => ['h', u]), ...alive(f.foes).map(u => ['f', u])].sort((a, b) => b[1].spd - a[1].spd);
-  for (const [side, u] of order) {
-    if (u.hp <= 0) continue;
-    if (side === 'h') {
-      if (u.en >= 100 && f.auto) { castSkill(u); continue; }
-      const t = alive(f.foes)[0]; if (!t) break; dealTo(t, u.atk * (f.buff ? 1.4 : 1), 'f'); u.en = Math.min(100, u.en + 22);
-    } else {
-      if (u.stun) { u.stun = 0; continue; }
-      const hs = alive(f.heroes); if (!hs.length) break;
-      const tank = hs.find(h => h.hero.role === 'Tank'); const t = tank && Math.random() < .6 ? tank : pick(hs);
-      dealTo(t, u.atk, 'h');
-    }
+  const t = now(); if (t < f.next || t < f.pauseUntil) return;
+  if (!alive(f.foes).length || !alive(f.heroes).length || f.turn > 90) return endFight(!alive(f.foes).length);
+  if (!f.q.length) {
+    if (f.started) { if (f.shield) f.shield--; if (f.buff) f.buff--; f.turn++; }
+    f.started = true;
+    f.q = [...alive(f.heroes).map(u => ['h', u]), ...alive(f.foes).map(u => ['f', u])].sort((a, b) => b[1].spd - a[1].spd + (Math.random() - .5));
+    updFight();
   }
-  if (f.shield) f.shield--; if (f.buff) f.buff--;
-  f.turn++; sfx('hit');
-  drawFight();
-  const win = !alive(f.foes).length, lose = !alive(f.heroes).length || f.turn > 90;
-  if (win || lose) endFight(win);
+  const [side, u] = f.q.shift(); if (u.hp <= 0) return;
+  let wait = 330 / f.speed;
+  if (side === 'h') {
+    if (u.en >= 100 && f.auto) { castSkill(u); wait = 1050 / f.speed; }
+    else { const tg = alive(f.foes)[0]; if (tg) { const d = lunge('h', u, tg); dealTo(tg, u.atk * (f.buff ? 1.4 : 1), 'f', d, .12); u.en = Math.min(100, u.en + 22); } }
+  } else {
+    if (u.stun) { u.stun = 0; hitFx('f', u.id, 'STUNNED', 'info'); }
+    else { const hs = alive(f.heroes); if (hs.length) { const tank = hs.find(h => h.hero.role === 'Tank'); const tg = tank && Math.random() < .6 ? tank : pick(hs); const d = lunge('f', u, tg); dealTo(tg, u.atk, 'h', d, .08); if (u.max > 3 * f.heroes[0].max) setTimeout(() => FX.shake($('#battle .bfield'), 8, 220), d); } }
+  }
+  f.next = t + wait; setTimeout(updFight, wait * .8);
 }
 function endFight(win) {
-  const f = fight; f.over = true; clearInterval(f.timer);
-  const [ch, n] = f.key.split('-').map(Number), idx = (ch - 1) * 6 + n;
-  let html;
+  const f = fight; if (f.over) return; f.over = true; clearInterval(f.timer);
+  const ch = f.ch, n = f.n, idx = (ch - 1) * 6 + n;
+  let html, r = {}, stars = 0;
   if (win) {
-    const fallen = f.heroes.filter(h => h.hp <= 0).length, stars = 3 - Math.min(2, fallen), first = !S.stages[f.key];
-    S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++;
-    const xp = 60 + idx * 30; f.heroes.forEach(h => heroXP(h.id, xp));
-    const r = { gold: 200 + idx * 120 }; if (first) r.gems = 10 + idx * 2;
+    const fallen = f.heroes.filter(h => h.hp <= 0).length, first = !S.stages[f.key]; stars = 3 - Math.min(2, fallen);
+    S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++; META.xp(15);
+    const xp = 100 + idx * 40; f.heroes.forEach(h => heroXP(h.id, xp));
+    r = { gold: 200 + idx * 120 }; if (first) r.gems = 10 + idx * 2;
     const sh = STAGE_SHARD[f.key]; if (sh && (first || Math.random() < .5)) r.shards = { [sh]: first ? 5 : 1 + Math.floor(Math.random() * 2) };
     else if (Math.random() < .3) r.shards = { [pick(HEROES).id]: 1 };
     if (n === 6 && first) r.items = { sp60: 1, vigor: 1 };
-    html = `<h2 class="win">Victory</h2><p class="stars big">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</p><p>Each hero +${xp} XP</p><p>${give(r)}</p>`; sfx('win');
-  } else { html = '<h2 class="loss">Defeat</h2><p>Level up your heroes, raise their stars or change your squad.</p>'; sfx('loss'); }
-  const box = document.createElement('div'); box.className = 'result'; box.innerHTML = html + '<button class="btn gold" data-act="closefight">Continue</button>'; $('#battle .bfield').appendChild(box);
+    give(r);
+    const nextKey = n < 6 ? `${ch}-${n + 1}` : ch < CHAPTERS.length ? `${ch + 1}-1` : null;
+    html = `<div class="res-rays"></div><h2 class="win">Victory</h2><div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
+      <div class="rheroes">${f.heroes.map(h => `<div>${ART.portrait(h.hero, 54)}<small>Lv ${S.heroes[h.id].lvl}</small><em>+${xp} XP</em></div>`).join('')}</div>
+      <div class="rloot">${META.rewardHTML(r)}</div>
+      <div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn" data-act="retry">Retry</button>${nextKey ? `<button class="btn gold" data-act="nextstage" data-key="${nextKey}">Next stage ›</button>` : ''}</div>`;
+    FX.sound('win'); setTimeout(() => FX.confetti(), 300);
+    [0, 1, 2].forEach(i => i < stars && setTimeout(() => FX.sound('coin'), 700 + i * 300));
+  } else {
+    html = `<h2 class="loss">Defeat</h2><p>Your squad was overwhelmed.</p><div class="tips"><p>⬆ Level heroes with Tomes or Tutors in the Falcon Mews</p><p>★ Raise stars with shards from Trials and the Falcon Summon</p><p>⇄ Try a squad with a Tank, a healer and a damage dealer</p></div><div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn gold" data-act="retry">Retry</button><button class="btn" data-act="sub" data-s="summon">Summon heroes</button></div>`;
+    FX.sound('loss');
+  }
+  const box = document.createElement('div'); box.className = 'result ' + (win ? 'won' : 'lost'); box.innerHTML = html;
+  setTimeout(() => $('#battle .bfield')?.appendChild(box), win ? 600 : 300);
+  save();
 }
+function leaveFight() { if (fight) { clearInterval(fight.timer); fight.over = true; } $('#battle').hidden = true; $('#battle').innerHTML = ''; fight = null; FX.setMood(tab === 'world' ? 'world' : 'city'); }
 
 /* ======================= Research tab ======================= */
 function renderResearch() {
@@ -688,18 +826,18 @@ function renderResearch() {
 function renderQuests() {
   const q = QUESTS[S.quest], ready = q && q.c(S), chest = now() >= S.chestAt;
   const rw = r => Object.entries(r).map(([k, v]) => k === 'items' ? Object.entries(v).map(([i, n]) => `${ART.icon(ITEMS[i].icon, 14)}${n}× ${ITEMS[i].name}`).join(' ') : `${ART.icon(k === 'gems' ? 'gem' : k, 14)}${fmt(v)}`).join(' ');
-  return `<h2>Quests</h2>
+  return `<h2>Quests</h2>${META.passHTML()}
   <div class="card chest ${chest ? 'ready' : ''}">${ART.icon('chest', 42)}<div><h4>Caravan chest</h4><p class="muted">A merchant caravan brings supplies every 6 hours.</p></div>${chest ? '<button class="btn gold" data-act="chest">Open</button>' : `<span class="muted">${fmtT((S.chestAt - now()) / 1000)}</span>`}</div>
   ${q ? `<div class="card quest ${ready ? 'ready' : ''}"><small>Story quest ${S.quest + 1} / ${QUESTS.length}</small><h4>${q.t}</h4><p>Reward: ${rw(q.r)}</p>${ready ? '<button class="btn gold" data-act="claim">Claim</button>' : '<span class="muted">In progress</span>'}</div>` : '<div class="card"><h4>Every story quest complete. You rule the sands!</h4></div>'}
   <div class="card"><h4>Upcoming</h4>${QUESTS.slice(S.quest + 1, S.quest + 4).map(x => `<p class="muted">· ${x.t}</p>`).join('') || '<p class="muted">—</p>'}</div>
-  <div class="card"><h4>Rankings · Might</h4><ol class="rank">${ranking().map(r => `<li class="${r.me ? 'me' : ''}"><span style="color:${r.color}">■</span> ${esc(r.name)} <b>${fmt(r.m)}</b></li>`).join('')}</ol></div>`;
+  ${META.achHTML()}<div class="card"><h4>Rankings · Might</h4><ol class="rank">${ranking().map(r => `<li class="${r.me ? 'me' : ''}"><span style="color:${r.color}">■</span> ${esc(r.name)} <b>${fmt(r.m)}</b></li>`).join('')}</ol></div>`;
 }
 function ranking() {
   const list = S.world.filter(o => o.kind === 'city').map(o => ({ name: o.name, color: o.color, m: troopMight(o.troops) + o.lvl * o.lvl * 400 }));
   list.push({ name: S.name + ' (you)', color: S.color, m: might(), me: true });
   return list.sort((a, b) => b.m - a.m);
 }
-function claimQuest() { const q = QUESTS[S.quest]; if (!q || !q.c(S)) return; give(q.r, 'Quest reward'); S.quest++; burst(); sfx('win'); render(); }
+function claimQuest() { const q = QUESTS[S.quest]; if (!q || !q.c(S)) return; META.grant(q.r, 'Quest reward'); S.quest++; META.xp(40); FX.confetti(); sfx('win'); render(); }
 function openChest() { if (now() < S.chestAt) return; S.chestAt = now() + 6 * 3600e3; const r = { gems: 25, items: { [pick(['sp5', 'sp5', 'crate', 'scroll', 'vigor', 'sp60'])]: 1 } }; r[pick(['grain', 'timber', 'stone', 'ore'])] = 2000 + S.b.citadel * 600; give(r, 'Caravan chest'); burst(); render(); }
 
 /* ======================= House tab ======================= */
@@ -863,6 +1001,7 @@ let tab = 'city';
 function openTab(t) {
   tab = t; closeSheet();
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  FX.setMood(t === 'world' ? 'world' : 'city'); $('#cityUi').hidden = t !== 'city';
   $('#cityView').hidden = t !== 'city'; $('#worldView').hidden = t !== 'world'; $('#panel').hidden = t === 'city' || t === 'world'; $('#main').classList.toggle('panel-open', t !== 'city' && t !== 'world');
   if (t === 'world') { if (!openTab.centered) { centerOn(S.home.x, S.home.y); openTab.centered = true; } requestAnimationFrame(mapLoop); }
   render();
@@ -870,7 +1009,7 @@ function openTab(t) {
 function render() {
   renderHud(); renderQueues();
   if (tab === 'city') renderCity();
-  const P = { army: renderArmy, heroes: renderHeroes, research: renderResearch, quests: renderQuests, house: renderHouse, bag: renderBag }[tab];
+  const P = { army: renderArmy, heroes: renderHeroes, research: renderResearch, quests: renderQuests, house: renderHouse, bag: renderBag, store: META.renderStore }[tab];
   if (P) { const y = $('#panel').scrollTop; $('#panel').innerHTML = P(); $('#panel').scrollTop = y; }
 }
 
@@ -900,9 +1039,13 @@ function onAct(e) {
     case 'tutor': { const h = S.heroes[d.id], c = Math.floor(150 * h.lvl * h.lvl); if (h.lvl >= heroCap()) { toast('Raise the Falcon Mews to lift the level cap', 'bad'); break; } if (S.res.gold < c) { toast('Not enough Dinars', 'bad'); break; } S.res.gold -= c; heroXP(d.id, xpFor(h.lvl) * .5); sfx('done'); render(); openHero(d.id); break; }
     case 'stages': openStages(); break;
     case 'stage': startStage(d.key); break;
-    case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.en >= 100 && !fight.over) { castSkill(u); drawFight(); } break; }
+    case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && now() >= fight.pauseUntil) { castSkill(u); updFight(); } break; }
     case 'auto': break;
-    case 'closefight': $('#battle').hidden = true; fight = null; render(); openStages(); break;
+    case 'closefight': leaveFight(); render(); openStages(); break;
+    case 'retreat': if (fight && !fight.over && !confirm('Retreat from this battle? The Vigor is spent.')) break; leaveFight(); render(); break;
+    case 'retry': { const k = fight.key; leaveFight(); startStage(k); break; }
+    case 'nextstage': leaveFight(); startStage(d.key); break;
+    case 'bspeed': if (fight) { fight.speed = fight.speed === 1 ? 2 : 1; S.fightSpeed = fight.speed; el.textContent = fight.speed + '×'; } break;
     case 'usevigor': useItem('vigor'); openStages(); break;
     case 'research': startResearch(d.id); break;
     case 'claim': claimQuest(); break;
@@ -910,7 +1053,7 @@ function onAct(e) {
     case 'helpall': S.house.honor += 10 * S.house.requests.length; toast(`Helped ${S.house.requests.length} members · +${10 * S.house.requests.length} Honor`, 'good'); S.house.requests = []; sfx('done'); render(); break;
     case 'hshop': if (S.house.honor < +d.c) { toast('Not enough Honor', 'bad'); break; } S.house.honor -= +d.c; S.items[d.i] = (S.items[d.i] || 0) + 1; toast(`Bought ${ITEMS[d.i].name}`, 'good'); render(); break;
     case 'use': useItem(d.i); break;
-    case 'buy': { const it = ITEMS[d.i]; if (S.gems < it.gems) { toast('Not enough gems', 'bad'); break; } S.gems -= it.gems; S.items[d.i] = (S.items[d.i] || 0) + 1; toast(`Bought ${it.name}`, 'good'); sfx('click'); render(); break; }
+    case 'buy': { const it = ITEMS[d.i]; if (S.gems < it.gems) { toast('Not enough gems', 'bad'); break; } spendGems(it.gems); S.items[d.i] = (S.items[d.i] || 0) + 1; toast(`Bought ${it.name}`, 'good'); sfx('click'); render(); break; }
     case 'sendform': openSend(+d.id, d.kind); break;
     case 'go': { const o = S.world.find(w => w.id === +d.id); const tr = Object.fromEntries(Object.entries(sendSel).filter(([, n]) => n > 0)); if (troopCount(tr) > marchCap()) { toast('Too many troops for one march', 'bad'); break; } sendMarch(o, d.kind, tr); break; }
     case 'scout': scout(+d.id); break;
@@ -920,21 +1063,26 @@ function onAct(e) {
     case 'home': if (tab === 'world') centerOn(S.home.x, S.home.y); else openTab('world'); break;
     case 'mail': openMail(); break;
     case 'incoming': openSheet('Incoming attack!', `<p><b>${esc(S.incoming.name)}</b> marches with about ${fmt(troopCount(S.incoming.troops) * (S.b.tower >= 3 ? 1 : 1.1))} troops. Arrives in ${fmtT((S.incoming.arrive - now()) / 1000)}.</p><p>Your defenders: ${fmt(troopCount(S.troops))} troops, Ramparts ${S.b.wall}.</p>${S.items.shield ? '<button class="btn gold" data-act="use" data-i="shield">Raise Mirage Veil</button>' : `<button class="btn gold" data-act="buy" data-i="shield">${ART.icon('gem', 12)} ${ITEMS.shield.gems} Buy Mirage Veil</button>`}`); break;
-    case 'mute': muted = !muted; el.textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('rimal-muted', muted ? '1' : ''); } catch (x) { } break;
+    case 'mute': { const on = !(S.settings.music || S.settings.sfx); S.settings.music = on; S.settings.sfx = on; FX.music(on); FX.setSfx(on); el.textContent = on ? '🔊' : '🔇'; break; }
     case 'menu': openMenu(); break;
     case 'reset': if (confirm('Erase this realm and start over?')) { try { localStorage.removeItem(SAVE_KEY); } catch (x) { } location.reload(); } break;
     case 'close': closeSheet(); break;
+    case 'music': S.settings.music = !S.settings.music; FX.music(S.settings.music); openMenu(); break;
+    case 'sfxt': S.settings.sfx = !S.settings.sfx; FX.setSfx(S.settings.sfx); openMenu(); break;
+    case 'replay': $('#intro').hidden = false; $('#introForm').hidden = true; $('#introTitle').classList.remove('show'); $('#skipIntro').hidden = false; $('#introTap').hidden = true; { const stop = playIntro(() => { }); $('#introForm').onsubmit = e => { e.preventDefault(); stop(); $('#intro').hidden = true; }; $('#introForm button').textContent = 'Return to my realm'; $('#lordName').hidden = true; $('#colors').hidden = true; } closeSheet(); break;
+    default: META.act(a, d, el);
   }
 }
 function onInput(e) {
   const el = e.target; const a = el.dataset.act;
   if (a === 'tn') { trainSel.n = +el.value; $('#tnv').textContent = el.value; const c = el.closest('.train'); c.querySelector('.costs').innerHTML = costHTML(trainCost(trainSel.t, trainSel.tier, trainSel.n)) + `<span class="cost">${ART.icon('clock', 15)}${fmtT(trainTime(trainSel.tier, trainSel.n))}</span>`; const b = c.querySelector('[data-act=train]'); if (b) b.textContent = `Train ${trainSel.n}`; }
   if (a === 'sendn') { sendSel[el.dataset.k] = +el.value; $('#sn-' + el.dataset.k).textContent = el.value; const go = $('[data-act=go]'); sendInfo(S.world.find(w => w.id === +go.dataset.id), go.dataset.kind); }
-  if (a === 'auto') { fight.auto = el.checked; S.autoSkill = el.checked; }
+  if (a === 'auto') { fight.auto = el.checked; S.autoSkill = el.checked; updFight(); const h = $('#battle .hint'); if (h) h.textContent = el.checked ? 'Auto skills on' : 'Tap a glowing hero to unleash their skill'; }
 }
 function openMenu() {
   openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
   <div class="card"><h4>How to play</h4><ul class="howto"><li>Upgrade fields to grow Grain, Timber, Stone and Ore. The Citadel caps everything else.</li><li>Train troops in the Barracks. Spearmen › Riders › Archers › Spearmen.</li><li>On the World map, gather from resource sites, crush bandit camps and scout rivals.</li><li>Lead heroes through Hero Trials to earn XP and shards. Your squad boosts every army.</li><li>From Citadel 4 rivals may raid you. Watch the warning, raise a Mirage Veil, or fight back.</li><li>Final goal: break the garrison of the Oasis Throne at the heart of the desert.</li></ul></div>
+  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="logincal">📅 Daily Caravan</button></div></div>
   <p class="muted">Progress is saved in this browser.</p><button class="btn" data-act="reset">Start a new realm</button>`);
 }
 
@@ -943,8 +1091,8 @@ function start() {
   document.addEventListener('click', onAct); document.addEventListener('input', onInput);
   document.addEventListener('submit', e => { if (e.target.dataset.act === 'chat') { e.preventDefault(); const v = e.target.m.value.trim(); if (v) { S.house.chat.push({ from: S.name, t: v, at: now() }); setTimeout(() => { S.house.chat.push({ from: pick(HOUSE_NAMES), t: pick(['Well said!', 'Agreed, my lord.', 'Ha! Good one.', 'On it.', 'For the Dawn Falcon!']), at: now() }); if (tab === 'house') render(); }, 1500); render(); } } });
   $('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
-  try { muted = !!localStorage.getItem('rimal-muted'); } catch (e) { }
-  $('#muteBtn').textContent = muted ? '🔇' : '🔊';
+  FX.setSfx(S.settings.sfx); $('#muteBtn').textContent = S.settings.music || S.settings.sfx ? '🔊' : '🔇';
+  const wake = () => { FX.music(S.settings.music); document.removeEventListener('pointerdown', wake); }; document.addEventListener('pointerdown', wake); if (start.fromIntro) wake();
   $('#brand').innerHTML = ART.emblem(38);
   initMapInput();
   window.addEventListener('resize', () => { if (tab === 'world') clampCam(); });
@@ -953,20 +1101,69 @@ function start() {
   tick();
   if (away > 120) toast(`Welcome back! Your realm worked for ${fmtT(away)} while you were away.`, 'good');
   openTab('city');
+  setTimeout(() => META.loginPopup(), start.fromIntro ? 2500 : 900);
   setInterval(() => { tick(); renderHud(); renderQueues(); if (tab !== 'city' && tab !== 'world' && !$('#panel').contains(document.activeElement) && Math.floor(now() / 1000) % 2 === 0) render(); }, 500);
-  setInterval(() => { if (tab === 'city') renderCity(); save(); }, 3000);
+  setInterval(() => { if (tab === 'city' && !document.querySelector('.reveal')) renderCity(); save(); }, 3000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
   window.addEventListener('pagehide', save);
 }
+/* ======================= opening cinematic ======================= */
+function playIntro(onDone) {
+  const cv = $('#introCv'), ctx = cv.getContext('2d'); let t0 = 0, raf, ended = false, W = 0, H = 0;
+  const size = () => { const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); };
+  size(); addEventListener('resize', size);
+  const stars = Array.from({ length: 160 }, () => [Math.random(), Math.random() * .6, Math.random() * 1.6 + .3, Math.random() * 6]);
+  const lerp = (a, b, k) => a + (b - a) * k, mix = (c1, c2, k) => { const p = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); const a = p(c1), b = p(c2); return `rgb(${a.map((v, i) => Math.round(lerp(v, b[i], k))).join(',')})`; };
+  const dune = (y, amp, freq, off, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, H); for (let x = 0; x <= W + 10; x += 10) ctx.lineTo(x, y + Math.sin(x * freq + off) * amp + Math.sin(x * freq * 2.3 + off * 1.7) * amp * .35); ctx.lineTo(W, H); ctx.fill(); };
+  function frame(ts) {
+    if (!t0) t0 = ts; const t = (ts - t0) / 1000, k = clamp(t / 9, 0, 1), e = k * k * (3 - 2 * k);
+    const hz = H * .62;
+    const g = ctx.createLinearGradient(0, 0, 0, hz); g.addColorStop(0, mix('#05030d', '#3a2a6b', e)); g.addColorStop(.6, mix('#140f22', '#e8743d', e)); g.addColorStop(1, mix('#1b1430', '#ffcf8a', e));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    for (const [x, y, r, ph] of stars) { ctx.globalAlpha = (1 - e) * (.5 + .5 * Math.sin(t * 2 + ph)); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x * W, y * H, r, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    const sy = lerp(hz + 80, hz - H * .2, e), sr = Math.min(W, H) * .09;
+    const sg = ctx.createRadialGradient(W * .62, sy, 0, W * .62, sy, sr * 4); sg.addColorStop(0, `rgba(255,220,150,${.75 * e + .1})`); sg.addColorStop(1, 'rgba(255,180,100,0)');
+    ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H); ctx.fillStyle = mix('#ff9a5a', '#fff1c4', e); ctx.beginPath(); ctx.arc(W * .62, sy, sr, 0, 7); ctx.fill();
+    dune(hz, 18, .006, t * .05, mix('#2a1838', '#b5783f', e));
+    // distant citadel silhouette
+    const cx = W * .28, cy = hz - 6; ctx.fillStyle = mix('#1b1026', '#8a5a3a', e);
+    ctx.fillRect(cx - 40, cy - 30, 80, 30); ctx.fillRect(cx - 52, cy - 50, 16, 50); ctx.fillRect(cx + 36, cy - 50, 16, 50); ctx.beginPath(); ctx.arc(cx, cy - 30, 18, Math.PI, 0); ctx.fill(); ctx.fillRect(cx - 1, cy - 62, 2, 14);
+    dune(hz + H * .1, 24, .004, 1 + t * .1, mix('#1f1230', '#c98a52', e));
+    // caravan
+    const cvx = ((t * 18) % (W + 200)) - 100, cvy = hz + H * .1 + 4;
+    ctx.fillStyle = mix('#0d0716', '#5a3418', e);
+    for (let i = 0; i < 4; i++) { const x = cvx - i * 34, y = cvy + Math.sin((x) * .004 + 1 + t * .1) * 24 - 10; ctx.beginPath(); ctx.ellipse(x, y, 11, 5, 0, 0, 7); ctx.fill(); ctx.fillRect(x + 8, y - 12, 3, 10); ctx.fillRect(x - 8, y + 3, 2, 8); ctx.fillRect(x + 6, y + 3, 2, 8); ctx.beginPath(); ctx.arc(x - 2, y - 8, 3, 0, 7); ctx.fill(); }
+    dune(hz + H * .24, 30, .003, 2 + t * .2, mix('#140b20', '#d9a868', e));
+    // falcon
+    if (t > 3.5 && t < 12) { const p = (t - 3.5) / 8.5, fx = lerp(-80, W + 80, p), fy = H * .3 + Math.sin(p * 6) * 30 - p * 40, fl = Math.sin(t * 11), s = Math.min(W, H) / 600 * (1.4 + p * .8);
+      ctx.save(); ctx.translate(fx, fy); ctx.scale(s, s); ctx.fillStyle = '#140b20';
+      ctx.beginPath(); ctx.moveTo(-22, 0); ctx.quadraticCurveTo(-10, -4 - fl * 16, -40, -10 - fl * 22); ctx.quadraticCurveTo(-14, -2, 0, 2); ctx.quadraticCurveTo(14, -2, 40, -10 - fl * 22); ctx.quadraticCurveTo(10, -4 - fl * 16, 22, 0); ctx.quadraticCurveTo(10, 8, 0, 6); ctx.quadraticCurveTo(-10, 8, -22, 0); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(-6, 16); ctx.lineTo(6, 16); ctx.fill(); ctx.beginPath(); ctx.arc(14, -2, 4, 0, 7); ctx.fill(); ctx.restore(); }
+    // drifting sand
+    ctx.fillStyle = `rgba(255,230,190,${.25 * e})`; for (let i = 0; i < 40; i++) { const x = ((i * 97 + t * 60 * (1 + i % 3)) % (W + 40)) - 20, y = H * .7 + (i * 53 % (H * .3)); ctx.fillRect(x, y, 2, 1); }
+    if (!ended) raf = requestAnimationFrame(frame);
+  }
+  raf = requestAnimationFrame(frame);
+  const lines = ['Long ago, the Oasis Throne united every dune.', 'Then the Sultan vanished, and the desert broke into quarrelling realms.', 'Nine lords now race for the Throne…', '…and a new banner rises with the sun.'];
+  const box = $('#introLines'); let timers = [];
+  lines.forEach((l, i) => timers.push(setTimeout(() => { box.innerHTML = `<p>${l}</p>`; FX.sound('whoosh'); }, 800 + i * 2700)));
+  const finish = () => { if (ended && !onDone) return; timers.forEach(clearTimeout); box.innerHTML = ''; $('#skipIntro').hidden = true; $('#introTitle').classList.add('show'); FX.sound('fanfare'); setTimeout(() => { $('#introForm').hidden = false; $('#lordName').focus({ preventScroll: true }); }, 900); const cb = onDone; onDone = null; cb && cb(); };
+  timers.push(setTimeout(finish, 800 + lines.length * 2700));
+  $('#skipIntro').onclick = () => { t0 -= 9000; finish(); };
+  return () => { ended = true; cancelAnimationFrame(raf); };
+}
+
 function boot() {
   S = load();
   if (S) { start(); return; }
   const colors = ['#e8a33d', '#3fd7c8', '#b3433a', '#9b7bff', '#3e8a4a', '#ff7a59'];
   $('#intro').hidden = false;
-  $('#introEmblem').innerHTML = ART.emblem(120);
+  $('#introEmblem').innerHTML = ART.emblem(110); $('#introEmblem2').innerHTML = ART.emblem(96);
   $('#colors').innerHTML = colors.map((c, i) => `<button type="button" class="sw ${i ? '' : 'on'}" style="background:${c}" data-c="${c}" aria-label="Banner colour ${i + 1}"></button>`).join('');
-  let color = colors[0];
-  $('#colors').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); });
-  $('#introForm').addEventListener('submit', e => { e.preventDefault(); const name = ($('#lordName').value.trim() || 'Lord of the Sands').slice(0, 24); S = newState(name, color); save(); $('#intro').hidden = true; sfx('horn'); start(); toast('Welcome, ' + esc(name) + '! Follow the quests to grow your realm.', 'good'); });
+  let color = colors[0], stop = null;
+  $('#colors').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); FX.sound('click'); });
+  $('#introTap').addEventListener('click', () => { $('#introTap').hidden = true; $('#skipIntro').hidden = false; FX.setMood('cine'); FX.music(true); stop = playIntro(); }, { once: true });
+  $('#introForm').onsubmit = e => { e.preventDefault(); const name = ($('#lordName').value.trim() || 'Lord of the Sands').slice(0, 24); S = newState(name, color); save(); if (stop) stop(); $('#intro').classList.add('leaving'); setTimeout(() => { $('#intro').hidden = true; }, 700); FX.sound('horn'); start.fromIntro = true; start(); FX.setMood('city'); setTimeout(() => FX.banner(`Welcome, ${esc(name)}`, 'Your realm is founded. Follow the quest guide to grow it.', { art: ART.emblem(110) }), 600); };
 }
 boot();

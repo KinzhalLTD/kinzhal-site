@@ -6,14 +6,15 @@ const ART = (() => {
 
   /* ---------- emblem: falcon over a rising sun on a shield ---------- */
   const falcon = (fill = '#1b1430') => `<path fill="${fill}" d="M46 34L30 26L11 17L17 25L8 28L19 33L10 37L23 40L16 45L33 45L46 46ZM54 34L70 26L89 17L83 25L92 28L81 33L90 37L77 40L84 45L67 45L54 46ZM44 34C44 28 47 25 50 25C53 25 56 28 56 34L57 50C57 56 54 60 50 60C46 60 43 56 43 50ZM45 57L41 70L46 67L50 73L54 67L59 70L55 57ZM50 15.5A5.5 5.5 0 1 1 49.9 15.5ZM54.5 18.5L61 21L55 24Z"/><circle cx="52" cy="20" r="1.3" fill="#ffd36b"/>`;
-  const emblem = (size = 64) => svg('0 0 100 100', `
-    <defs><linearGradient id="eg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd36b"/><stop offset="1" stop-color="#d9822b"/></linearGradient>
-    <linearGradient id="es" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c6f73"/><stop offset="1" stop-color="#0d3640"/></linearGradient></defs>
-    <path d="M50 4l40 12v30c0 26-18 42-40 50C28 88 10 72 10 46V16z" fill="url(#eg)"/>
-    <path d="M50 11l33 10v25c0 22-15 36-33 43-18-7-33-21-33-43V21z" fill="url(#es)"/>
+  let EMB = 0;
+  const emblem = (size = 64) => { const u = 'e' + (++EMB); return svg('0 0 100 100', `
+    <defs><linearGradient id="${u}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd36b"/><stop offset="1" stop-color="#d9822b"/></linearGradient>
+    <linearGradient id="${u}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c6f73"/><stop offset="1" stop-color="#0d3640"/></linearGradient></defs>
+    <path d="M50 4l40 12v30c0 26-18 42-40 50C28 88 10 72 10 46V16z" fill="url(#${u}g)"/>
+    <path d="M50 11l33 10v25c0 22-15 36-33 43-18-7-33-21-33-43V21z" fill="url(#${u}s)"/>
     <circle cx="50" cy="62" r="17" fill="#ffb84a" opacity=".9"/>
     <path d="M18 66c10-5 20-6 32-2s22 3 32-2v10c-10 6-22 7-32 3s-22-4-32 2z" fill="#e8a33d"/>
-    ${falcon('#0b1b22')}`, '').replace('<svg ', `<svg width="${size}" height="${size}" `);
+    ${falcon('#0b1b22')}`, '').replace('<svg ', `<svg width="${size}" height="${size}" `); };
 
   /* ---------- resource & misc icons ---------- */
   const IC = {
@@ -47,8 +48,9 @@ const ART = (() => {
   };
 
   /* ---------- hero portraits (parametric) ---------- */
+  let PID = 0;
   const portrait = (h, s = 72) => {
-    const p = h.look;
+    const p = h.look, gid = 'pb' + (++PID);
     const skin = p.skin, bg = p.bg, robe = p.robe, acc = p.acc;
     let head = '';
     switch (p.head) {
@@ -64,8 +66,8 @@ const ART = (() => {
     const beard = p.beard ? `<path d="M36 58c2 12 8 16 14 16s12-4 14-16c-4 4-8 5-14 5s-10-1-14-5z" fill="${p.beard}"/>` : '';
     const mask = p.mask ? `<path d="M34 56h32v8c-6 4-26 4-32 0z" fill="${p.mask}"/>` : '';
     return `<svg width="${s}" height="${s}" viewBox="0 0 100 100" class="portrait" aria-hidden="true">
-      <defs><radialGradient id="pb${h.id}" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="${bg}"/><stop offset="1" stop-color="#140f22"/></radialGradient></defs>
-      <rect width="100" height="100" rx="14" fill="url(#pb${h.id})"/>
+      <defs><radialGradient id="${gid}" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="${bg}"/><stop offset="1" stop-color="#140f22"/></radialGradient></defs>
+      <rect width="100" height="100" rx="14" fill="url(#${gid})"/>
       <path d="M14 100c2-20 16-30 36-30s34 10 36 30z" fill="${robe}"/>
       <path d="M40 72l10 14 10-14" fill="none" stroke="${acc}" stroke-width="3"/>
       <rect x="42" y="58" width="16" height="16" fill="${skin}"/>

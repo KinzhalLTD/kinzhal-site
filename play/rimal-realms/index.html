@@ -12,145 +12,9 @@
 <meta property="og:title" content="Rimal Realms">
 <meta property="og:description" content="Build a desert kingdom, lead heroes and claim the Oasis Throne.">
 <meta property="og:image" content="icon-512.png">
-<style>
-:root{--bg:#140f22;--panel:#1f1733;--panel2:#2a1f44;--line:#3a2e5a;--ink:#f6ecd9;--ink2:#c9bda4;--gold:#e8a33d;--gold2:#ffd36b;--teal:#3fd7c8;--red:#ff5e3a;--good:#6fe39a;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px)}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-[hidden]{display:none!important}
-html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Arabic",sans-serif;user-select:none;-webkit-user-select:none}
-button{font:inherit;color:inherit;cursor:pointer}
-input{font:inherit}
-.ic{vertical-align:-3px;flex:none}
-#app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;height:100%;height:100dvh}
-/* HUD */
-header.hud{padding:calc(6px + var(--safe-t)) 10px 6px;background:linear-gradient(#0d0918,#1a1230);border-bottom:2px solid #5a3418;position:relative;z-index:5}
-.hrow{display:flex;align-items:center;gap:6px;min-width:0}
-@media(max-width:420px){.hbtn{padding:6px 7px;font-size:14px}nav.tabs button{font-size:9.5px}}
-#brand{flex:none;display:flex}
-.who{min-width:0;flex:1}.who b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.who span{font-size:12px;color:var(--gold2)}
-.hbtn{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:15px;line-height:1}
-.dot{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;border-radius:8px;background:var(--red);font-size:10px;font-weight:800;display:grid;place-items:center;padding:0 3px}
-#hudRes{display:flex;gap:6px;overflow-x:auto;margin-top:6px;scrollbar-width:none}#hudRes::-webkit-scrollbar{display:none}
-.res{flex:none;display:grid;grid-template-columns:auto auto;column-gap:4px;align-items:center;background:#0006;border:1px solid var(--line);border-radius:9px;padding:2px 8px 2px 5px}
-.res .ic{grid-row:span 2}.res b{font-size:13px}.res small{font-size:10px;color:var(--good)}.res small.neg{color:var(--red)}.res.full b{color:var(--gold2)}
-.res.gem{border-color:#3fd7c866}.res.gem .ic{grid-row:auto}
-#status{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}#status:empty{display:none}
-.alert{background:#7e1f1f;border:1px solid var(--red);border-radius:8px;padding:3px 9px;font-weight:700;animation:pulse 1s infinite alternate}
-.veil{font-size:12px;color:var(--teal);background:#3fd7c81a;border:1px solid #3fd7c855;border-radius:8px;padding:2px 8px}
-@keyframes pulse{to{background:#b32b2b}}
-/* main */
-main{position:relative;overflow:hidden;min-height:0}
-#cityView{position:absolute;inset:0;overflow:auto;background:#b98a52}
-#citySvg{display:block;width:100%;height:100%;min-width:760px;min-height:100%}
-#citySvg text{font-size:12px;font-weight:700;fill:#f6ecd9;pointer-events:none}
-#citySvg .lbl{fill:#1b1430}
-.bld{cursor:pointer;transition:filter .15s}.bld:hover{filter:brightness(1.12) drop-shadow(0 0 6px #ffd36b)}
-.bld.locked{opacity:.45}.bld.unbuilt>path{opacity:.8}
-.hammer{animation:bob 1s ease-in-out infinite alternate}@keyframes bob{to{transform:translateY(-5px)}}
-.dust{fill:#fff;opacity:.08;animation:dust 2.4s infinite}@keyframes dust{50%{opacity:.18}}
-#worldView{position:absolute;inset:0}#map{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
-.mapbtns{position:absolute;left:10px;bottom:10px;display:flex;gap:6px}
-#panel{position:absolute;inset:0;overflow:auto;padding:12px 12px 20px;background:radial-gradient(800px 400px at 20% -10%,#e8a33d22,transparent),var(--bg)}
-#panel h2{margin:4px 0 10px;font-size:20px;color:var(--gold2)}#panel h3{margin:10px 0 6px;color:var(--teal);font-size:15px}
-#queues{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:5px;width:190px;z-index:3;pointer-events:none}
-#queues .q{pointer-events:auto}
-main.panel-open #queues{display:none}
-.q{display:flex;align-items:center;gap:6px;background:#140f22e6;border:1px solid var(--line);border-radius:10px;padding:4px 7px;font-size:12px;cursor:pointer;position:relative}
-.q>div{flex:1;min-width:0}.q b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}.q small{color:var(--ink2);font-size:10.5px}
-.q.idle{opacity:.8;border-style:dashed}.q.idle b{color:var(--gold2)}
-.free{position:absolute;right:6px;top:4px;background:var(--good);color:#0b1b22;font-weight:800;font-size:9px;border-radius:6px;padding:1px 4px}
-.bar{height:5px;background:#0008;border-radius:4px;overflow:hidden;margin:2px 0}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .4s}
-.bar.teal i{background:linear-gradient(90deg,#1c6f73,var(--teal))}.bar.hp{height:8px}.bar.hp i{background:linear-gradient(90deg,#3e8a4a,var(--good))}.bar.en i{background:linear-gradient(90deg,#9c5f2e,var(--gold2))}.bar.en.full i{box-shadow:0 0 8px var(--gold2);animation:glow .6s infinite alternate}
-@keyframes glow{to{filter:brightness(1.5)}}
-/* nav */
-nav.tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:linear-gradient(#1a1230,#0d0918);border-top:2px solid #5a3418;padding-bottom:var(--safe-b)}
-nav.tabs button{background:none;border:0;padding:6px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10.5px;color:var(--ink2);position:relative}
-nav.tabs button .ni{font-size:20px;line-height:1.1;filter:grayscale(.4)}
-nav.tabs button.on{color:var(--gold2)}nav.tabs button.on .ni{filter:none;transform:scale(1.12)}
-nav.tabs button.on::before{content:"";position:absolute;top:0;left:20%;right:20%;height:3px;border-radius:0 0 3px 3px;background:var(--gold)}
-/* sheet */
-dialog#sheet{width:min(560px,100vw);max-height:86vh;margin:auto auto 0;border:0;border-radius:18px 18px 0 0;background:var(--panel);color:var(--ink);padding:0;box-shadow:0 -10px 40px #000a;overflow:hidden}
-dialog#sheet.wide{width:min(760px,100vw)}
-@media(min-width:700px){dialog#sheet{margin:auto;border-radius:18px}}
-dialog::backdrop{background:#05030ab3}
-.shead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:linear-gradient(90deg,#5a3418,#2a1f44);border-bottom:1px solid var(--line)}
-.shead h3{margin:0;font-size:17px;color:var(--gold2);display:flex;align-items:center;gap:6px}
-#sheetBody{padding:12px 14px calc(16px + var(--safe-b));overflow:auto;max-height:calc(86vh - 52px)}
-.x{background:#0005;border:1px solid var(--line);border-radius:9px;width:32px;height:32px;font-size:16px}
-.btn{display:inline-flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:8px 14px;margin:4px 6px 4px 0;font-weight:700;font-size:14px}
-.btn:hover{border-color:var(--gold)}.btn:disabled{opacity:.45;cursor:not-allowed}
-.btn.gold{background:linear-gradient(#ffd36b,#d9822b);color:#2a1508;border-color:#ffd36b;box-shadow:0 2px 0 #7e4a22}
-.mini{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12px;font-weight:700}.mini.gold{background:linear-gradient(#ffd36b,#d9822b);color:#2a1508}
-.btns{display:flex;flex-wrap:wrap}
-.muted{color:var(--ink2);font-size:13px}.why{color:#ff9b7a;font-weight:600}.good{color:var(--good)}.neg{color:var(--red)}
-.costs{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.cost{display:inline-flex;align-items:center;gap:3px;background:#0005;border-radius:8px;padding:2px 7px;font-size:13px;font-weight:700}.cost.short{color:#ff9b7a;outline:1px solid #ff5e3a66}
-.bhead{display:flex;gap:12px;align-items:center;margin-bottom:6px}.bhead>svg{flex:none;background:#0004;border-radius:14px}.bhead p{margin:3px 0}
-.lvl{color:var(--gold2)}
-.upbox{background:#0003;border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:8px 0}.upbox h4{margin:0}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px}.card h4{margin:2px 0 6px;color:var(--gold2)}.card p{margin:4px 0}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
-.pick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.card-btn{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:2px}.card-btn:hover{border-color:var(--gold)}.card-btn small{color:var(--ink2)}
-.stats{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.stats span{background:#0005;border-radius:8px;padding:2px 8px;font-size:12.5px}
-.train .ttabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.ttab{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:6px 2px;display:flex;flex-direction:column;align-items:center}.ttab.on{border-color:var(--gold2);box-shadow:inset 0 0 0 1px var(--gold2)}.ttab small{font-size:11px}
-.chips{display:flex;gap:6px;margin:8px 0}.chip{background:#0005;border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:13px}.chip.on{background:var(--gold);color:#2a1508;border-color:var(--gold2)}.chip.locked{opacity:.6}
-.slider{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}.slider input{flex:1;accent-color:var(--gold)}.slider b{min-width:44px;text-align:right}
-.tlist{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0}.tchip{display:inline-flex;align-items:center;gap:3px;background:#0005;border-radius:8px;padding:1px 6px 1px 1px;font-size:12.5px;font-weight:700}
-.trow{display:flex;align-items:center;gap:8px;margin:4px 0}
-.heroes{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:10px 0}
-.hero{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:1px}.hero b{font-size:12.5px;line-height:1.2}.hero small{font-size:11px;color:var(--ink2)}
-.hero.dim{opacity:.55;filter:grayscale(.6)}.hero.insq{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal)}
-.portrait{border-radius:12px;display:block}
-.stars{color:var(--gold2);font-size:12px;letter-spacing:1px}.stars.big{font-size:20px}
-.squad{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 10px}.squad .slot{display:flex}.squad .slot.empty{width:44px;height:44px;border:1px dashed var(--line);border-radius:12px;align-items:center;justify-content:center;color:var(--ink2)}
-.stagecard{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.chapter{margin-bottom:12px}.chapter h4{margin:4px 0 6px;color:var(--gold2)}.chapter.locked{opacity:.5}
-.stages{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
-.stage{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;font-size:12px}.stage span{color:var(--gold2);font-size:11px}.stage small{font-size:10px;color:var(--teal)}.stage.boss{border-color:#b3433a;background:#3a1a24}.stage.locked{opacity:.45}
-@media(max-width:480px){.stages{grid-template-columns:repeat(3,1fr)}}
-.tech{display:flex;align-items:center;gap:8px;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:6px}.tech p{margin:2px 0;font-size:13px}.tech.done{border-color:#6fe39a55}.tech.locked{opacity:.65}
-.quest.ready,.chest.ready{border-color:var(--gold2);box-shadow:0 0 14px #e8a33d44}
-.chest{display:flex;align-items:center;gap:10px}.chest>div{flex:1}
-.rank{margin:0;padding-left:22px}.rank li{padding:2px 0;font-size:13.5px}.rank li b{float:right}.rank li.me{color:var(--gold2)}
-.house{display:flex;gap:10px;align-items:center}
-.chat p{font-size:13px;margin:3px 0}.chatform{display:flex;gap:6px;margin-top:8px}.chatform input{flex:1;background:#0005;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:7px 10px;user-select:text}
-.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:14px}
-.item{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}.item b{font-size:13px}.item small{font-size:11px;color:var(--ink2)}.item span{font-weight:800;color:var(--gold2)}
-.trade>div{display:flex;align-items:center;gap:6px;margin:4px 0}
-.rep{background:#0003;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:6px 10px;margin-bottom:6px}.rep summary{cursor:pointer;display:flex;justify-content:space-between;gap:8px}.rep.win{border-left-color:var(--good)}.rep.loss{border-left-color:var(--red)}.rep.scout{border-left-color:var(--teal)}.rep p{margin:4px 0;font-size:13.5px}
-.howto{padding-left:18px;margin:4px 0}.howto li{margin:3px 0;font-size:13.5px}
-/* battle */
-#battle{position:fixed;inset:0;z-index:50;background:radial-gradient(600px 400px at 50% 30%,#5a3418,#140f22);display:flex;align-items:center;justify-content:center}
-.bfield{width:min(560px,100%);padding:14px;position:relative}
-.btop{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;margin-bottom:10px}
-.row{display:flex;justify-content:center;gap:10px}.vs{text-align:center;font-weight:900;color:var(--gold2);margin:12px 0;letter-spacing:.3em}
-.unit{width:110px;background:#0006;border:1px solid var(--line);border-radius:14px;padding:6px;display:flex;flex-direction:column;align-items:center;position:relative;transition:opacity .3s}
-.unit b{font-size:12px;margin:2px 0}.unit .bar{width:100%}.unit.dead{opacity:.25;filter:grayscale(1)}.unit.stun{outline:2px dashed var(--teal)}
-.mine .unit[data-act]{cursor:pointer}
-.shake{animation:shake .25s}@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
-.dmg{position:absolute;top:20px;left:50%;transform:translateX(-50%);font-weight:900;color:#ff7a59;text-shadow:0 2px 0 #000;animation:up .9s forwards;pointer-events:none;font-size:16px}.dmg.heal{color:var(--good)}
-@keyframes up{to{transform:translate(-50%,-34px);opacity:0}}
-.skillname{position:absolute;top:-14px;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--gold);color:#2a1508;font-weight:800;font-size:12px;border-radius:8px;padding:2px 8px;animation:up 1.1s forwards}
-.hint{text-align:center;color:var(--ink2);font-size:12px}
-.result{position:absolute;inset:0;background:#140f22ee;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
-.result h2{font-size:34px;margin:0}.result .win{color:var(--gold2)}.result .loss{color:var(--red)}
-/* toasts & fx */
-#toasts{position:fixed;left:50%;top:calc(90px + var(--safe-t));transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(92vw,460px)}
-.toast{background:#1f1733f2;border:1px solid var(--line);border-radius:12px;padding:7px 14px;font-size:13.5px;box-shadow:0 6px 20px #0008;transition:opacity .4s,transform .4s;text-align:center}
-.toast.good{border-color:var(--good)}.toast.bad{border-color:var(--red)}.toast.out{opacity:0;transform:translateY(-8px)}
-.float-note{position:fixed;right:16px;bottom:90px;z-index:70;background:#3fd7c8;color:#0b1b22;font-weight:800;border-radius:10px;padding:5px 10px;font-size:12px;animation:up2 1.8s forwards}@keyframes up2{to{transform:translateY(-40px);opacity:0}}
-.burst{position:fixed;left:50%;top:45%;z-index:90;pointer-events:none}.burst i{position:absolute;width:8px;height:8px;border-radius:2px;animation:burst 1.1s ease-out forwards}
-@keyframes burst{from{transform:rotate(var(--a)) translateX(0)}to{transform:rotate(var(--a)) translateX(var(--d));opacity:0}}
-/* intro */
-#intro{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:radial-gradient(700px 500px at 50% 20%,#e8a33d33,transparent),linear-gradient(#140f22,#2a1508)}
-.introbox{width:min(420px,100%);text-align:center}
-.introbox h1{margin:8px 0 0;font-size:40px;letter-spacing:.04em;background:linear-gradient(#ffd36b,#d9822b);-webkit-background-clip:text;background-clip:text;color:transparent}
-.introbox .ar{font-size:22px;color:var(--teal);margin:0 0 6px}
-.introbox p{color:var(--ink2)}
-.introbox input{width:100%;background:#0006;border:1px solid var(--line);border-radius:12px;padding:11px 14px;color:var(--ink);text-align:center;font-size:16px;user-select:text}
-#colors{display:flex;justify-content:center;gap:10px;margin:12px 0 16px}.sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent}.sw.on{border-color:#fff;box-shadow:0 0 0 2px var(--gold)}
-.dunes{position:fixed;left:0;right:0;bottom:0;height:30vh;z-index:-1}
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
@@ -159,48 +23,55 @@ dialog::backdrop{background:#05030ab3}
       <span id="brand"></span>
       <div class="who"><b id="hudName">Rimal Realms</b><span id="hudMight"></span></div>
       <button class="hbtn" data-act="home" title="World map: my city">🧭</button>
-      <button class="hbtn" data-act="tab" data-tab="bag" title="Bag and shop">🎒</button>
+      <button class="hbtn" data-act="sub" data-s="bag" title="Bag">🎒</button>
       <button class="hbtn" data-act="mail" title="Reports">✉<span class="dot" id="mailDot" hidden></span></button>
-      <button class="hbtn" data-act="mute" id="muteBtn" title="Sound">🔊</button>
-      <button class="hbtn" data-act="menu" title="Menu">☰</button>
+      <button class="hbtn" data-act="mute" id="muteBtn" title="Music and sound">🔊</button>
+      <button class="hbtn" data-act="menu" title="Menu and settings">☰</button>
     </div>
     <div id="hudRes"></div>
     <div id="status"></div>
   </header>
   <main id="main">
     <div id="cityView"></div>
+    <div id="cityUi"></div>
     <div id="worldView" hidden><canvas id="map"></canvas><div class="mapbtns"><button class="btn" data-act="home">My city</button></div></div>
     <div id="panel" hidden></div>
     <div id="queues"></div>
   </main>
   <nav class="tabs">
-    <button data-act="tab" data-tab="city" class="on"><span class="ni">🏰</span>City</button>
-    <button data-act="tab" data-tab="world"><span class="ni">🗺️</span>World</button>
-    <button data-act="tab" data-tab="heroes"><span class="ni">🦅</span>Heroes</button>
-    <button data-act="tab" data-tab="army"><span class="ni">⚔️</span>Army</button>
-    <button data-act="tab" data-tab="research"><span class="ni">📜</span>Research</button>
-    <button data-act="tab" data-tab="quests"><span class="ni">⭐</span>Quests<span class="dot" id="questDot" hidden>!</span></button>
-    <button data-act="tab" data-tab="house"><span class="ni">🛡️</span>House</button>
+    <button data-act="tab" data-tab="city" class="on"><svg viewBox="0 0 32 32"><path d="M4 28V12h4v3h3v-6h3v3h4V9h3v6h3v-3h4v16z" fill="#e3c08a"/><path d="M13 28v-6a3 3 0 0 1 6 0v6z" fill="#3a2414"/><path d="M16 9a5 5 0 0 1 5-5H11a5 5 0 0 1 5 5z" fill="#3fd7c8"/><path d="M16 4V1" stroke="#ffd36b" stroke-width="1.5"/></svg>City</button>
+    <button data-act="tab" data-tab="world"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="#1c6f73" stroke="#e8a33d" stroke-width="2"/><path d="M16 5l3 11-3 11-3-11z" fill="#ffd36b"/><path d="M16 16l3 0-3 11z" fill="#b3433a"/><circle cx="16" cy="16" r="2" fill="#fff"/></svg>World</button>
+    <button data-act="tab" data-tab="heroes"><svg viewBox="0 0 32 32"><path d="M16 9c2 0 3 1 4 3l5-1-4 3v4l7-2c-3 4-8 6-11 7l1 5-3-2-2 3-1-4-3 1 1-4c-4-1-7-4-9-8l7 2v-3l-4-3 5 1c1-2 2-4 4-4z" fill="#e8a33d"/><circle cx="17" cy="11" r="1" fill="#140f22"/></svg>Heroes</button>
+    <button data-act="tab" data-tab="army"><svg viewBox="0 0 32 32"><path d="M5 4l16 16-3 3L2 7zM27 4L11 20l3 3L30 7z" fill="#cfd8e2"/><path d="M8 22l3 3-4 4-3-3zM24 22l-3 3 4 4 3-3z" fill="#e8a33d"/></svg>Army</button>
+    <button data-act="tab" data-tab="research"><svg viewBox="0 0 32 32"><rect x="6" y="4" width="20" height="24" rx="3" fill="#f2e6cf"/><path d="M6 8h20M6 24h20" stroke="#9c5f2e" stroke-width="3"/><path d="M11 13h10M11 17h10M11 21h6" stroke="#9c5f2e" stroke-width="1.6"/></svg>Research</button>
+    <button data-act="tab" data-tab="quests" data-res="pass"><svg viewBox="0 0 32 32"><path d="M16 2l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z" fill="#ffd36b" stroke="#b9741f" stroke-width="1.5"/></svg>Quests<span class="dot" id="questDot" hidden>!</span></button>
+    <button data-act="tab" data-tab="house"><svg viewBox="0 0 32 32"><path d="M16 2l12 4v9c0 8-6 13-12 15C10 28 4 23 4 15V6z" fill="#2f7d8c" stroke="#e8a33d" stroke-width="2"/><path d="M16 9l2 5h5l-4 3 2 5-5-3-5 3 2-5-4-3h5z" fill="#ffd36b"/></svg>House</button>
+    <button data-act="tab" data-tab="store" class="store"><svg viewBox="0 0 32 32"><path d="M3 12L7 4h18l4 8z" fill="#b3433a"/><path d="M3 12h26v2H3z" fill="#f2ede4"/><rect x="5" y="14" width="22" height="14" fill="#e3c08a"/><path d="M12 28v-7h8v7z" fill="#5a3418"/><path d="M10 6l-2 6M16 4v8M22 6l2 6" stroke="#f2ede4" stroke-width="1.5"/><path d="M26 2l1.5 3 3 .5-2 2 .5 3-3-1.5-3 1.5.5-3-2-2 3-.5z" fill="#3fd7c8"/></svg>Store<span class="dot" id="storeDot" hidden>!</span></button>
   </nav>
 </div>
 <dialog id="sheet"><div class="shead"><h3 id="sheetTitle"></h3><button class="x" data-act="close" aria-label="Close">✕</button></div><div id="sheetBody"></div></dialog>
 <div id="battle" hidden></div>
 <div id="toasts"></div>
 <div id="intro" hidden>
-  <form class="introbox" id="introForm">
-    <div id="introEmblem"></div>
-    <h1>RIMAL REALMS</h1>
-    <p class="ar" lang="ar" dir="rtl">ممالك الرمال</p>
-    <p>The old Sultanate has fallen. Nine rival lords race to claim the Oasis Throne at the heart of the desert. Raise your citadel, train your army, lead your heroes and take it first.</p>
+  <canvas id="introCv"></canvas>
+  <i class="lb top"></i><i class="lb bot"></i>
+  <div id="introTap"><div id="introEmblem"></div><h1 class="ttl">RIMAL REALMS</h1><p class="ttl-ar" lang="ar" dir="rtl">ممالك الرمال</p><p class="tapgo">TAP TO BEGIN</p></div>
+  <div id="introTitle"><div id="introEmblem2"></div><h1 class="ttl">RIMAL REALMS</h1><p class="ttl-ar" lang="ar" dir="rtl">ممالك الرمال</p></div>
+  <div id="introLines"></div>
+  <button id="skipIntro" hidden>Skip ›</button>
+  <form class="introbox" id="introForm" hidden>
+    <p>Name your lord and raise your banner.</p>
     <input id="lordName" maxlength="24" placeholder="Name your lord" autocomplete="off">
     <div id="colors"></div>
     <button class="btn gold" style="font-size:17px;padding:11px 28px">Found my realm</button>
-    <p class="muted" style="margin-top:16px">A game by Kinzhal LTD Co. · Progress saves in this browser.</p>
+    <p class="muted" style="margin:10px 0 0">A game by Kinzhal LTD Co. · Progress saves in this browser.</p>
   </form>
 </div>
 <noscript>Rimal Realms needs JavaScript.</noscript>
 <script src="data.js"></script>
 <script src="art.js"></script>
+<script src="fx.js"></script>
+<script src="meta.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
