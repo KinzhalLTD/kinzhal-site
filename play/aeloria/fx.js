@@ -1,4 +1,4 @@
-// Rimal Realms — cinematic effects: particles, flying rewards, shakes, banners, skill cut-ins and the music engine.
+// Aeloria: Age of Crowns — cinematic effects: particles, flying rewards, shakes, banners, skill cut-ins and the music engine.
 'use strict';
 const FX = (() => {
   /* ---------- particle layer ---------- */
@@ -118,6 +118,7 @@ const FX = (() => {
   const tek = (t, v = .25) => noise(t, .06, 3200, 1.5, v, musicBus);
   const SFX = {
     click: t => tone(880, t, .05, 'triangle', .15),
+    tick: t => tone(1500 + Math.random() * 300, t, .015, 'triangle', .03),
     build: t => { noise(t, .08, 900, 2, .4); tone(220, t, .12, 'square', .08); tone(330, t + .08, .12, 'square', .08); },
     done: t => [523, 659, 784].forEach((f, i) => tone(f, t + i * .07, .2, 'triangle', .22)),
     coin: t => { tone(1318, t, .08, 'square', .06); tone(1760, t + .05, .16, 'triangle', .14); },

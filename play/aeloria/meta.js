@@ -1,9 +1,9 @@
-// Rimal Realms — meta game: the in-game Store (deals, Falcon Summon, chests, gem packs, items, VIP),
+// Aeloria: Age of Crowns — meta game: the in-game Store (deals, Crown Summon, chests, gem packs, items, VIP),
 // Season Road, daily login calendar, achievements, field harvests and the quest guide.
 'use strict';
 
 /* Real-money gem packs stay switched off until the app has a payment provider.
-   To enable, set window.RIMAL_PAYMENTS = { buy: packId => Promise<boolean> } before game.js loads. */
+   To enable, set window.AELORIA_PAYMENTS = { buy: packId => Promise<boolean> } before game.js loads. */
 const GEM_PACKS = [
   { id: 'pouch', name: 'Pouch of Gems', gems: 300, bonus: 0, price: 'SAR 4.99' },
   { id: 'satchel', name: 'Satchel of Gems', gems: 1000, bonus: 100, price: 'SAR 14.99' },
@@ -15,11 +15,11 @@ const VIP_PTS = [0, 300, 1000, 2500, 6000, 12000, 25000, 50000, 100000];
 const ACH = [
   { id: 'build', name: 'Master Builder', desc: 'Finish upgrades', m: S => S.stats.builds || 0, t: [5, 25, 80, 200] },
   { id: 'train', name: 'Drillmaster', desc: 'Train troops', m: S => S.stats.trained, t: [100, 1000, 10000, 100000] },
-  { id: 'camps', name: 'Bandit Bane', desc: 'Defeat bandit camps', m: S => S.stats.camps, t: [1, 10, 40, 150] },
-  { id: 'stages', name: 'Trial Champion', desc: 'Win Hero Trials', m: S => S.stats.stageWins, t: [3, 15, 40, 100] },
+  { id: 'camps', name: 'Ash Breaker', desc: 'Defeat Ashen outposts', m: S => S.stats.camps, t: [1, 10, 40, 150] },
+  { id: 'stages', name: 'Trial Champion', desc: 'Win campaign stages', m: S => S.stats.stageWins, t: [3, 15, 40, 100] },
   { id: 'might', name: 'Rising Power', desc: 'Reach Might', m: () => might(), t: [2000, 20000, 150000, 1000000] },
   { id: 'heroes', name: 'Court of Legends', desc: 'Recruit heroes', m: S => Object.values(S.heroes).filter(h => h.stars > 0).length, t: [4, 6, 8, 9] },
-  { id: 'gather', name: 'Caravan Master', desc: 'Gather resources on the map', m: S => S.stats.gathered, t: [5000, 100000, 1e6, 1e7] },
+  { id: 'gather', name: 'Master Gatherer', desc: 'Gather resources on the map', m: S => S.stats.gathered, t: [5000, 100000, 1e6, 1e7] },
   { id: 'def', name: 'Unbroken Walls', desc: 'Win city defences', m: S => S.stats.defWins || 0, t: [1, 5, 20, 50] },
   { id: 'harvest', name: 'Bountiful Fields', desc: 'Collect harvests in the city', m: S => S.stats.harvests || 0, t: [10, 100, 500, 2000] }
 ];
@@ -27,13 +27,13 @@ const ACH_GEMS = [20, 50, 120, 300];
 const LOGIN = [{ gems: 30 }, { items: { sp5: 3 } }, { items: { crate: 2 } }, { gems: 60 }, { items: { scroll: 3 } }, { items: { sp60: 2 } }, { tokens: 1, gems: 100 }];
 const PASS_XP = 120, PASS_TIERS = 30;
 const passReward = t => t % 10 === 0 ? { tokens: 1, gems: 100 } : t % 5 === 0 ? { gems: 50, items: { sp60: 1 } } : [{ gems: 20 }, { items: { sp5: 2 } }, { items: { crate: 1 } }, { items: { scroll: 1 } }, { gold: 3000 }, { items: { vigor: 1 } }][t % 6];
-const SUMMON = { legendary: ['saqr', 'layla'], epic: ['zayna', 'barak', 'hakeem', 'omar'], rare: ['rania', 'tariq', 'noor', 'zayna', 'barak', 'hakeem', 'omar'], odds: { legendary: 4, epic: 21, rare: 75 }, shards: { legendary: 10, epic: 5, rare: 2 }, pity: 40, cost1: 300, cost10: 2700 };
+const SUMMON = { legendary: HEROES.filter(h => h.rarity === 'legendary').map(h => h.id), epic: HEROES.filter(h => h.rarity === 'epic').map(h => h.id), rare: HEROES.map(h => h.id), odds: { legendary: 4, epic: 21, rare: 75 }, shards: { legendary: 10, epic: 5, rare: 2 }, pity: 40, cost1: 300, cost10: 2700 };
 const CHESTS = {
   bronze: { name: 'Merchant Chest', desc: '3 rewards: resources, hourglasses and tomes', cost: { gold: 6000 }, rolls: 3, color: '#c07a3a' },
-  silver: { name: 'Vizier Chest', desc: '4 rewards with a chance of hero shards', cost: { gems: 150 }, rolls: 4, color: '#9fc3e6' },
-  gold: { name: 'Sultan Chest', desc: '6 rewards, always hero shards', cost: { gems: 500 }, rolls: 6, color: '#ffd36b' }
+  silver: { name: 'Noble Chest', desc: '4 rewards with a chance of hero shards', cost: { gems: 150 }, rolls: 4, color: '#9fc3e6' },
+  gold: { name: 'Royal Chest', desc: '6 rewards, always hero shards', cost: { gems: 500 }, rolls: 6, color: '#ffd36b' }
 };
-const GUIDE = [['bld', 'citadel'], ['field'], ['bld', 'barracks'], ['stages'], ['bld', 'academy'], ['tab', 'research'], ['tab', 'world'], ['tab', 'world'], ['bld', 'citadel'], ['bld', 'infirmary'], ['tab', 'world'], ['stages'], ['bld', 'citadel'], ['bld', 'barracks'], ['tab', 'world'], ['tab', 'research'], ['stages'], ['bld', 'citadel'], ['tab', 'world'], ['bld', 'citadel'], ['stages'], ['tab', 'research'], ['bld', 'citadel'], ['tab', 'world']];
+const GUIDE = [['bld', 'citadel'], ['field'], ['bld', 'barracks'], ['stages'], ['bld', 'academy'], ['tab', 'research'], ['tab', 'world'], ['tab', 'world'], ['bld', 'citadel'], ['bld', 'infirmary'], ['tab', 'world'], ['stages'], ['bld', 'citadel'], ['bld', 'barracks'], ['tab', 'world'], ['tab', 'research'], ['stages'], ['bld', 'citadel'], ['tab', 'world'], ['stages'], ['bld', 'citadel'], ['stages'], ['tab', 'research'], ['stages'], ['bld', 'citadel'], ['stages'], ['tab', 'world']];
 const HARVEST_MS = 150e3;
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
@@ -44,6 +44,7 @@ const META = (() => {
   function migrate(s) {
     s.vip ??= 0; s.login ??= { i: 0, last: '' }; s.pass ??= { xp: 0, claimed: {} }; s.ach ??= {}; s.pity ??= 0; s.tokens ??= 0;
     s.harvest ??= {}; s.deals ??= { day: '', bought: [] }; s.free ??= ''; s.vipDay ??= ''; s.settings ??= { music: true, sfx: true };
+    for (const k of RES) if (!Number.isFinite(s.res[k])) s.res[k] = 0; if (!Number.isFinite(s.gems)) s.gems = 0;
     s.stats.builds ??= 0; s.stats.defWins ??= 0; s.stats.harvests ??= 0;
     return s;
   }
@@ -54,7 +55,7 @@ const META = (() => {
     if (Math.floor(S.pass.xp / PASS_XP) > before && before < PASS_TIERS) toast(`Season Road tier ${Math.min(PASS_TIERS, before + 1)} reached — claim it in Quests`, 'good');
   }
   function grant(r, label) { // like give() but also handles summon tokens
-    if (r.tokens) { S.tokens += r.tokens; const t = { ...r }; delete t.tokens; const s = give(t); const txt = [s, `${r.tokens} Falcon Feather${r.tokens > 1 ? 's' : ''}`].filter(Boolean).join(', '); if (label) toast(`${label}: ${txt}`, 'good'); return txt; }
+    if (r.tokens) { S.tokens += r.tokens; const t = { ...r }; delete t.tokens; const s = give(t); const txt = [s, `${r.tokens} Crown Sigil${r.tokens > 1 ? 's' : ''}`].filter(Boolean).join(', '); if (label) toast(`${label}: ${txt}`, 'good'); return txt; }
     return give(r, label);
   }
   const rewardHTML = r => Object.entries(r).map(([k, v]) => k === 'items' ? Object.entries(v).map(([i, n]) => `<span class="rw">${ART.icon(ITEMS[i].icon, 22)}<b>${n}</b></span>`).join('') : k === 'tokens' ? `<span class="rw">${feather(22)}<b>${v}</b></span>` : k === 'shards' ? Object.entries(v).map(([h, n]) => `<span class="rw">${ART.portrait(HERO[h], 22)}<b>${n}</b></span>`).join('') : `<span class="rw">${ART.icon(k === 'gems' ? 'gem' : k, 22)}<b>${fmt(v)}</b></span>`).join('');
@@ -96,7 +97,7 @@ const META = (() => {
   function goGuide() {
     const g = GUIDE[S.quest]; if (!g) return;
     if (g[0] === 'bld') { openTab('city'); openBuilding(g[1]); }
-    else if (g[0] === 'tab') { openTab(g[1]); if (g[1] === 'world') toast('Tap a resource site or a bandit camp near your city'); }
+    else if (g[0] === 'tab') { openTab(g[1]); if (g[1] === 'world') toast('Tap a resource site or an Ashen outpost near your city — tap the fog to explore'); }
     else if (g[0] === 'stages') { openTab('heroes'); openStages(); }
     else if (g[0] === 'field') { openTab('city'); const i = S.fields.findIndex((f, n) => !f && n < openPlots()); if (i >= 0) openField(i); }
   }
@@ -105,7 +106,7 @@ const META = (() => {
   function loginPopup(force) {
     const claimable = S.login.last !== today();
     if (!claimable && !force) return;
-    openSheet('Daily Caravan · 7-day rewards', `<p class="muted">Log in each day to receive the caravan's gifts. Day 7 brings a Falcon Feather for the Falcon Summon.</p>
+    openSheet('Royal Courier · 7-day rewards', `<p class="muted">Log in each day to receive the Royal Courier's gifts. Day 7 brings a Crown Sigil for the Crown Summon.</p>
       <div class="login">${LOGIN.map((r, i) => `<div class="lday ${i < S.login.i ? 'got' : ''} ${i === S.login.i && claimable ? 'now' : ''} ${i === 6 ? 'big' : ''}"><small>Day ${i + 1}</small><div>${rewardHTML(r)}</div>${i < S.login.i ? '<i>✓</i>' : ''}</div>`).join('')}</div>
       ${claimable ? '<button class="btn gold wide" data-act="login">Claim today\'s gift</button>' : '<p class="muted center">Come back tomorrow for the next gift.</p>'}`);
   }
@@ -126,11 +127,11 @@ const META = (() => {
   function passHTML() {
     const tier = Math.min(PASS_TIERS, Math.floor(S.pass.xp / PASS_XP)), into = S.pass.xp % PASS_XP;
     const cells = Array.from({ length: PASS_TIERS }, (_, n) => { const t = n + 1, got = S.pass.claimed[t], can = t <= tier && !got; return `<div class="ptier ${got ? 'got' : ''} ${can ? 'ready' : ''} ${t % 10 === 0 ? 'big' : ''}" ${can ? `data-act="pass" data-t="${t}"` : ''}><small>${t}</small><div>${rewardHTML(passReward(t))}</div>${got ? '<i>✓</i>' : can ? '<em>Claim</em>' : ''}</div>`; }).join('');
-    return `<div class="card pass"><div class="phead"><div><h4>✦ Season Road · The Rising Dunes</h4><p class="muted">Earn Season XP from everything you do: building, training, battles, harvests and quests.</p></div><div class="ptier-now">Tier <b>${tier}</b>/${PASS_TIERS}</div></div>${tier < PASS_TIERS ? bar(into / PASS_XP) + `<small class="muted">${into} / ${PASS_XP} XP to tier ${tier + 1}</small>` : ''}<div class="ptrack">${cells}</div></div>`;
+    return `<div class="card pass"><div class="phead"><div><h4>✦ Season Road · Dawn of Crowns</h4><p class="muted">Earn Season XP from everything you do: building, training, battles, harvests and quests.</p></div><div class="ptier-now">Tier <b>${tier}</b>/${PASS_TIERS}</div></div>${tier < PASS_TIERS ? bar(into / PASS_XP) + `<small class="muted">${into} / ${PASS_XP} XP to tier ${tier + 1}</small>` : ''}<div class="ptrack">${cells}</div></div>`;
   }
   function claimPass(t) { t = +t; const tier = Math.floor(S.pass.xp / PASS_XP); if (t > tier || S.pass.claimed[t]) return; S.pass.claimed[t] = 1; grant(passReward(t), `Season Road tier ${t}`); FX.sound('chest'); FX.burst(innerWidth / 2, innerHeight / 2, { n: 30, shape: 'star' }); render(); }
 
-  /* ---------- Falcon Summon ---------- */
+  /* ---------- Crown Summon ---------- */
   function rollOne() {
     S.pity++; let r = Math.random() * 100, rar = r < SUMMON.odds.legendary ? 'legendary' : r < SUMMON.odds.legendary + SUMMON.odds.epic ? 'epic' : 'rare';
     if (S.pity >= SUMMON.pity) rar = 'legendary'; if (rar === 'legendary') S.pity = 0;
@@ -146,7 +147,7 @@ const META = (() => {
   }
   function reveal(res) {
     const ov = document.createElement('div'); ov.className = 'reveal';
-    ov.innerHTML = `<div class="rv-sky"></div><h2>Falcon Summon</h2><div class="cards n${res.length}">${res.map((r, i) => `<div class="scard ${r.rar}" style="--d:${i}"><div class="back">${ART.emblem(54)}</div><div class="front">${ART.portrait(HERO[r.id], 86)}<b>${HERO[r.id].name}</b><small>${r.rar} · ${r.n} shards</small>${S.heroes[r.id].stars === 0 && S.heroes[r.id].shards >= STAR_SHARDS[1] ? '<em>Ready to recruit!</em>' : ''}</div></div>`).join('')}</div><button class="btn gold" data-act="closeov" hidden>Continue</button>`;
+    ov.innerHTML = `<div class="rv-sky"></div><h2>Crown Summon</h2><div class="cards n${res.length}">${res.map((r, i) => `<div class="scard ${r.rar}" style="--d:${i}"><div class="back">${ART.emblem(54)}</div><div class="front">${ART.portrait(HERO[r.id], 86)}<b>${HERO[r.id].name}</b><small>${r.rar} · ${r.n} shards</small>${S.heroes[r.id].stars === 0 && S.heroes[r.id].shards >= STAR_SHARDS[1] ? '<em>Ready to recruit!</em>' : ''}</div></div>`).join('')}</div><button class="btn gold" data-act="closeov" hidden>Continue</button>`;
     document.body.appendChild(ov); FX.sound('whoosh'); FX.setMood('cine');
     const cards = [...ov.querySelectorAll('.scard')];
     cards.forEach((c, i) => setTimeout(() => {
@@ -178,7 +179,7 @@ const META = (() => {
   function openChestKind(kind) {
     const C = CHESTS[kind];
     if (C.cost.gems) { if (S.gems < C.cost.gems) return toast('Not enough gems', 'bad'); spendGems(C.cost.gems); }
-    else { if (S.res.gold < C.cost.gold) return toast('Not enough Dinars', 'bad'); S.res.gold -= C.cost.gold; }
+    else { if (S.res.gold < C.cost.gold) return toast('Not enough Gold', 'bad'); S.res.gold -= C.cost.gold; }
     const r = rollChest(kind); grant(r); xp(15); save(); closeSheet();
     const ov = document.createElement('div'); ov.className = 'reveal chest-open'; ov.style.setProperty('--c', C.color);
     ov.innerHTML = `<div class="rv-sky"></div><h2>${C.name}</h2><div class="chestwrap">${chestSVG(C.color, 170)}</div><div class="loot">${rewardHTML(r)}</div><button class="btn gold" data-act="closeov" hidden>Collect</button>`;
@@ -196,52 +197,53 @@ const META = (() => {
     return [0, 1, 2].map(i => {
       const items = {}; const n = 2 + Math.floor(r() * 2); for (let j = 0; j < n; j++) { const k = keys[Math.floor(r() * keys.length)]; items[k] = (items[k] || 0) + 1 + Math.floor(r() * (k === 'sp5' ? 5 : 2)); }
       const value = Object.entries(items).reduce((a, [k, v]) => a + ITEMS[k].gems * v, 0), off = [40, 50, 60][i];
-      return i === 2 ? { i, items, off: 100, gold: Math.max(5000, Math.floor(value * 60)), name: 'Souq Bargain' } : { i, items, off, gems: Math.max(10, Math.round(value * (100 - off) / 100)), name: ['Traveller\'s Pack', 'Warlord\'s Bundle'][i] };
+      return i === 2 ? { i, items, off: 100, gold: Math.max(5000, Math.floor(value * 60)), name: 'Bazaar Bargain' } : { i, items, off, gems: Math.max(10, Math.round(value * (100 - off) / 100)), name: ['Traveller\'s Pack', 'Warlord\'s Bundle'][i] };
     });
   }
   function buyDeal(i) {
     const d = deals()[i]; if (S.deals.bought.includes(i)) return;
-    if (d.gems) { if (S.gems < d.gems) return toast('Not enough gems', 'bad'); spendGems(d.gems); } else { if (S.res.gold < d.gold) return toast('Not enough Dinars', 'bad'); S.res.gold -= d.gold; }
+    if (d.gems) { if (S.gems < d.gems) return toast('Not enough gems', 'bad'); spendGems(d.gems); } else { if (S.res.gold < d.gold) return toast('Not enough Gold', 'bad'); S.res.gold -= d.gold; }
     S.deals.bought.push(i); grant({ items: d.items }, d.name); FX.sound('chest'); FX.confetti(); render();
   }
 
+  const featuredId = () => SUMMON.legendary[Math.floor(Date.now() / 864e5) % SUMMON.legendary.length];
   /* ---------- Store UI ---------- */
   let sub = 'featured';
   const midnight = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return (d - new Date()) / 1000; };
   function renderStore() {
-    const tabs = [['featured', 'Featured'], ['summon', 'Falcon Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
-    const head = `<div class="store-head"><h2>Grand Souq</h2><div class="wallet"><span data-res="gems2">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b></span><span>${feather(18)}<b>${S.tokens}</b></span><span>${ART.icon('gold', 18)}<b>${fmt(S.res.gold)}</b></span></div></div>
+    const tabs = [['featured', 'Featured'], ['summon', 'Crown Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
+    const head = `<div class="store-head"><h2>Royal Bazaar</h2><div class="wallet"><span data-res="gems2">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b></span><span>${feather(18)}<b>${S.tokens}</b></span><span>${ART.icon('gold', 18)}<b>${fmt(S.res.gold)}</b></span></div></div>
       <div class="subtabs">${tabs.map(([k, n]) => `<button class="${sub === k ? 'on' : ''}" data-act="sub" data-s="${k}">${n}</button>`).join('')}</div>`;
     return head + ({ featured, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub])();
   }
   function featured() {
     const freeOk = S.free !== today(), vipOk = vipLvl() > 0 && S.vipDay !== today();
-    return `<div class="hero-banner" data-act="sub" data-s="summon"><div class="hb-art">${ART.portrait(HERO.saqr, 130)}</div><div class="hb-txt"><small>Featured legend</small><h3>Emira Saqr, the Falcon Queen</h3><p>Summon now · 4% legendary · guaranteed within ${SUMMON.pity} summons</p><span class="btn gold">Summon</span></div></div>
+    return `<div class="hero-banner" data-act="sub" data-s="summon"><div class="hb-art">${ART.portrait(HERO[featuredId()], 130)}</div><div class="hb-txt"><small>Featured legend</small><h3>${HERO[featuredId()].name}, ${HERO[featuredId()].title}</h3><p>Summon now · 4% legendary · guaranteed within ${SUMMON.pity} summons</p><span class="btn gold">Summon</span></div></div>
     <div class="grid2">
       <div class="card offer ${freeOk ? 'ready' : ''}"><h4>${ART.icon('chest', 22)} Daily free gift</h4><p class="muted">Gems and a surprise item, every day.</p>${freeOk ? '<button class="btn gold" data-act="freegift">Claim free</button>' : `<span class="muted">Next in ${fmtT(midnight())}</span>`}</div>
       <div class="card offer ${vipOk ? 'ready' : ''}"><h4>👑 VIP ${vipLvl()} daily chest</h4><p class="muted">${vipLvl() ? `${20 * vipLvl()} gems + hourglasses` : 'Reach VIP 1 by spending gems or logging in daily.'}</p>${vipOk ? '<button class="btn gold" data-act="vipchest">Open</button>' : vipLvl() ? `<span class="muted">Next in ${fmtT(midnight())}</span>` : '<button class="btn" data-act="sub" data-s="vip">See VIP</button>'}</div>
     </div>
     <h3>Daily deals <small class="muted">refresh in ${fmtT(midnight())}</small></h3>
-    <div class="deals">${deals().map(d => { const got = S.deals.bought.includes(d.i); return `<div class="deal ${got ? 'sold' : ''}">${d.off < 100 ? `<span class="off">-${d.off}%</span>` : '<span class="off teal">Dinars</span>'}<h4>${d.name}</h4><div class="rws">${rewardHTML({ items: d.items })}</div>${got ? '<span class="muted">Sold out today</span>' : `<button class="btn gold" data-act="deal" data-i="${d.i}">${d.gems ? ART.icon('gem', 14) + ' ' + d.gems : ART.icon('gold', 14) + ' ' + fmt(d.gold)}</button>`}</div>`; }).join('')}</div>
-    <div class="grid2"><div class="card offer" data-act="sub" data-s="chests">${chestSVG('#ffd36b', 56)}<div><h4>Sultan Chest</h4><p class="muted">Guaranteed hero shards</p></div></div><div class="card offer" data-act="logincal">${ART.icon('chest', 40)}<div><h4>Daily Caravan</h4><p class="muted">Day ${S.login.i + 1} of 7</p></div></div></div>`;
+    <div class="deals">${deals().map(d => { const got = S.deals.bought.includes(d.i); return `<div class="deal ${got ? 'sold' : ''}">${d.off < 100 ? `<span class="off">-${d.off}%</span>` : '<span class="off teal">Gold</span>'}<h4>${d.name}</h4><div class="rws">${rewardHTML({ items: d.items })}</div>${got ? '<span class="muted">Sold out today</span>' : `<button class="btn gold" data-act="deal" data-i="${d.i}">${d.gems ? ART.icon('gem', 14) + ' ' + d.gems : ART.icon('gold', 14) + ' ' + fmt(d.gold)}</button>`}</div>`; }).join('')}</div>
+    <div class="grid2"><div class="card offer" data-act="sub" data-s="chests">${chestSVG('#ffd36b', 56)}<div><h4>Royal Chest</h4><p class="muted">Guaranteed hero shards</p></div></div><div class="card offer" data-act="logincal">${ART.icon('chest', 40)}<div><h4>Royal Courier</h4><p class="muted">Day ${S.login.i + 1} of 7</p></div></div></div>`;
   }
   function summonTab() {
     const pityLeft = SUMMON.pity - S.pity;
-    return `<div class="summon-stage"><div class="sm-heroes">${SUMMON.legendary.map(id => ART.portrait(HERO[id], 120)).join('')}</div><h3>Falcon Summon</h3><p class="muted">Call heroes to your court. Every summon gives hero shards — collect enough to recruit a hero or raise their stars.</p>
-      <div class="sm-btns"><button class="btn gold big" data-act="summon" data-n="1">${S.tokens ? feather(18) + ' 1 Feather' : ART.icon('gem', 18) + ' ' + SUMMON.cost1}<small>Summon ×1</small></button><button class="btn gold big" data-act="summon" data-n="10">${S.tokens >= 10 ? feather(18) + ' 10 Feathers' : ART.icon('gem', 18) + ' ' + fmt(SUMMON.cost10)}<small>Summon ×10 · 1 epic+ guaranteed</small></button></div>
+    return `<div class="summon-stage"><div class="sm-heroes">${SUMMON.legendary.map(id => ART.portrait(HERO[id], 120)).join('')}</div><h3>Crown Summon</h3><p class="muted">Call heroes to your court. Every summon gives hero shards — collect enough to recruit a hero or raise their stars.</p>
+      <div class="sm-btns"><button class="btn gold big" data-act="summon" data-n="1">${S.tokens ? feather(18) + ' 1 Sigil' : ART.icon('gem', 18) + ' ' + SUMMON.cost1}<small>Summon ×1</small></button><button class="btn gold big" data-act="summon" data-n="10">${S.tokens >= 10 ? feather(18) + ' 10 Sigils' : ART.icon('gem', 18) + ' ' + fmt(SUMMON.cost10)}<small>Summon ×10 · 1 epic+ guaranteed</small></button></div>
       <p class="pity">Legendary guaranteed in <b>${pityLeft}</b> summon${pityLeft === 1 ? '' : 's'}</p></div>
-      <div class="card"><h4>Odds</h4><p><span class="rar legendary">Legendary ${SUMMON.odds.legendary}%</span> ${SUMMON.legendary.map(id => HERO[id].name).join(', ')} · 10 shards</p><p><span class="rar epic">Epic ${SUMMON.odds.epic}%</span> ${SUMMON.epic.map(id => HERO[id].name.split(' ')[0]).join(', ')} · 5 shards</p><p><span class="rar rare">Rare ${SUMMON.odds.rare}%</span> any hero · 2 shards</p></div>`;
+      <div class="card"><h4>Odds</h4><p><span class="rar legendary">Legendary ${SUMMON.odds.legendary}%</span> ${SUMMON.legendary.map(id => HERO[id].name).join(', ')} · 10 shards</p><p><span class="rar epic">Epic ${SUMMON.odds.epic}%</span> ${SUMMON.epic.map(id => shortName(id)).join(', ')} · 5 shards</p><p><span class="rar rare">Rare ${SUMMON.odds.rare}%</span> any hero · 2 shards</p></div>`;
   }
   function chestsTab() {
     return `<div class="chests">${Object.entries(CHESTS).map(([k, c]) => `<div class="chestcard" style="--c:${c.color}">${chestSVG(c.color, 110)}<h4>${c.name}</h4><p class="muted">${c.desc}</p><button class="btn gold" data-act="openchest" data-k="${k}">${c.cost.gems ? ART.icon('gem', 14) + ' ' + c.cost.gems : ART.icon('gold', 14) + ' ' + fmt(c.cost.gold)}</button></div>`).join('')}</div>`;
   }
   function gemsTab() {
-    const pay = window.RIMAL_PAYMENTS;
+    const pay = window.AELORIA_PAYMENTS;
     return `<p class="muted">Gems are earned in play: quests, achievements, the Season Road, daily gifts, trials and battles.</p><div class="packs">${GEM_PACKS.map((p, i) => `<div class="pack">${p.tag ? `<span class="tag">${p.tag}</span>` : ''}<div class="gempile">${Array.from({ length: Math.min(6, i + 1) }, (_, j) => `<span style="--j:${j}">${ART.icon('gem', 30 + i * 3)}</span>`).join('')}</div><h4>${p.name}</h4><b class="amt">${fmt(p.gems)}${p.bonus ? ` <small>+${fmt(p.bonus)} bonus</small>` : ''}</b>${pay ? `<button class="btn gold" data-act="pack" data-id="${p.id}">${p.price}</button>` : `<button class="btn" disabled title="Purchases open with the mobile release">${p.price}</button>`}</div>`).join('')}</div>
       ${pay ? '' : '<p class="muted center">Gem purchases open with the mobile release. Everything in the Souq can already be earned by playing.</p>'}`;
   }
   async function buyPack(id) {
-    const p = GEM_PACKS.find(x => x.id === id), pay = window.RIMAL_PAYMENTS; if (!p || !pay) return;
+    const p = GEM_PACKS.find(x => x.id === id), pay = window.AELORIA_PAYMENTS; if (!p || !pay) return;
     try { if (await pay.buy(id)) { S.gems += p.gems + p.bonus; S.vip += p.gems; FX.confetti(); FX.sound('chest'); toast(`+${fmt(p.gems + p.bonus)} gems`, 'good'); save(); render(); } } catch (e) { toast('Purchase cancelled', 'bad'); }
   }
   function itemsTab() {

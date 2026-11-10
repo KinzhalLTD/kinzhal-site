@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>Rimal Realms</title>
-<meta name="description" content="Rimal Realms — build a desert kingdom, train an army, lead heroes and claim the Oasis Throne. A kingdom strategy game by Kinzhal LTD Co.">
+<title>Aeloria: Age of Crowns</title>
+<meta name="description" content="Aeloria: Age of Crowns — rule a citadel in one of six realms, recruit heroes from across the world, defeat the Hollow King and reclaim the Sunspire Throne. A kingdom strategy game by Kinzhal LTD Co.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#140f22">
-<meta property="og:title" content="Rimal Realms">
-<meta property="og:description" content="Build a desert kingdom, lead heroes and claim the Oasis Throne.">
+<meta property="og:title" content="Aeloria: Age of Crowns">
+<meta property="og:description" content="Six realms. Thirteen heroes. One shattered crown.">
 <meta property="og:image" content="icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
   <header class="hud">
     <div class="hrow">
       <span id="brand"></span>
-      <div class="who"><b id="hudName">Rimal Realms</b><span id="hudMight"></span></div>
+      <div class="who"><b id="hudName">Aeloria</b><span id="hudMight"></span></div>
       <button class="hbtn" data-act="home" title="World map: my city">🧭</button>
       <button class="hbtn" data-act="sub" data-s="bag" title="Bag">🎒</button>
       <button class="hbtn" data-act="mail" title="Reports">✉<span class="dot" id="mailDot" hidden></span></button>
@@ -45,7 +45,7 @@
     <button data-act="tab" data-tab="army"><svg viewBox="0 0 32 32"><path d="M5 4l16 16-3 3L2 7zM27 4L11 20l3 3L30 7z" fill="#cfd8e2"/><path d="M8 22l3 3-4 4-3-3zM24 22l-3 3 4 4 3-3z" fill="#e8a33d"/></svg>Army</button>
     <button data-act="tab" data-tab="research"><svg viewBox="0 0 32 32"><rect x="6" y="4" width="20" height="24" rx="3" fill="#f2e6cf"/><path d="M6 8h20M6 24h20" stroke="#9c5f2e" stroke-width="3"/><path d="M11 13h10M11 17h10M11 21h6" stroke="#9c5f2e" stroke-width="1.6"/></svg>Research</button>
     <button data-act="tab" data-tab="quests" data-res="pass"><svg viewBox="0 0 32 32"><path d="M16 2l4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z" fill="#ffd36b" stroke="#b9741f" stroke-width="1.5"/></svg>Quests<span class="dot" id="questDot" hidden>!</span></button>
-    <button data-act="tab" data-tab="house"><svg viewBox="0 0 32 32"><path d="M16 2l12 4v9c0 8-6 13-12 15C10 28 4 23 4 15V6z" fill="#2f7d8c" stroke="#e8a33d" stroke-width="2"/><path d="M16 9l2 5h5l-4 3 2 5-5-3-5 3 2-5-4-3h5z" fill="#ffd36b"/></svg>House</button>
+    <button data-act="tab" data-tab="house"><svg viewBox="0 0 32 32"><path d="M16 2l12 4v9c0 8-6 13-12 15C10 28 4 23 4 15V6z" fill="#2f7d8c" stroke="#e8a33d" stroke-width="2"/><path d="M16 9l2 5h5l-4 3 2 5-5-3-5 3 2-5-4-3h5z" fill="#ffd36b"/></svg>Alliance</button>
     <button data-act="tab" data-tab="store" class="store"><svg viewBox="0 0 32 32"><path d="M3 12L7 4h18l4 8z" fill="#b3433a"/><path d="M3 12h26v2H3z" fill="#f2ede4"/><rect x="5" y="14" width="22" height="14" fill="#e3c08a"/><path d="M12 28v-7h8v7z" fill="#5a3418"/><path d="M10 6l-2 6M16 4v8M22 6l2 6" stroke="#f2ede4" stroke-width="1.5"/><path d="M26 2l1.5 3 3 .5-2 2 .5 3-3-1.5-3 1.5.5-3-2-2 3-.5z" fill="#3fd7c8"/></svg>Store<span class="dot" id="storeDot" hidden>!</span></button>
   </nav>
 </div>
@@ -55,19 +55,19 @@
 <div id="intro" hidden>
   <canvas id="introCv"></canvas>
   <i class="lb top"></i><i class="lb bot"></i>
-  <div id="introTap"><div id="introEmblem"></div><h1 class="ttl">RIMAL REALMS</h1><p class="ttl-ar" lang="ar" dir="rtl">ممالك الرمال</p><p class="tapgo">TAP TO BEGIN</p></div>
-  <div id="introTitle"><div id="introEmblem2"></div><h1 class="ttl">RIMAL REALMS</h1><p class="ttl-ar" lang="ar" dir="rtl">ممالك الرمال</p></div>
+  <div id="introTap"><div id="introEmblem"></div><h1 class="ttl">AELORIA</h1><p class="ttl-sub">AGE OF CROWNS</p><p class="ttl-ar" lang="ar" dir="rtl">إيلوريا · عصر التيجان</p><p class="tapgo">TAP TO BEGIN</p></div>
+  <div id="introTitle"><div id="introEmblem2"></div><h1 class="ttl">AELORIA</h1><p class="ttl-sub">AGE OF CROWNS</p></div>
   <div id="introLines"></div>
   <button id="skipIntro" hidden>Skip ›</button>
   <form class="introbox" id="introForm" hidden>
-    <p>Name your lord and raise your banner.</p>
+    <p class="pick-t">Choose your home realm</p><div id="realms"></div><p id="realmDesc" class="muted"></p>
     <input id="lordName" maxlength="24" placeholder="Name your lord" autocomplete="off">
     <div id="colors"></div>
     <button class="btn gold" style="font-size:17px;padding:11px 28px">Found my realm</button>
     <p class="muted" style="margin:10px 0 0">A game by Kinzhal LTD Co. · Progress saves in this browser.</p>
   </form>
 </div>
-<noscript>Rimal Realms needs JavaScript.</noscript>
+<noscript>Aeloria needs JavaScript.</noscript>
 <script src="data.js"></script>
 <script src="art.js"></script>
 <script src="fx.js"></script>

@@ -1,4 +1,4 @@
-/* Rimal Realms — interface styles */
+/* Aeloria: Age of Crowns — interface styles */
 :root{--bg:#120c1f;--panel:#1d1530;--panel2:#2a1f44;--line:#3d2f5e;--ink:#f8eedb;--ink2:#cbbfa6;--gold:#e8a33d;--gold2:#ffd36b;--gold3:#fff1c4;--teal:#3fd7c8;--red:#ff5e3a;--good:#6fe39a;--epic:#b48cff;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);
 --display:"Cinzel","Trajan Pro",Georgia,serif;--body:"Cairo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 --frame:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(160deg,#ffd36b,#7e4a22 40%,#3d2f5e 60%,#e8a33d) border-box}
@@ -308,3 +308,45 @@ dialog::backdrop{background:#05030acc;backdrop-filter:blur(3px)}
 .introbox input{width:100%;background:#0008;border:1px solid var(--line);border-radius:12px;padding:11px 14px;color:var(--ink);text-align:center;font-size:16px;user-select:text}
 #colors{display:flex;justify-content:center;gap:10px;margin:12px 0 14px}.sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;box-shadow:inset 0 -4px #0004}.sw.on{border-color:#fff;box-shadow:0 0 0 2px var(--gold),0 0 14px #ffd36b}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ---------- Aeloria additions ---------- */
+.ttl-sub{margin:0;font:700 clamp(13px,2.6vw,18px) var(--display);letter-spacing:.55em;color:var(--gold3);text-shadow:0 2px 8px #000}
+.pick-t{font:800 13px var(--display)!important;letter-spacing:.12em;color:var(--gold2)!important;text-transform:uppercase}
+#realms{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:6px}
+.realm{background:linear-gradient(160deg,color-mix(in srgb,var(--rc) 55%,#140f22),#140f22);border:2px solid #ffffff22;border-radius:12px;padding:7px 4px;display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center}
+.realm b{font:800 12px var(--display);color:#fff}.realm small{font-size:10.5px;color:var(--gold3);line-height:1.2}
+.realm.on{border-color:var(--gold2);box-shadow:0 0 0 1px var(--gold2),0 0 16px color-mix(in srgb,var(--rc) 70%,transparent)}
+#realmDesc{min-height:2.6em;margin:2px 0 8px!important}
+.hero{position:relative}.hero .rtag{position:absolute;top:6px;left:6px}
+.rtag{display:inline-block;font:900 9px var(--display);letter-spacing:.08em;text-transform:uppercase;border-radius:5px;padding:1px 6px;background:#5a8ac9;color:#081a30}
+.r-epic .rtag{background:var(--epic);color:#1b0f30}.r-legendary .rtag{background:linear-gradient(#ffe08a,#e8a33d);color:#2a1508}
+.hero.r-epic{box-shadow:0 0 0 1.5px #b48cff88}.hero.r-legendary{box-shadow:0 0 0 1.5px #ffd36b,0 0 18px #ffd36b44}
+.hero.insq{box-shadow:0 0 0 2px var(--teal),0 0 16px #3fd7c855}
+.hhead{display:flex;gap:14px;align-items:center;margin-bottom:6px}.hhead p{margin:3px 0}
+.hport .portrait{border-radius:18px;border:3px solid #5a8ac9;box-shadow:0 8px 24px #000a}.r-epic .hport .portrait{border-color:var(--epic)}.r-legendary .hport .portrait{border-color:#ffd36b;box-shadow:0 0 26px #ffd36b66}
+.realmtag{font:800 12px var(--display);color:color-mix(in srgb,var(--rc) 60%,#fff)}
+.bio{font-style:italic;color:var(--ink2);border-left:3px solid var(--gold);padding:4px 10px;margin:8px 0;background:#0003;border-radius:0 10px 10px 0}
+.chapter{border:1.5px solid color-mix(in srgb,var(--rc) 55%,transparent);border-radius:16px;padding:8px;background:linear-gradient(160deg,color-mix(in srgb,var(--rc) 22%,transparent),transparent 60%)}
+.chead{display:flex;align-items:center;gap:10px;margin-bottom:8px}.chead>div:nth-child(2){flex:1;min-width:0}.chead small{font:800 10.5px var(--display);letter-spacing:.1em;text-transform:uppercase;color:color-mix(in srgb,var(--rc) 50%,#fff)}.chead h4{margin:0!important}
+.cboss .portrait{border-radius:12px;border:2px solid #ff5e3a88}
+.stage.next{border-color:var(--gold2);box-shadow:0 0 12px #ffd36b66;animation:glowb 1s infinite alternate}.stage small.join{color:var(--good);font-weight:800}
+.joined{display:flex;align-items:center;gap:10px;background:#0008;border:2px solid var(--good);border-radius:14px;padding:6px 12px;animation:zoomin .6s 1s backwards cubic-bezier(.2,1.6,.4,1)}.joined small{display:block;color:var(--good);font-weight:800;font-size:11px;text-transform:uppercase}.joined b{font-size:14px}
+.painted{object-fit:cover;border-radius:12px;display:block}
+/* story cutscenes */
+.story{position:fixed;inset:0;z-index:118;cursor:pointer;animation:fadein .4s;overflow:hidden}
+.story.out{animation:fadeout .4s forwards}
+.st-bg{position:absolute;inset:0;background:radial-gradient(circle at 50% 35%,#3c2a6bdd,#05030af2 75%)}
+.story .lb{position:absolute;left:0;right:0;height:10vh;background:#000;z-index:2}.story .lb.top{top:0}.story .lb.bot{bottom:0}
+.st-title{position:absolute;top:calc(10vh + 12px);left:0;right:0;text-align:center;font:900 13px var(--display);letter-spacing:.3em;text-transform:uppercase;color:var(--gold3);z-index:3;opacity:.9}
+.st-art{position:absolute;left:0;right:0;bottom:calc(10vh + 120px);top:calc(10vh + 40px);display:flex;align-items:flex-end;padding:0 6%}
+.st-portrait{animation:stin .45s cubic-bezier(.2,1.3,.4,1)}.st-portrait.r{margin-left:auto}
+.st-portrait .portrait{width:min(240px,48vw);height:min(240px,48vw);border-radius:22px;border:3px solid var(--c);box-shadow:0 0 40px color-mix(in srgb,var(--c) 60%,transparent),0 16px 30px #000c}
+@keyframes stin{from{transform:translateY(30px) scale(.92);opacity:0}}
+.st-box{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(10vh + 14px);width:min(720px,94vw);min-height:96px;z-index:3;background:linear-gradient(#1d1530f5,#120c1ff5);border:2px solid #e8a33d99;border-radius:16px;padding:12px 16px 14px;box-shadow:0 10px 30px #000c}
+.st-box.narr{background:#000c;border-color:#ffffff22;text-align:center}
+.st-name{display:block;font:900 14px var(--display);color:var(--gold2);letter-spacing:.06em;margin-bottom:4px}
+.st-text{margin:0;font:600 clamp(15px,2.6vw,18px)/1.5 var(--body);color:#fff6e0}.narr .st-text{font:700 clamp(15px,2.8vw,20px)/1.5 var(--display)}
+.st-next{position:absolute;right:14px;bottom:8px;color:var(--gold2);animation:blink 1s infinite}
+.st-skip{position:absolute;right:14px;top:calc(10vh + 8px);z-index:4;background:#0008;border:1px solid #fff4;border-radius:999px;color:#fff;padding:4px 12px;font-weight:700}
+.st-scene{position:absolute;inset:0}.st-scene .arena{animation:kenburns 14s ease-out forwards}@keyframes kenburns{from{transform:scale(1.15)}to{transform:scale(1)}}
+.st-bg.over{background:linear-gradient(#05030a99,#05030a44 40%,#05030acc)}

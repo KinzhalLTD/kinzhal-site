@@ -1,7 +1,7 @@
 {
-  "name": "Rimal Realms",
-  "short_name": "Rimal Realms",
-  "description": "Build a desert kingdom, lead heroes and claim the Oasis Throne.",
+  "name": "Aeloria: Age of Crowns",
+  "short_name": "Aeloria",
+  "description": "Six realms. Thirteen heroes. One shattered crown.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

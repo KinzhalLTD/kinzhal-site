@@ -1,15 +1,15 @@
 [
  {
-  "slug": "rimal-realms",
-  "name": "Rimal Realms",
-  "nameAr": "ممالك الرمال",
+  "slug": "aeloria",
+  "name": "Aeloria: Age of Crowns",
+  "nameAr": "إيلوريا: عصر التيجان",
   "genre": "Strategy · kingdom builder",
   "genreAr": "استراتيجية · بناء الممالك",
   "status": "live",
   "color": "#e8a33d",
   "appStoreId": "",
-  "about": "Raise a desert citadel, farm dates and quarry sandstone, train spearmen, archers, camel riders and ballistae, lead nine heroes through the Hero Trials, crush bandit camps, outwit nine rival lords and claim the Oasis Throne. Plays in any browser on phone or computer.",
-  "aboutAr": "ابنِ قلعتك في الصحراء، ازرع النخيل واقطع الحجر، درّب الرماحين والرماة وراكبي الهجن والمجانيق، وقُد تسعة أبطال في تحديات الأبطال، واهزم معسكرات قطاع الطرق والأمراء المنافسين، واستولِ على عرش الواحة."
+  "about": "Six realms, thirteen heroes, one shattered crown. Raise a citadel in Greenhold, Frostmark, the Amber Sultanate, the Jade Dominion, the Coral Isles or Sunveldt; recruit champions from every corner of the world; follow a six-chapter story against the Hollow King; explore a fog-covered continent and reclaim the Sunspire Throne. Plays in any browser on phone or computer.",
+  "aboutAr": "ست ممالك وثلاثة عشر بطلاً وتاج واحد محطّم. ابنِ قلعتك في إحدى الممالك الست، واجمع أبطالاً من كل أنحاء العالم، واتبع قصة من ستة فصول ضد الملك الأجوف، واكتشف قارة يغطيها الضباب، واستعد عرش برج الشمس."
  },
  {
   "slug": "brick-blast",

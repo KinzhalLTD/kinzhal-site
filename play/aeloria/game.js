@@ -1,4 +1,4 @@
-// Rimal Realms — kingdom strategy. Game state, simulation and interface.
+// Aeloria: Age of Crowns — kingdom strategy. Game state, simulation and interface.
 'use strict';
 const $ = s => document.querySelector(s);
 const now = () => Date.now();
@@ -8,23 +8,21 @@ const fmtT = s => { s = Math.max(0, Math.ceil(s)); const d = Math.floor(s / 8640
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 const pick = a => a[Math.floor(Math.random() * a.length)];
-const SAVE_KEY = 'rimal-realms-save-v1';
-const W = 40, H = 40;
-
+const SAVE_KEY = GAME.saveKey;
 let S; // the whole game state (saved to localStorage)
 
 /* ======================= state ======================= */
-function newState(name, color) {
+function newState(name, color, realm) {
   const s = {
-    v: 1, name, color, created: now(), last: now(),
+    v: 1, name, color, realm: realm || 'greenhold', created: now(), last: now(),
     res: { grain: 6000, timber: 6000, stone: 4000, ore: 1500, gold: 3000 }, gems: 300,
     b: { citadel: 1, barracks: 1, mews: 1, academy: 0, infirmary: 0, vault: 0, tower: 0, wall: 0, embassy: 0, market: 0 },
     fields: Array(16).fill(null),
     queue: [], builderUntil: 0,
     troops: { inf1: 60, rng1: 40, cav1: 20 }, wounded: {}, training: null,
     tech: {}, rq: null,
-    heroes: { rania: { lvl: 1, xp: 0, stars: 1, shards: 0 }, tariq: { lvl: 1, xp: 0, stars: 1, shards: 0 }, noor: { lvl: 1, xp: 0, stars: 1, shards: 0 } },
-    squad: ['tariq', 'rania', 'noor'], stages: {}, vigor: 60, vigorT: now(),
+    heroes: Object.fromEntries(STARTERS.map(id => [id, { lvl: 1, xp: 0, stars: 1, shards: 0 }])),
+    squad: [...STARTERS], seenStory: {}, stages: {}, vigor: 60, vigorT: now(),
     items: { sp5: 3, sp60: 1, shield: 1, crate: 1, scroll: 2 }, shieldUntil: now() + 3600e3,
     marches: [], reports: [], unread: 0, quest: 0, chestAt: now(),
     stats: { trained: 0, gathered: 0, camps: 0, campMax: 0, scouts: 0, rivals: 0, stageWins: 0 },
@@ -36,38 +34,166 @@ function newState(name, color) {
   return META.migrate(s);
 }
 
+const W = 56, H = 56, CX = 28, CY = 28;
+const REGION_SEEDS = { frostmark: [28, 8], greenhold: [9, 24], jade: [47, 20], sunveldt: [11, 45], amber: [28, 47], coral: [46, 44], ash: [16, 12], sunspire: [CX, CY] };
+const REGION_COL = {
+  frostmark: [[236, 242, 248], [196, 210, 226]], greenhold: [[134, 178, 92], [96, 142, 66]], jade: [[120, 170, 120], [84, 140, 100]], sunveldt: [[214, 188, 104], [180, 150, 76]],
+  amber: [[238, 206, 150], [214, 172, 112]], coral: [[240, 222, 172], [200, 176, 120]], ash: [[78, 72, 80], [52, 46, 54]], sunspire: [[226, 210, 160], [196, 176, 120]]
+};
+const REGION_RES = { frostmark: ['ore', 'stone', 'timber'], greenhold: ['grain', 'timber', 'grain'], jade: ['timber', 'grain', 'stone'], sunveldt: ['grain', 'ore', 'gold'], amber: ['gold', 'stone', 'grain'], coral: ['gold', 'grain', 'timber'], ash: ['ore', 'ore', 'stone'], sunspire: ['gold', 'stone'] };
+const REGION_TREE = { frostmark: 'pine', greenhold: 'oak', jade: 'bamboo', sunveldt: 'acacia', amber: 'palm', coral: 'palm', ash: 'dead', sunspire: 'oak' };
+const REGION_NAME = { ...Object.fromEntries(Object.entries(REALMS).map(([k, v]) => [k, v.name])), ash: 'The Ashen Scar', sunspire: 'The Sunspire' };
+
+/* ---------- terrain: rebuilt from the seed each session (not saved) ---------- */
+let TERR = null;
+function valueNoise(seed) {
+  const hash = (x, y) => { let h = (x * 374761393 + y * 668265263 + seed * 1442695041) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const sm = t => t * t * (3 - 2 * t);
+  const n = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = sm(x - xi), yf = sm(y - yi); const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1); return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf; };
+  return (x, y) => n(x, y) * .5 + n(x * 2.1, y * 2.1) * .25 + n(x * 4.3, y * 4.3) * .15 + n(x * 8.7, y * 8.7) * .1;
+}
+function buildTerrain(seed) {
+  const N = valueNoise(seed % 100000), N2 = valueNoise((seed + 77) % 100000);
+  const T = { h: new Float32Array(W * H), region: new Array(W * H), water: new Uint8Array(W * H), mount: new Uint8Array(W * H), forest: new Uint8Array(W * H), river: new Uint8Array(W * H) };
+  const seeds = Object.entries(REGION_SEEDS);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    let e = N(x * .085, y * .085);
+    const edge = Math.min(x, y, W - 1 - x, H - 1 - y) / 7; e -= (1 - Math.min(1, edge)) * .55;
+    const jx = x + (N2(x * .2, y * .2) - .5) * 9, jy = y + (N2(y * .2 + 9, x * .2) - .5) * 9;
+    let best = 'greenhold', bd = 1e9; for (const [k, [sx, sy]] of seeds) { const d = Math.hypot(jx - sx, jy - sy) * (k === 'sunspire' ? 1.9 : k === 'ash' ? 1.25 : 1); if (d < bd) { bd = d; best = k; } }
+    if (best === 'coral') e -= .16; if (best === 'sunspire') e += .12;
+    T.h[i] = e; T.region[i] = best;
+  }
+  for (let i = 0; i < W * H; i++) { T.water[i] = T.h[i] < .3 ? 1 : 0; T.mount[i] = !T.water[i] && T.h[i] > .7 && T.region[i] !== 'sunspire' ? 1 : 0; }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (!T.water[i] && !T.mount[i] && N2(x * .18 + 40, y * .18) > .56 && T.region[i] !== 'amber' && T.region[i] !== 'sunspire') T.forest[i] = 1; }
+  // rivers: walk downhill from a few high points
+  const r = rng(seed + 5); const tops = [];
+  for (let i = 0; i < W * H; i++) if (T.mount[i] && r() < .05) tops.push(i);
+  T.rivers = [];
+  for (const s of tops.slice(0, 7)) { let i = s, guard = 0; const path = []; T.rivers.push(path); while (guard++ < 80) { path.push(i); if (T.water[i]) break; T.river[i] = 1; const x = i % W, y = (i / W) | 0; let nb = i, nh = T.h[i]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue; const j = yy * W + xx; if (T.h[j] < nh && !T.river[j]) { nh = T.h[j]; nb = j; } } if (nb === i) break; i = nb; } }
+  for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) { const i = (CY + dy) * W + CX + dx; T.water[i] = 0; T.mount[i] = 0; T.forest[i] = 0; T.river[i] = 0; }
+  T.canvas = paintTerrain(T, seed); return T;
+}
+const tIdx = (x, y) => y * W + x;
+const isLand = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && !TERR.water[tIdx(x, y)] && !TERR.mount[tIdx(x, y)];
+const TB = 40;
+function paintTerrain(T, seed) {
+  const small = document.createElement('canvas'); small.width = W; small.height = H; const sx = small.getContext('2d'); const img = sx.createImageData(W, H);
+  const hAt = (x, y) => T.h[tIdx(clamp(x, 0, W - 1), clamp(y, 0, H - 1))];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = tIdx(x, y), e = T.h[i]; let c;
+    if (T.water[i]) { const d = clamp((.3 - e) / .3, 0, 1); c = [Math.round(90 - 60 * d), Math.round(190 - 90 * d), Math.round(215 - 60 * d)]; if (T.region[i] === 'coral') c = [Math.round(60 - 30 * d), Math.round(205 - 80 * d), Math.round(214 - 50 * d)]; if (T.region[i] === 'frostmark') c = [Math.round(70 - 40 * d), Math.round(140 - 60 * d), Math.round(180 - 50 * d)]; }
+    else {
+      const [a, b] = REGION_COL[T.region[i]]; const k = clamp((e - .3) / .45, 0, 1); c = a.map((v, j) => v + (b[j] - v) * k);
+      const shore = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const xx = x + dx, yy = y + dy; return xx >= 0 && yy >= 0 && xx < W && yy < H && T.water[tIdx(xx, yy)]; });
+      if (shore && T.region[i] !== 'frostmark' && T.region[i] !== 'ash') c = c.map((v, j) => v + ([240, 224, 180][j] - v) * .55);
+      if (T.forest[i]) c = c.map(v => v * .86);
+      if (T.mount[i]) c = c.map((v, j) => v * .78 + [120, 110, 100][j] * .22);
+      const light = (hAt(x - 1, y - 1) - hAt(x + 1, y + 1)) * 160; c = c.map(v => v + light);
+    }
+    img.data.set([...c.map(v => clamp(Math.round(v), 0, 255)), 255], i * 4);
+  }
+  sx.putImageData(img, 0, 0);
+  const cv = document.createElement('canvas'); cv.width = W * TB; cv.height = H * TB; const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(small, -TB / 2, -TB / 2, (W + 1) * TB, (H + 1) * TB);
+  const r = rng(seed + 11);
+  // grain
+  for (let i = 0; i < 9000; i++) { ctx.fillStyle = r() < .5 ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.05)'; ctx.fillRect(r() * cv.width, r() * cv.height, 2 + r() * 3, 1 + r() * 2); }
+  // sunspire plaza
+  const g = ctx.createRadialGradient(CX * TB + TB / 2, CY * TB + TB / 2, 0, CX * TB + TB / 2, CY * TB + TB / 2, TB * 3.4); g.addColorStop(0, 'rgba(255,230,160,.9)'); g.addColorStop(.7, 'rgba(232,200,130,.6)'); g.addColorStop(1, 'rgba(232,200,130,0)'); ctx.fillStyle = g; ctx.fillRect((CX - 4) * TB, (CY - 4) * TB, TB * 9, TB * 9);
+  // roads from each realm to the Sunspire
+  ctx.lineCap = 'round';
+  for (const [k, [sx2, sy2]] of Object.entries(REGION_SEEDS)) { if (k === 'sunspire' || k === 'ash') continue; const ax = sx2 * TB + TB / 2, ay = sy2 * TB + TB / 2, bx = CX * TB + TB / 2, by = CY * TB + TB / 2, mx = (ax + bx) / 2 + (r() - .5) * TB * 6, my = (ay + by) / 2 + (r() - .5) * TB * 6;
+    ctx.strokeStyle = 'rgba(90,60,30,.35)'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(mx, my, bx, by); ctx.stroke();
+    ctx.strokeStyle = 'rgba(226,200,150,.85)'; ctx.lineWidth = 5; ctx.setLineDash([14, 8]); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(mx, my, bx, by); ctx.stroke(); ctx.setLineDash([]); }
+  // rivers (smooth curves through tile centres)
+  for (const path of T.rivers) { if (path.length < 3) continue; const pts = path.map(k => [(k % W) * TB + TB / 2 + (r() - .5) * 10, ((k / W) | 0) * TB + TB / 2 + (r() - .5) * 10]);
+    for (const [col, lw] of [['#2f6f9f', 9], ['#5fb0e0', 5], ['#b8e4f8', 1.6]]) { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(...pts[0]); for (let q = 1; q < pts.length - 1; q++) { const mx = (pts[q][0] + pts[q + 1][0]) / 2, my = (pts[q][1] + pts[q + 1][1]) / 2; ctx.quadraticCurveTo(pts[q][0], pts[q][1], mx, my); } ctx.lineTo(...pts[pts.length - 1]); ctx.stroke(); } }
+  // coast foam + waves
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = tIdx(x, y), px = x * TB, py = y * TB;
+    if (T.water[i]) {
+      const coast = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const xx = x + dx, yy = y + dy; return xx >= 0 && yy >= 0 && xx < W && yy < H && !T.water[tIdx(xx, yy)]; });
+      if (coast) { const fg = ctx.createRadialGradient(px + TB / 2, py + TB / 2, 0, px + TB / 2, py + TB / 2, TB * .75); fg.addColorStop(0, 'rgba(255,255,255,.22)'); fg.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = fg; ctx.fillRect(px - TB * .25, py - TB * .25, TB * 1.5, TB * 1.5); }
+      else if (r() < .12) { ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(px + 8, py + 20); ctx.quadraticCurveTo(px + 14, py + 14, px + 20, py + 20); ctx.quadraticCurveTo(px + 26, py + 26, px + 32, py + 20); ctx.stroke(); }
+      continue;
+    }
+    const reg = T.region[i];
+    if (T.mount[i]) {
+      for (let k = 0; k < 2; k++) { const mx = px + TB * (.25 + k * .45) + r() * 6, my = py + TB * .85, mh = TB * (.7 + r() * .4), mw = TB * .42;
+        ctx.fillStyle = reg === 'ash' ? '#3a3238' : '#8a8478'; ctx.beginPath(); ctx.moveTo(mx - mw, my); ctx.lineTo(mx, my - mh); ctx.lineTo(mx + mw, my); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.moveTo(mx, my - mh); ctx.lineTo(mx + mw, my); ctx.lineTo(mx + mw * .2, my); ctx.fill();
+        ctx.fillStyle = reg === 'ash' ? '#ff7a2a' : '#f6f8fb'; ctx.beginPath(); ctx.moveTo(mx - mw * .32, my - mh * .68); ctx.lineTo(mx, my - mh); ctx.lineTo(mx + mw * .32, my - mh * .68); ctx.lineTo(mx + mw * .1, my - mh * .6); ctx.lineTo(mx - mw * .05, my - mh * .72); ctx.fill(); }
+    } else if (T.forest[i]) {
+      for (let k = 0; k < 3; k++) ART.mapPaint.tree(ctx, REGION_TREE[reg], px + 8 + r() * (TB - 16), py + 18 + r() * (TB - 18), TB * (.55 + r() * .25));
+    } else if (r() < (reg === 'amber' ? .0 : .1)) ART.mapPaint.tree(ctx, REGION_TREE[reg], px + r() * TB, py + 12 + r() * (TB - 12), TB * .5);
+    if (reg === 'amber' && r() < .35) { ctx.strokeStyle = 'rgba(160,110,60,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px + 4, py + 28); ctx.quadraticCurveTo(px + 20, py + 16 + r() * 8, px + 36, py + 28); ctx.stroke(); }
+    if (reg === 'ash' && r() < .3) { ctx.strokeStyle = 'rgba(255,122,42,.7)'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(px + r() * TB, py + r() * TB); ctx.lineTo(px + r() * TB, py + r() * TB); ctx.lineTo(px + r() * TB, py + r() * TB); ctx.stroke(); }
+    if (reg === 'jade' && r() < .12) { ctx.fillStyle = 'rgba(255,190,210,.8)'; ctx.beginPath(); ctx.arc(px + r() * TB, py + r() * TB, 4, 0, 7); ctx.fill(); }
+    if (reg === 'frostmark' && r() < .2) { ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(px + r() * TB, py + r() * TB, 7, 3, 0, 0, 7); ctx.fill(); }
+  }
+  // realm borders
+  ctx.strokeStyle = 'rgba(40,20,60,.35)'; ctx.lineWidth = 2; ctx.setLineDash([4, 6]);
+  for (let y = 0; y < H - 1; y++) for (let x = 0; x < W - 1; x++) { const i = tIdx(x, y); if (T.water[i]) continue; if (T.region[i] !== T.region[i + 1] && !T.water[i + 1]) { ctx.beginPath(); ctx.moveTo((x + 1) * TB, y * TB); ctx.lineTo((x + 1) * TB, (y + 1) * TB); ctx.stroke(); } if (T.region[i] !== T.region[i + W] && !T.water[i + W]) { ctx.beginPath(); ctx.moveTo(x * TB, (y + 1) * TB); ctx.lineTo((x + 1) * TB, (y + 1) * TB); ctx.stroke(); } }
+  ctx.setLineDash([]);
+  // vignette edges
+  const vg = ctx.createRadialGradient(cv.width / 2, cv.height / 2, cv.width * .3, cv.width / 2, cv.height / 2, cv.width * .75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(10,20,40,.45)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, cv.width, cv.height);
+  return cv;
+}
+
+/* ---------- objects ---------- */
 function genWorld(s) {
+  TERR = buildTerrain(s.seed);
   const r = rng(s.seed), occ = new Set(), objs = [];
-  const take = (x, y) => occ.add(x + ',' + y), free = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && !occ.has(x + ',' + y);
-  for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) take(20 + dx, 20 + dy);
-  objs.push({ id: 1, kind: 'throne', x: 20, y: 20, troops: { inf3: 9000, rng3: 9000, cav3: 7000, sie3: 3000 }, wall: 18 });
-  s.home = { x: 20 + Math.floor(r() * 10 - 5), y: 31 + Math.floor(r() * 4) }; take(s.home.x, s.home.y);
+  const take = (x, y) => occ.add(x + ',' + y), free = (x, y) => isLand(x, y) && !occ.has(x + ',' + y);
+  for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) take(CX + dx, CY + dy);
+  objs.push({ id: 1, kind: 'throne', x: CX, y: CY, troops: { inf3: 9000, rng3: 9000, cav3: 7000, sie3: 3000 }, wall: 18 });
+  const near = (cx, cy, dmin, dmax) => { for (let i = 0; i < 600; i++) { const a = r() * 6.283, d = dmin + r() * (dmax - dmin), x = Math.round(cx + Math.cos(a) * d), y = Math.round(cy + Math.sin(a) * d); if (free(x, y)) return [x, y]; } for (let i = 0; i < 2000; i++) { const x = 1 + Math.floor(r() * (W - 2)), y = 1 + Math.floor(r() * (H - 2)); if (free(x, y)) return [x, y]; } return [cx, cy]; };
+  const [hx, hy] = REGION_SEEDS[s.realm] || REGION_SEEDS.greenhold; const hp = near(hx, hy, 0, 4); s.home = { x: hp[0], y: hp[1] }; take(...hp);
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) take(s.home.x + dx, s.home.y + dy);
   let id = 2;
-  const spot = (minD = 0) => { for (let i = 0; i < 400; i++) { const x = 1 + Math.floor(r() * (W - 2)), y = 1 + Math.floor(r() * (H - 2)); if (free(x, y) && Math.hypot(x - s.home.x, y - s.home.y) >= minD) return [x, y]; } return null; };
-  RIVALS.forEach(([name, color], i) => {
-    const p = spot(6); if (!p) return; take(...p);
-    const lvl = 3 + i; const k = 1 + i * .55;
-    objs.push({ id: id++, kind: 'city', ai: true, x: p[0], y: p[1], name, color, lvl, wall: Math.floor(lvl / 2),
+  RIVALS.forEach(([name, realm], i) => {
+    const [sx, sy] = REGION_SEEDS[realm]; const p = near(sx, sy, realm === s.realm ? 7 : 2, realm === s.realm ? 11 : 8); take(...p);
+    const lvl = 3 + i, k = 1 + i * .5;
+    objs.push({ id: id++, kind: 'city', ai: true, x: p[0], y: p[1], name, realm, color: REALMS[realm].color, lvl, wall: Math.floor(lvl / 2),
       troops: { inf1: Math.floor(220 * k), rng1: Math.floor(180 * k), cav1: Math.floor(150 * k), ...(i > 3 ? { inf2: Math.floor(90 * k), rng2: Math.floor(70 * k) } : {}), ...(i > 6 ? { cav3: Math.floor(40 * k) } : {}) },
       res: { grain: 8000 * k, timber: 8000 * k, stone: 5000 * k, ore: 2000 * k, gold: 3000 * k } });
   });
-  for (let i = 0; i < 150; i++) { const p = spot(); if (!p) break; take(...p); objs.push(makeNode(id++, p, r)); }
-  for (let i = 0; i < 70; i++) { const p = spot(2); if (!p) break; take(...p); objs.push(makeCamp(id++, p, r)); }
+  const anywhere = () => { for (let i = 0; i < 3000; i++) { const x = 1 + Math.floor(r() * (W - 2)), y = 1 + Math.floor(r() * (H - 2)); if (free(x, y) && Math.hypot(x - s.home.x, y - s.home.y) > 3) return [x, y]; } return near(s.home.x, s.home.y, 3, 20); };
+  for (let i = 0; i < 12; i++) { const p = near(s.home.x, s.home.y, 2.5, 7); take(...p); objs.push(i < 8 ? makeNode(id++, p, r) : makeCamp(id++, p, r)); }
+  for (let i = 0; i < 150; i++) { const p = anywhere(); take(...p); objs.push(makeNode(id++, p, r)); }
+  for (let i = 0; i < 24; i++) { const p = near(...REGION_SEEDS.ash, 1, 8); take(...p); objs.push(makeCamp(id++, p, r)); }
+  for (let i = 0; i < 56; i++) { const p = anywhere(); take(...p); objs.push(makeCamp(id++, p, r)); }
   s.world = objs; s.nextId = id;
+  s.fog = '0'.repeat(W * H); reveal(s, s.home.x, s.home.y, 7);
 }
-const ringLevel = (x, y, r) => clamp(Math.round((1 - Math.hypot(x - 20, y - 20) / 22) * 5 + r() * 1.6), 1, 6);
-function makeNode(id, [x, y], r = Math.random) { const kind = pick(RES); const lvl = ringLevel(x, y, r); return { id, kind: 'node', res: kind, x, y, lvl, amount: Math.floor((kind === 'gold' ? 6000 : 20000) * lvl * (1 + lvl * .2)) }; }
+const regionAt = (x, y) => TERR ? TERR.region[tIdx(clamp(x, 0, W - 1), clamp(y, 0, H - 1))] : 'greenhold';
+const ringLevel = (x, y, r) => clamp(Math.round((1 - Math.hypot(x - CX, y - CY) / 30) * 6 + r() * 1.6 + (regionAt(x, y) === 'ash' ? 2 : 0)), 1, 8);
+function makeNode(id, [x, y], r = Math.random) { const kind = pick(REGION_RES[regionAt(x, y)] || RES); const lvl = clamp(ringLevel(x, y, r) - 1, 1, 6); return { id, kind: 'node', res: kind, x, y, lvl, amount: Math.floor((kind === 'gold' ? 6000 : 20000) * lvl * (1 + lvl * .2)) }; }
 function makeCamp(id, [x, y], r = Math.random) {
   const lvl = clamp(ringLevel(x, y, r) + Math.floor(r() * 3) - 2, 1, 10);
   const n = Math.floor(30 * Math.pow(lvl, 1.6)), tier = lvl >= 8 ? 3 : lvl >= 5 ? 2 : 1;
   return { id, kind: 'camp', x, y, lvl, troops: { ['inf' + tier]: Math.floor(n * .4), ['rng' + tier]: Math.floor(n * .35), ['cav' + tier]: Math.floor(n * .25) } };
 }
-function freeSpot() { const occ = new Set(S.world.map(o => o.x + ',' + o.y)); occ.add(S.home.x + ',' + S.home.y); for (let i = 0; i < 500; i++) { const x = 1 + Math.floor(Math.random() * (W - 2)), y = 1 + Math.floor(Math.random() * (H - 2)); if (!occ.has(x + ',' + y) && Math.hypot(x - 20, y - 20) > 2.5) return [x, y]; } return [1, 1]; }
+function freeSpot() { const occ = new Set(S.world.map(o => o.x + ',' + o.y)); occ.add(S.home.x + ',' + S.home.y); for (let i = 0; i < 800; i++) { const x = 1 + Math.floor(Math.random() * (W - 2)), y = 1 + Math.floor(Math.random() * (H - 2)); if (isLand(x, y) && !occ.has(x + ',' + y) && Math.hypot(x - CX, y - CY) > 3) return [x, y]; } return [S.home.x + 2, S.home.y]; }
+function reveal(s, cx, cy, rad) {
+  const f = s.fog.split(''); for (let y = Math.max(0, cy - rad); y <= Math.min(H - 1, cy + rad); y++) for (let x = Math.max(0, cx - rad); x <= Math.min(W - 1, cx + rad); x++) if (Math.hypot(x - cx, y - cy) <= rad + .3) f[tIdx(x, y)] = '1';
+  s.fog = f.join(''); fogDirty = true;
+}
+const seen = (x, y) => S.fog[tIdx(x, y)] === '1';
+let fogCv = null, fogDirty = true;
+function fogCanvas() {
+  if (!fogCv) { fogCv = document.createElement('canvas'); fogCv.width = W + 2; fogCv.height = H + 2; }
+  if (fogDirty) { const c = fogCv.getContext('2d'), img = c.createImageData(W + 2, H + 2); for (let y = 0; y < H + 2; y++) for (let x = 0; x < W + 2; x++) { const s2 = x > 0 && y > 0 && x <= W && y <= H && S.fog[tIdx(x - 1, y - 1)] === '1'; img.data.set([22, 16, 40, s2 ? 0 : 228], (y * (W + 2) + x) * 4); } c.putImageData(img, 0, 0); fogDirty = false; }
+  return fogCv;
+}
 
 function save() { try { S.last = now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* storage blocked: game still runs */ } }
 function load() { try { const j = localStorage.getItem(SAVE_KEY); if (j) { const s = JSON.parse(j); if (s && s.v === 1) return META.migrate(s); } } catch (e) { } return null; }
 
 /* ======================= economy ======================= */
+const RB = k => (REALMS[S.realm] && REALMS[S.realm].bonus[k]) || 0;
 const tech = id => (S.tech[id] || 0) * (TECHM[id]?.eff || 0);
 const prodBoost = { grain: 'agri', timber: 'forest', stone: 'mason', ore: 'metal' };
 const fieldRate = L => L ? 800 * L * Math.pow(1.13, L - 1) : 0; // per hour
@@ -76,6 +202,7 @@ function rates() {
   S.fields.forEach(f => { if (f && f.l) r[BLD[f.t].field] += fieldRate(f.l); });
   for (const k of ['grain', 'timber', 'stone', 'ore']) r[k] = r[k] * (1 + tech(prodBoost[k])) + 120;
   r.gold = 200 + 160 * S.b.citadel + 260 * S.b.market;
+  r.grain *= 1 + RB('grain'); r.gold *= 1 + RB('gold');
   const vb = 1 + vipLvl() * .03; for (const k of RES) r[k] *= vb;
   r.upkeep = troopCount(S.troops) * 0.25; // grain eaten per hour
   r.grain -= r.upkeep;
@@ -117,7 +244,7 @@ function give(r, label) {
   for (const [k, v] of Object.entries(r || {})) {
     if (k === 'items') for (const [i, n] of Object.entries(v)) { S.items[i] = (S.items[i] || 0) + n; parts.push(`${n}× ${ITEMS[i].name}`); }
     else if (k === 'gems') { S.gems += v; parts.push(`${v} gems`); }
-    else if (k === 'shards') for (const [h, n] of Object.entries(v)) { addShards(h, n); parts.push(`${n} ${HERO[h].name.split(' ')[0]} shards`); }
+    else if (k === 'shards') for (const [h, n] of Object.entries(v)) { addShards(h, n); parts.push(`${n} ${shortName(h)} shards`); }
     else if (RES.includes(k)) { S.res[k] += v; parts.push(`${fmt(v)} ${RNAME[k]}`); }
   }
   if (label && parts.length) toast(`${label}: ${parts.join(', ')}`);
@@ -164,7 +291,7 @@ function finishBuild(q) {
 /* ======================= training & healing ======================= */
 const tierOpen = tier => tier === 1 || (tier === 2 && S.tech.tier2) || (tier === 3 && S.tech.tier3);
 const trainCost = (type, tier, n) => { const c = {}; for (const [k, v] of Object.entries(TROOP[type].cost)) c[k] = Math.ceil(v * TIER_MULT[tier - 1] * .8 * n); return c; };
-const trainTime = (tier, n) => TIER_TIME[tier - 1] * n / (1 + tech('drill') + S.b.barracks * .04);
+const trainTime = (tier, n) => TIER_TIME[tier - 1] * n / (1 + tech('drill') + S.b.barracks * .04 + RB('train'));
 const batchMax = () => 50 + S.b.barracks * 60;
 function startTraining(type, tier, n) {
   if (S.training) return toast('The Barracks are already training', 'bad');
@@ -191,14 +318,14 @@ function healAll() {
 
 /* ======================= research ======================= */
 const techCost = (t, to) => ({ grain: Math.floor(600 * Math.pow(1.7, to - 1)), timber: Math.floor(500 * Math.pow(1.7, to - 1)), ore: Math.floor(150 * Math.pow(1.7, to - 1)), gold: Math.floor(500 * Math.pow(1.75, to - 1) * (t.max === 1 ? 4 : 1)) });
-const techTime = (t, to) => 30 * Math.pow(1.75, to - 1) * (t.max === 1 ? 8 : 1) / (1 + S.b.academy * .03);
+const techTime = (t, to) => 30 * Math.pow(1.75, to - 1) * (t.max === 1 ? 8 : 1) / (1 + S.b.academy * .03 + RB('research'));
 const techNeed = (t, to) => Math.max(t.need || 1, to * 2 - 1);
 function startResearch(id) {
   const t = TECHM[id], to = (S.tech[id] || 0) + 1;
   if (S.rq) return toast('Already researching', 'bad');
-  if (!S.b.academy) return toast('Build the House of Wisdom first', 'bad');
+  if (!S.b.academy) return toast('Build the Royal Academy first', 'bad');
   if (to > t.max) return toast('Fully researched');
-  if (S.b.academy < techNeed(t, to)) return toast(`Needs House of Wisdom level ${techNeed(t, to)}`, 'bad');
+  if (S.b.academy < techNeed(t, to)) return toast(`Needs Royal Academy level ${techNeed(t, to)}`, 'bad');
   if (t.req && !S.tech[t.req]) return toast(`Research ${TECHM[t.req].name} first`, 'bad');
   const c = techCost(t, to); if (!afford(c)) return toast('Not enough resources', 'bad');
   pay(c); const ms = techTime(t, to) * 1000; S.rq = { id, to, start: now(), end: now() + ms, total: ms };
@@ -266,21 +393,21 @@ function battle(att, def) {
   for (const k in startD) lossD[k] = startD[k] - (D.troops[k] || 0);
   return { win: powA > powD * 1.05 || troopCount(D.troops) === 0, leftA: A.troops, leftD: D.troops, lossA, lossD, rounds };
 }
-const playerAtk = () => ({ atkB: tech('blade') + squadBonus(), defB: tech('armor') });
+const playerAtk = () => ({ atkB: tech('blade') + squadBonus(), defB: tech('armor') + RB('def') });
 function troopsHTML(t, cls = '') { const e = Object.entries(t || {}).filter(([, n]) => n > 0); return e.length ? `<div class="tlist ${cls}">${e.map(([k, n]) => { const [ty, ti] = tparse(k); return `<span class="tchip">${ART.troop(ty, ti, 26)}${fmt(n)}</span>`; }).join('')}</div>` : '<span class="muted">none</span>'; }
 
 /* ======================= world marches ======================= */
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-const marchSpeed = () => 1 + tech('march');
+const marchSpeed = () => 1 + tech('march') + RB('march');
 const travelMs = (o, troops) => { const slow = troops.sie1 || troops.sie2 || troops.sie3 ? 1.3 : 1; return dist(S.home, o) * 2200 * slow / marchSpeed(); };
 const loadOf = t => Object.entries(t).reduce((a, [k, n]) => { const [ty, ti] = tparse(k); return a + n * TROOP[ty].load * (1 + (ti - 1) * .5); }, 0) * (1 + tech('gather'));
 function sendMarch(o, kind, troops) {
   if (S.marches.length >= maxMarches()) return toast('All march slots are busy', 'bad');
-  if (kind !== 'scout' && troopCount(troops) <= 0) return toast('Choose some troops', 'bad');
+  if (kind !== 'scout' && kind !== 'explore' && troopCount(troops) <= 0) return toast('Choose some troops', 'bad');
   for (const [k, n] of Object.entries(troops)) { if ((S.troops[k] || 0) < n) return toast('Not enough troops at home', 'bad'); }
   for (const [k, n] of Object.entries(troops)) S.troops[k] -= n;
-  if (kind === 'attack' && S.shieldUntil > now()) { S.shieldUntil = 0; toast('Attacking lifted your Mirage Veil'); }
-  const ms = kind === 'scout' ? travelMs(o, {}) * .5 : travelMs(o, troops);
+  if (kind === 'attack' && S.shieldUntil > now()) { S.shieldUntil = 0; toast('Attacking lifted your Aegis Ward'); }
+  const ms = kind === 'scout' || kind === 'explore' ? travelMs(o, {}) * .5 : travelMs(o, troops);
   S.marches.push({ id: S.mid++, kind, target: o.id, tx: o.x, ty: o.y, troops, start: now(), arrive: now() + ms, out: ms, state: 'out', loot: {} });
   sfx('horn'); closeSheet(); render();
 }
@@ -293,11 +420,13 @@ function collectGather(m, o) {
 function arrive(m) {
   const o = S.world.find(w => w.id === m.target);
   const goBack = () => { m.state = 'back'; m.bstart = now(); m.back = now() + m.out; };
+  reveal(S, m.tx, m.ty, m.kind === 'explore' ? 5 : m.kind === 'scout' ? 3 : 2);
+  if (m.kind === 'explore') { S.stats.scouts++; const found = S.world.filter(q => !q.dead && Math.hypot(q.x - m.tx, q.y - m.ty) <= 5); const n = k => found.filter(q => q.kind === k).length; report(`Lands charted · ${REGION_NAME[regionAt(m.tx, m.ty)]}`, `<p>Your scouts mapped the land around (${m.tx}, ${m.ty}).</p><p>Found: ${n('node')} resource sites, ${n('camp')} Ashen outposts${n('city') ? `, ${n('city')} rival citadel` : ''}${found.some(q => q.kind === 'throne') ? ' and <b>the Sunspire Throne</b>' : ''}.</p>`, 'scout'); META.xp(10); return goBack(); }
   if (!o || o.x !== m.tx || o.y !== m.ty) { report('March returned', 'The target had moved on before your troops arrived.'); return goBack(); }
   if (m.kind === 'scout') {
     S.stats.scouts++;
     const lvl = S.b.tower; const show = t => lvl >= 3 ? troopsHTML(t) : `about ${fmt(troopCount(t) * (0.8 + Math.random() * .4))} troops`;
-    report(`Scout report · ${o.name || 'Bandit camp L' + o.lvl}`, `<p>Army: ${show(o.troops)}</p>${o.res ? `<p>Resources: ${RES.map(k => ART.icon(k, 14) + fmt(o.res[k])).join(' ')}</p>` : ''}${o.wall ? `<p>Ramparts level ${o.wall}</p>` : ''}${lvl < 3 ? '<p class="muted">Raise the Watchtower to level 3 for exact numbers.</p>' : ''}`, 'scout');
+    report(`Scout report · ${o.name || 'Ashen outpost L' + o.lvl}`, `<p>Army: ${show(o.troops)}</p>${o.res ? `<p>Resources: ${RES.map(k => ART.icon(k, 14) + fmt(o.res[k])).join(' ')}</p>` : ''}${o.wall ? `<p>Ramparts level ${o.wall}</p>` : ''}${lvl < 3 ? '<p class="muted">Raise the Watchtower to level 3 for exact numbers.</p>' : ''}`, 'scout');
     return goBack();
   }
   if (m.kind === 'gather') {
@@ -324,11 +453,11 @@ function arrive(m) {
       META.xp(60); S.stats.rivals++; const take = {}; for (const k of RES) { take[k] = Math.floor(Math.min(o.res[k] * .4, loadOf(m.troops) / 5)); o.res[k] -= take[k]; }
       m.loot = take; body += `<p>You plundered ${RES.map(k => ART.icon(k, 14) + fmt(take[k])).join(' ')}</p>`; o.lvl = Math.max(1, o.lvl); o.angry = (o.angry || 0) + 1;
     } else if (o.kind === 'throne') {
-      if (troopCount(o.troops) === 0) { S.throne = true; body += '<p><b>The Oasis Throne is yours. All the sands bow to you, Sovereign.</b></p>'; burst(); burst(); log('You captured the Oasis Throne!'); }
+      if (troopCount(o.troops) === 0) { S.throne = true; body += '<p><b>The Sunspire Throne is yours. All six realms bow to you, Sovereign.</b></p>'; burst(); burst(); log('You captured the Sunspire Throne!'); }
       else body += `<p>The Throne garrison still holds ${fmt(troopCount(o.troops))} troops. Keep attacking!</p>`;
     }
   }
-  report(`${res.win ? 'Victory' : 'Defeat'} · ${o.name || (o.kind === 'camp' ? 'Bandit camp L' + o.lvl : 'Oasis Throne')}`, body, res.win ? 'win' : 'loss');
+  report(`${res.win ? 'Victory' : 'Defeat'} · ${o.name || (o.kind === 'camp' ? 'Ashen outpost L' + o.lvl : 'Sunspire Throne')}`, body, res.win ? 'win' : 'loss');
   sfx(res.win ? 'win' : 'loss'); void deadMine; void isCity;
   if (troopCount(m.troops) === 0) { S.marches = S.marches.filter(x => x !== m); give(m.loot); return; }
   goBack();
@@ -354,15 +483,15 @@ function startRaid() {
 }
 function resolveRaid() {
   const inc = S.incoming; S.incoming = null; scheduleRaid();
-  if (S.shieldUntil > now()) { report('Raid turned away', `${esc(inc.name)}'s army found only a shimmering mirage. Your Veil protected the city.`, 'scout'); return; }
+  if (S.shieldUntil > now()) { report('Raid turned away', `${esc(inc.name)}'s army broke against your Aegis Ward. The city is safe.`, 'scout'); return; }
   const res = battle({ troops: inc.troops, atkB: .05 }, { troops: S.troops, ...playerAtk(), defB: tech('armor') + squadBonus() / 2, wall: S.b.wall });
   const healed = addWounded(res.lossD); S.troops = res.leftD; for (const k in S.troops) if (!S.troops[k]) delete S.troops[k];
   let body = `<p>${esc(inc.name)} attacked with ${fmt(troopCount(inc.troops))} troops.</p><p>Your losses: ${troopsHTML(res.lossD)} <span class="muted">(${fmt(healed)} saved by the Infirmary)</span></p><p>Their losses: ${troopsHTML(res.lossA)}</p>`;
   if (res.win) {
     const safe = vaultSafe(), lost = {};
     for (const k of RES) { lost[k] = Math.floor(Math.max(0, S.res[k] - safe) * .25); S.res[k] -= lost[k]; }
-    body += `<p><b>Your city was plundered:</b> ${RES.map(k => ART.icon(k, 14) + fmt(lost[k])).join(' ')}</p><p class="muted">Upgrade the Vault and Ramparts, train more troops, or use a Mirage Veil.</p>`;
-    S.shieldUntil = now() + 20 * 60e3; body += '<p>A short 20-minute veil now protects you.</p>';
+    body += `<p><b>Your city was plundered:</b> ${RES.map(k => ART.icon(k, 14) + fmt(lost[k])).join(' ')}</p><p class="muted">Upgrade the Vault and Ramparts, train more troops, or use a Aegis Ward.</p>`;
+    S.shieldUntil = now() + 20 * 60e3; body += '<p>A 20-minute Aegis Ward now protects you.</p>';
   } else { S.stats.defWins = (S.stats.defWins || 0) + 1; META.xp(40); const g = 10 + Math.floor(Math.random() * 20); S.gems += g; body += `<p><b>Your defenders held!</b> +${g} gems</p>`; const o = S.world.find(w => w.id === inc.from); if (o) for (const k in o.troops) o.troops[k] = Math.floor(o.troops[k] * .9); }
   report(`${res.win ? 'City raided' : 'Defence won'} · ${inc.name}`, body, res.win ? 'loss' : 'win'); sfx(res.win ? 'loss' : 'win');
 }
@@ -433,7 +562,7 @@ function renderHud() {
   $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0);
   const shield = S.shieldUntil > now();
   $('#status').innerHTML = (S.incoming ? `<button class="alert" data-act="incoming">⚠ ${esc(S.incoming.name)} attacks in ${fmtT((S.incoming.arrive - now()) / 1000)}</button>` : '') +
-    (shield ? `<span class="veil">${ART.icon('shield', 14)} Veil ${fmtT((S.shieldUntil - now()) / 1000)}</span>` : '');
+    (shield ? `<span class="veil">${ART.icon('shield', 14)} Ward ${fmtT((S.shieldUntil - now()) / 1000)}</span>` : '');
 }
 function renderQueues() {
   const t = now(), rows = [];
@@ -448,7 +577,7 @@ function renderQueues() {
   else if (S.b.academy) rows.push(`<div class="q idle" data-act="tab" data-tab="research">${ART.icon('scroll', 16)}<div><b>Research idle</b><small>Study a science</small></div></div>`);
   for (const m of S.marches) {
     const end = m.state === 'out' ? m.arrive : m.state === 'gather' ? m.gend : m.back, st = m.state === 'out' ? m.start : m.state === 'gather' ? m.gstart : m.bstart;
-    rows.push(`<div class="q march" data-act="march" data-id="${m.id}">${ART.icon(m.kind === 'gather' ? (m.res || 'crate') : m.kind === 'scout' ? 'scroll' : 'might', 16)}<div><b>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout' }[m.kind]} · ${m.state === 'back' ? 'returning' : m.state === 'gather' ? 'gathering' : 'marching'}</b>${bar((t - st) / Math.max(1, end - st), 'teal')}<small>${fmtT((end - t) / 1000)}</small></div></div>`);
+    rows.push(`<div class="q march" data-act="march" data-id="${m.id}">${ART.icon(m.kind === 'gather' ? (m.res || 'crate') : m.kind === 'scout' || m.kind === 'explore' ? 'scroll' : 'might', 16)}<div><b>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout', explore: 'Exploring' }[m.kind]} · ${m.state === 'back' ? 'returning' : m.state === 'gather' ? 'gathering' : 'marching'}</b>${bar((t - st) / Math.max(1, end - st), 'teal')}<small>${fmtT((end - t) / 1000)}</small></div></div>`);
   }
   $('#queues').innerHTML = rows.join('');
 }
@@ -459,13 +588,13 @@ const dayP = () => (((now() - (S.created || 0)) % DAY_MS) + DAY_MS) % DAY_MS / D
 function nightAmt() { const p = dayP(); return p < .45 ? 0 : p < .55 ? (p - .45) / .1 : p < .9 ? 1 : 1 - (p - .9) / .1; }
 function warmAmt() { const p = dayP(); const d = x => Math.max(0, 1 - Math.abs(p - x) / .07); return Math.max(d(.5), d(.95), p < .05 ? 1 - p / .07 : 0); }
 function cityAmbient() {
-  const camel = c => `<g><ellipse cx="0" cy="4" rx="14" ry="3" fill="#0002"/><path d="M-12 0c0-6 4-9 10-9 2-6 8-6 9 0h4l3-6 3 1-2 7c1 3 0 6-3 7H-10z" fill="#c9a26b"/><path d="M-9 1v8M-3 1v8M5 1v8M9 1v8" stroke="#8a6a3c" stroke-width="2"/><circle cx="1" cy="-14" r="3" fill="#a06a44"/><path d="M-3-12h8v6h-8z" fill="${c}"/></g>`;
+  const camel = (c, i) => i % 2 ? `<g><ellipse cx="0" cy="5" rx="16" ry="3" fill="#0002"/><rect x="-14" y="-12" width="24" height="12" rx="2" fill="#8a5a3a"/><path d="M-15-12c2-10 24-10 26 0z" fill="${c}"/><circle cx="-8" cy="2" r="4.5" fill="#5a3418"/><circle cx="6" cy="2" r="4.5" fill="#5a3418"/><circle cx="-8" cy="2" r="1.4" fill="#e8c35a"/><circle cx="6" cy="2" r="1.4" fill="#e8c35a"/></g>` : `<g><ellipse cx="0" cy="5" rx="14" ry="3" fill="#0002"/><path d="M-12-2c0-6 4-8 12-8h6l5-7 3 2-2 7c2 3 1 6-2 7H-10z" fill="#8a5a3a"/><path d="M-9-1v8M-4-1v8M5-1v8M9-1v8" stroke="#5a3418" stroke-width="2"/><path d="M-12-4c-4 2-5 6-4 9" stroke="#3a2414" stroke-width="2" fill="none"/><circle cx="1" cy="-15" r="3" fill="#e0b08a"/><path d="M-3-13h8v6h-8z" fill="${c}"/></g>`;
   const bird = `<g class="flap"><path d="M-12 0c4-6 8-6 12 0 4-6 8-6 12 0-4-2-8-2-12 2-4-4-8-4-12-2z" fill="#1b1430" opacity=".75"/></g>`;
   const guard = `<g><circle r="4" fill="#5a3418"/><circle cy="-5" r="2.6" fill="#c98f5e"/><path d="M4-9v12" stroke="#cfd8e2" stroke-width="1.4"/></g>`;
   const wall = 'M500 112L850 290L500 468L150 290Z';
   return `<path id="caravanPath" d="M-80 668C160 640 330 680 500 652S820 610 1080 650" fill="none"/>
     <path id="wallPath" d="${wall}" fill="none"/>
-    <g class="amb-caravan">${[0, 1, 2, 3].map(i => `<g>${camel(['#b3433a', '#2f7d8c', '#e8a33d', '#7a4fb3'][i])}<animateMotion dur="70s" repeatCount="indefinite" rotate="auto" begin="-${i * 1.3}s"><mpath href="#caravanPath"/></animateMotion></g>`).join('')}</g>
+    <g class="amb-caravan">${[0, 1, 2, 3].map(i => `<g>${camel(['#b3433a', '#2f5a8a', '#e8a33d', '#7a4fb3'][i], i)}<animateMotion dur="70s" repeatCount="indefinite" rotate="auto" begin="-${i * 1.3}s"><mpath href="#caravanPath"/></animateMotion></g>`).join('')}</g>
     ${[0, 1, 2].map(i => `<g>${guard}<animateMotion dur="48s" repeatCount="indefinite" begin="-${i * 16}s"><mpath href="#wallPath"/></animateMotion></g>`).join('')}
     <g class="water"><ellipse cx="880" cy="120" rx="58" ry="20" fill="none" stroke="#c8fff6" stroke-width="2" opacity=".5"><animate attributeName="rx" values="40;70;40" dur="5s" repeatCount="indefinite"/><animate attributeName="opacity" values=".6;0;.6" dur="5s" repeatCount="indefinite"/></ellipse><ellipse cx="860" cy="125" rx="20" ry="6" fill="none" stroke="#c8fff6" stroke-width="1.5" opacity=".5"><animate attributeName="rx" values="10;34;10" dur="3.6s" repeatCount="indefinite"/></ellipse></g>`;
 }
@@ -482,12 +611,12 @@ function renderCity() {
   const cv = $('#cityView');
   if (!$('#cityDyn')) {
     cv.innerHTML = `<svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" width="1000" height="700" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" width="1000" height="700" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
-    requestAnimationFrame(() => { cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2; });
+    cv.style.background = ART.P.ground[2]; requestAnimationFrame(() => { cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2; });
   }
   const items = [];
   for (const [id, [x, y]] of Object.entries(INNER)) {
     const L = S.b[id] || 0, d = BLD[id], locked = d.unlock > S.b.citadel, q = inQueue(id), can = !locked && !q && upgradeCheck(id).ok;
-    items.push({ y, html: `<g class="bld ${locked ? 'locked' : ''} ${L ? '' : 'unbuilt'}" data-act="bld" data-key="${id}" transform="translate(${x} ${y})">${L ? ART.building(id, L) : ART.building('empty')}${q ? scaffold(id === 'citadel' ? 70 : 46) : ''}${can && L ? '<g class="upar" transform="translate(40 -40)"><circle r="10" fill="#6fe39a" stroke="#0b3a22" stroke-width="2"/><path d="M0-5l5 6h-3v4h-4v-4h-3z" fill="#0b3a22"/></g>' : ''}<g transform="translate(0 22)"><rect x="-46" y="-9" width="92" height="18" rx="9" fill="#140f22d9" stroke="#e8a33d55"/><text y="4" text-anchor="middle">${locked ? '🔒 ' : ''}${d.name.replace('House of Wisdom', 'Wisdom').replace('Sandstone ', '').replace('Treasury ', '').replace('House ', '')}${L ? ' ' + L : ''}</text></g></g>` });
+    items.push({ y, html: `<g class="bld ${locked ? 'locked' : ''} ${L ? '' : 'unbuilt'}" data-act="bld" data-key="${id}" transform="translate(${x} ${y})">${L ? ART.building(id, L) : ART.building('empty')}${q ? scaffold(id === 'citadel' ? 70 : 46) : ''}${can && L ? '<g class="upar" transform="translate(40 -40)"><circle r="10" fill="#6fe39a" stroke="#0b3a22" stroke-width="2"/><path d="M0-5l5 6h-3v4h-4v-4h-3z" fill="#0b3a22"/></g>' : ''}<g transform="translate(0 22)"><rect x="-46" y="-9" width="92" height="18" rx="9" fill="#140f22d9" stroke="#e8a33d55"/><text y="4" text-anchor="middle">${locked ? '🔒 ' : ''}${d.name.replace('Royal Academy', 'Academy').replace('Alliance ', '').replace('Sandstone ', '').replace('Treasury ', '').replace('House ', '')}${L ? ' ' + L : ''}</text></g></g>` });
   }
   const open = openPlots();
   FIELD_POS.forEach(([x, y], i) => {
@@ -542,7 +671,7 @@ function openBuilding(key) {
   if (id === 'vault' && L) extra = `<p>Protects <b>${fmt(vaultSafe())}</b> of each resource from raiders.</p>`;
   if (id === 'wall' && L) extra = `<p>Defence bonus for city guards: <b>+${(L * 3.5).toFixed(1)}%</b>. Enemy ballistae deal extra damage to ramparts.</p>`;
   if (id === 'tower' && L) extra = `<p>Raid warning: <b>${fmtT(60 + L * 15)}</b> ahead. ${L >= 3 ? 'Scouts report exact troop numbers.' : 'Level 3: exact scout reports.'}</p>`;
-  if (id === 'embassy' && L) extra = `<p>Each building or research gets <b>${2 + L}</b> helps from your House, each cutting 3% (at least 30s).</p>`;
+  if (id === 'embassy' && L) extra = `<p>Each building or research gets <b>${2 + L}</b> helps from your Alliance, each cutting 3% (at least 30s).</p>`;
   if (id === 'market' && L) extra = marketHTML();
   if (id === 'mews' && L) extra = `<p>Hero level cap: <b>${heroCap()}</b> · March size: <b>${fmt(marchCap())}</b> troops.</p><button class="btn" data-act="tab" data-tab="heroes">Open Heroes</button>`;
   if (id === 'academy' && L) extra = `<button class="btn" data-act="tab" data-tab="research">Open research</button>`;
@@ -597,27 +726,28 @@ function openSpeed(kind, key) {
 function renderArmy() {
   const all = {}; for (const m of S.marches) for (const [k, n] of Object.entries(m.troops)) all[k] = (all[k] || 0) + n;
   return `<h2>Army</h2><div class="cards">${TYPES.map(t => `<div class="card"><h4>${TROOP[t].name}</h4><p class="muted">${TROOP[t].role}</p>${TIERS.map(n => `<div class="trow">${ART.troop(t, n, 40)}<div><b>${fmt(S.troops[tkey(t, n)] || 0)}</b> at home${all[tkey(t, n)] ? ` · ${fmt(all[tkey(t, n)])} marching` : ''}${S.wounded[tkey(t, n)] ? ` · <span class="neg">${fmt(S.wounded[tkey(t, n)])} wounded</span>` : ''}</div></div>`).join('')}</div>`).join('')}</div>
-  <div class="card"><h4>Counters</h4><p>Spearmen beat Camel Riders · Camel Riders beat Dune Archers · Dune Archers beat Spearmen. Ballistae shine against Ramparts.</p><p>Total might from troops: ${ART.icon('might', 14)} ${fmt(troopMight(S.troops))} · Grain upkeep ${fmt(rates().upkeep)}/h</p>
+  <div class="card"><h4>Counters</h4><p>Spearmen beat Cavalry · Cavalry beat Archers · Archers beat Spearmen. Trebuchets shine against Ramparts.</p><p>Total might from troops: ${ART.icon('might', 14)} ${fmt(troopMight(S.troops))} · Grain upkeep ${fmt(rates().upkeep)}/h</p>
   <button class="btn gold" data-act="bld" data-key="barracks">Train troops</button> ${S.b.infirmary ? '<button class="btn" data-act="bld" data-key="infirmary">Infirmary</button>' : ''}</div>`;
 }
 
 /* ======================= Heroes tab ======================= */
 function renderHeroes() {
   const owned = HEROES.filter(h => S.heroes[h.id] && S.heroes[h.id].stars > 0), rest = HEROES.filter(h => !owned.includes(h));
-  const card = h => { const st = S.heroes[h.id] || { lvl: 0, stars: 0, shards: 0 }; const own = st.stars > 0; return `<button class="hero ${own ? '' : 'dim'} ${S.squad.includes(h.id) ? 'insq' : ''}" data-act="hero" data-id="${h.id}">${ART.portrait(h, 76)}<b>${h.name}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small><span class="stars">${own ? '★'.repeat(st.stars) : `${st.shards}/${STAR_SHARDS[1]} shards`}</span></button>`; };
+  const card = h => { const st = S.heroes[h.id] || { lvl: 0, stars: 0, shards: 0 }; const own = st.stars > 0; return `<button class="hero r-${h.rarity} ${own ? '' : 'dim'} ${S.squad.includes(h.id) ? 'insq' : ''}" data-act="hero" data-id="${h.id}"><span class="rtag">${h.rarity}</span>${ART.portrait(h, 92)}<b>${h.name}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small><span class="stars">${own ? '★'.repeat(st.stars) : `${st.shards}/${STAR_SHARDS[1]} shards`}</span></button>`; };
   return `<h2>Heroes</h2><div class="squad"><span>Squad</span>${[0, 1, 2].map(i => S.squad[i] ? `<span class="slot">${ART.portrait(HERO[S.squad[i]], 44)}</span>` : '<span class="slot empty">+</span>').join('')}<span class="muted">Squad leads your armies: +${(squadBonus() * 100).toFixed(1)}% troop ATK</span></div>
   <div class="heroes">${owned.map(card).join('')}${rest.map(card).join('')}</div>
-  <div class="card stagecard"><div><h3>${ART.icon('vigor', 18)} Hero Trials</h3><p class="muted">Lead your squad through the sands. Each stage costs 6 Vigor. Vigor: <b>${S.vigor}</b> / ${vigorMax()}</p></div><button class="btn gold" data-act="stages">Open campaign</button></div>`;
+  <div class="card stagecard"><div><h3>${ART.icon('vigor', 18)} Story Campaign</h3><p class="muted">Follow the story across the six realms of Aeloria. Each stage costs 6 Vigor. Vigor: <b>${S.vigor}</b> / ${vigorMax()}</p></div><button class="btn gold" data-act="stages">Open campaign</button></div>`;
 }
 function openHero(id) {
   const h = HERO[id], st = S.heroes[id] || { lvl: 0, stars: 0, shards: 0, xp: 0 }, own = st.stars > 0;
   const s = own ? heroStats(id) : { hp: h.hp, atk: h.atk, def: h.def, spd: h.spd };
   const need = STAR_SHARDS[st.stars + 1], xpNeed = xpFor(st.lvl);
   const tutor = Math.floor(150 * st.lvl * st.lvl);
-  openSheet(`${h.name}`, `<div class="bhead">${ART.portrait(h, 110)}<div><p><b>${h.title}</b> · ${h.role}</p><p class="stars big">${own ? '★'.repeat(st.stars) + '☆'.repeat(5 - st.stars) : 'Not recruited'}</p>${own ? `<p>Level ${st.lvl} / ${heroCap()}</p>${bar(st.xp / xpNeed, 'teal')}<small>${fmt(st.xp)} / ${fmt(xpNeed)} XP</small>` : ''}</div></div>
+  openSheet(`${h.name}`, `<div class="hhead r-${h.rarity}"><div class="hport">${ART.portrait(h, 150)}</div><div><span class="rtag">${h.rarity}</span><p class="realmtag" style="--rc:${REALMS[h.realm].color}">${REALMS[h.realm].name}</p><p><b>${h.title}</b> · ${h.role}</p><p class="stars big">${own ? '★'.repeat(st.stars) + '☆'.repeat(5 - st.stars) : 'Not recruited'}</p>${own ? `<p>Level ${st.lvl} / ${heroCap()}</p>${bar(st.xp / xpNeed, 'teal')}<small>${fmt(st.xp)} / ${fmt(xpNeed)} XP</small>` : ''}</div></div>
+  <p class="bio">“${h.bio}”</p>
   <div class="stats"><span>HP ${fmt(s.hp)}</span><span>ATK ${fmt(s.atk)}</span><span>DEF ${fmt(s.def)}</span><span>SPD ${s.spd}</span></div>
   <div class="card"><h4>${ART.icon('vigor', 14)} ${h.skill.name}</h4><p>${h.skill.desc}</p></div>
-  <p>Shards: <b>${st.shards}</b>${need ? ` / ${need} for ${own ? 'next star' : 'recruit'}` : ''}. <span class="muted">Win Hero Trials and bandit camps to find shards.</span></p>
+  <p>Shards: <b>${st.shards}</b>${need ? ` / ${need} for ${own ? 'next star' : 'recruit'}` : ''}. <span class="muted">Win campaign stages, destroy Ashen outposts or use the Crown Summon to find shards.</span></p>
   <div class="btns">
   ${need && st.shards >= need ? `<button class="btn gold" data-act="star" data-id="${id}">${own ? 'Raise star' : 'Recruit'}</button>` : ''}
   ${own ? `<button class="btn" data-act="squad" data-id="${id}">${S.squad.includes(id) ? 'Remove from squad' : 'Add to squad'}</button>
@@ -631,45 +761,85 @@ function heroXP(id, xp) {
   if (h.lvl >= heroCap()) h.xp = Math.min(h.xp, xpFor(h.lvl));
 }
 
-/* ======================= Hero Trials (campaign battle) ======================= */
+/* ======================= Story campaign battles ======================= */
 function stageFoes(ch, n) {
-  const C = CHAPTERS[ch - 1], idx = (ch - 1) * 6 + n - 1, k = 1.55 * (1 + idx * .22 + idx * idx * STAGE_K);
-  const mk = (kind, mult = 1, name) => { const f = FOES[kind]; return { id: kind + Math.random(), name: name || f.name, kind, hp: Math.round(f.hp * k * mult), max: Math.round(f.hp * k * mult), atk: Math.round(f.atk * k * (mult > 1 ? 1.15 : 1)), def: Math.round(f.def * k * .6), spd: f.spd, en: 0, foe: true }; };
+  const C = CHAPTERS[ch - 1], idx = (ch - 1) * 6 + n - 1, k = 1.55 * (1 + idx * .164 + idx * idx * STAGE_K);
+  const mk = (kind, mult = 1, name) => { const f = FOES[kind]; return { id: kind + Math.random(), name: name || f.name, kind, hp: Math.round(f.hp * k * mult), max: Math.round(f.hp * k * mult), atk: Math.round(f.atk * k * (name ? 1.1 : 1)), def: Math.round(f.def * k * .6), spd: f.spd, en: 0, foe: true }; };
   if (n === 6) return [mk(C.foes[0]), mk(C.boss.kind, C.boss.hp, C.boss.name), mk(C.foes[1])];
   return [0, 1, 2].map(i => mk(C.foes[(i + n) % 3]));
 }
+let fight = null;
+let STAGE_K = .00764;
 function openStages() {
   const html = CHAPTERS.map((C, ci) => {
-    const unlocked = ci === 0 || S.stages[`${ci}-6`];
-    return `<div class="chapter ${unlocked ? '' : 'locked'}"><h4>Chapter ${ci + 1} · ${C.name}</h4><div class="stages">${[1, 2, 3, 4, 5, 6].map(n => {
-      const key = `${ci + 1}-${n}`, prev = n === 1 ? unlocked : S.stages[`${ci + 1}-${n - 1}`], stars = S.stages[key] || 0, shard = STAGE_SHARD[key];
-      return `<button class="stage ${n === 6 ? 'boss' : ''} ${prev ? '' : 'locked'}" data-act="stage" data-key="${key}" ${prev ? '' : 'disabled'}><b>${key}</b><span>${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>${shard ? `<small>${HERO[shard].name.split(' ')[0]}</small>` : ''}</button>`;
+    const unlocked = ci === 0 || S.stages[`${ci}-6`], R = REALMS[C.realm] || { color: '#7a4fb3', name: 'The Sunspire' }, done = [1, 2, 3, 4, 5, 6].filter(n => S.stages[`${ci + 1}-${n}`]).length;
+    return `<div class="chapter ${unlocked ? '' : 'locked'}" style="--rc:${R.color}"><div class="chead"><div class="cboss">${ART.enemy(C.boss.kind, 64)}</div><div><small>Chapter ${ci + 1} · ${R.name}</small><h4>${C.name}</h4><span class="muted">${done}/6 stages${unlocked ? '' : ' · 🔒 finish the previous chapter'}</span></div>${unlocked ? `<button class="mini" data-act="story" data-ch="${ci + 1}">📜 Story</button>` : ''}</div><div class="stages">${[1, 2, 3, 4, 5, 6].map(n => {
+      const key = `${ci + 1}-${n}`, prev = n === 1 ? unlocked : S.stages[`${ci + 1}-${n - 1}`], stars = S.stages[key] || 0, shard = STAGE_SHARD[key], join = STORY_JOIN[key];
+      return `<button class="stage ${n === 6 ? 'boss' : ''} ${prev ? '' : 'locked'} ${prev && !stars ? 'next' : ''}" data-act="stage" data-key="${key}" ${prev ? '' : 'disabled'}><b>${key}</b><span>${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>${join && !stars ? `<small class="join">${shortName(join)} joins</small>` : shard ? `<small>${shortName(shard)}</small>` : ''}</button>`;
     }).join('')}</div></div>`;
   }).join('');
-  openSheet(`${ART.icon('vigor', 18)} Hero Trials · Vigor ${S.vigor}`, html + (S.items.vigor ? `<button class="btn" data-act="usevigor">${ART.icon('vigor', 14)} Drink Qahwa Flask (${S.items.vigor})</button>` : ''), true);
+  openSheet(`${ART.icon('vigor', 18)} Story Campaign · Vigor ${S.vigor}`, html + (S.items.vigor ? `<button class="btn" data-act="usevigor">${ART.icon('vigor', 14)} Drink Elixir of Vigor (${S.items.vigor})</button>` : ''), true);
 }
-let fight = null;
-let STAGE_K = .0086;
-const ARENA = [
-  { sky: ['#ffcf8a', '#e8743d'], far: '#c98a52', mid: '#b5783f', near: '#d9a868', sun: '#fff1c4' },
-  { sky: ['#2b1d55', '#c9643d'], far: '#6b4a5e', mid: '#8a5a4a', near: '#b98a5c', sun: '#ffd0a0' },
-  { sky: ['#123047', '#5fa3b8'], far: '#2f6f80', mid: '#4f97a6', near: '#9fd0de', sun: '#e6fbff' },
-  { sky: ['#1b0f16', '#7e2f2f'], far: '#3a1f24', mid: '#5a2a2a', near: '#7a4a3a', sun: '#ff8a5a' }
-];
+
+const shortName = id => HERO[id].name.split(' ').find(w => !['Sir', 'Emira'].includes(w));
+/* ---------- story cutscenes ---------- */
+function speakerInfo(sp) {
+  if (sp === 'narrator') return { name: '', art: '' };
+  if (HERO[sp]) return { name: HERO[sp].name, art: ART.portrait(HERO[sp], 220), side: 'l', color: (REALMS[HERO[sp].realm] || {}).color };
+  if (FOES[sp]) return { name: FOES[sp].name, art: ART.enemy(sp, 220), side: 'r', color: '#ff5e3a' };
+  return { name: S.name, art: ART.emblem(200), side: 'l' };
+}
+function playStory(lines, title, onDone, ch) {
+  if (!lines || !lines.length) return onDone && onDone();
+  closeSheet();
+  const ov = document.createElement('div'); ov.className = 'story'; let i = 0, typing = null, full = '';
+  ov.innerHTML = `${ch ? `<div class="st-scene">${arenaSVG(ch)}</div>` : ''}<div class="st-bg ${ch ? 'over' : ''}"></div><i class="lb top"></i><i class="lb bot"></i>${title ? `<div class="st-title">${title}</div>` : ''}<div class="st-art"></div><div class="st-box"><b class="st-name"></b><p class="st-text"></p><span class="st-next">▼</span></div><button class="st-skip">Skip ›</button>`;
+  document.body.appendChild(ov); FX.setMood('cine');
+  const show = () => {
+    const [sp, raw] = lines[i], info = speakerInfo(sp); full = raw.replace(/\{name\}/g, S.name);
+    ov.querySelector('.st-art').innerHTML = info.art ? `<div class="st-portrait ${info.side}" style="--c:${info.color || '#e8a33d'}">${info.art}</div>` : '';
+    ov.querySelector('.st-name').textContent = info.name; ov.querySelector('.st-box').classList.toggle('narr', !info.name);
+    const tx = ov.querySelector('.st-text'); tx.textContent = ''; let k = 0; clearInterval(typing);
+    typing = setInterval(() => { tx.textContent = full.slice(0, ++k); if (k % 3 === 0) FX.sound('tick'); if (k >= full.length) { clearInterval(typing); typing = null; } }, 22);
+  };
+  const end = () => { clearInterval(typing); ov.classList.add('out'); setTimeout(() => ov.remove(), 400); FX.setMood(fight ? 'battle' : tab === 'world' ? 'world' : 'city'); onDone && onDone(); };
+  ov.addEventListener('click', e => {
+    if (e.target.classList.contains('st-skip')) return end();
+    if (typing) { clearInterval(typing); typing = null; ov.querySelector('.st-text').textContent = full; return; }
+    if (++i >= lines.length) return end(); show();
+  });
+  show();
+}
+function chapterStory(ch, part, cb) { const C = CHAPTERS[ch - 1]; playStory(STORY[ch][part], `Chapter ${ch} · ${C.name}`, cb, ch); }
+
+const ARENA = {
+  greenhold: { sky: ['#9fd0f0', '#f0c890'], far: '#5a8a6a', mid: '#4f7a3c', near: '#7aa64a', sun: '#fff6d8', deco: 'oak' },
+  amber: { sky: ['#ffcf8a', '#e8743d'], far: '#c98a52', mid: '#b5783f', near: '#d9a868', sun: '#fff1c4', deco: 'palm' },
+  frostmark: { sky: ['#123047', '#7fb0c8'], far: '#7f9fb8', mid: '#a9c0d4', near: '#e8eef5', sun: '#e6fbff', deco: 'pine' },
+  jade: { sky: ['#f0b8a0', '#f8e0c0'], far: '#5a8a7a', mid: '#4f7a5a', near: '#7fa86a', sun: '#fff1e0', deco: 'bamboo' },
+  coral: { sky: ['#5ac8e0', '#ffd8a8'], far: '#1fa5b8', mid: '#25c4d6', near: '#f5e2b4', sun: '#fffbe8', deco: 'palm' },
+  sunspire: { sky: ['#1b0f26', '#7a4fb3'], far: '#3a2a4a', mid: '#4a3a3a', near: '#6a5a4a', sun: '#ffd36b', deco: 'spire' }
+};
 function arenaSVG(ch) {
-  const A = ARENA[ch - 1] || ARENA[0];
-  const spikes = ch === 3 ? '<g fill="#bfe6f0" opacity=".7"><path d="M40 470l14-90 14 90z"/><path d="M330 450l10-70 12 70z"/><path d="M300 470l8-50 9 50z"/></g>' : ch === 4 ? '<g fill="#ff7a59" opacity=".5"><circle cx="80" cy="330" r="3"/><circle cx="250" cy="300" r="2"/><circle cx="330" cy="360" r="3"/></g>' : '';
-  return `<svg class="arena" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="ask" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${A.sky[0]}"/><stop offset=".65" stop-color="${A.sky[1]}"/></linearGradient><radialGradient id="asun"><stop offset="0" stop-color="${A.sun}"/><stop offset="1" stop-color="${A.sun}" stop-opacity="0"/></radialGradient></defs>
-  <rect width="400" height="700" fill="url(#ask)"/><circle cx="290" cy="190" r="110" fill="url(#asun)" opacity=".7"/><circle cx="290" cy="190" r="42" fill="${A.sun}"/>
-  <path d="M0 330C80 280 160 300 240 270S360 280 400 260V700H0z" fill="${A.far}"/>${spikes}
+  const C = CHAPTERS[ch - 1], A = ARENA[C.realm] || ARENA.greenhold, u = 'ar' + ch;
+  const deco = A.deco === 'spire' ? '<g fill="#2a1f33"><path d="M180 330l20-200 20 200z"/><path d="M140 330h120v-30H140z"/></g><path d="M200 130l6 60h-12z" fill="#ffd36b" opacity=".7"/>'
+    : A.deco === 'pine' ? '<g fill="#3a5a6a">' + [30, 90, 330, 370].map((x, i) => `<path d="M${x} ${400 - i % 2 * 20}l-26 0 26-80 26 80z"/>`).join('') + '</g><g fill="#fff" opacity=".8"><path d="M20 260l50-90 50 90z" fill="#c9d6e3"/><path d="M280 270l60-110 60 110z" fill="#c9d6e3"/><path d="M50 205l20-35 20 35-10-6-10 8z"/><path d="M322 190l18-30 18 30-9-5-9 7z"/></g>'
+    : A.deco === 'bamboo' ? '<g stroke="#3e6a4a" stroke-width="6">' + [20, 40, 60, 350, 370, 385].map(x => `<path d="M${x} 520V250"/>`).join('') + '</g><path d="M240 340l50-60 50 60-14-4-36 -40-36 40z" fill="#2a5a4a" opacity=".6"/>'
+    : A.deco === 'oak' ? '<g>' + [[40, 400], [360, 390], [320, 410]].map(([x, y]) => `<circle cx="${x}" cy="${y - 60}" r="44" fill="#3e6a34"/><rect x="${x - 6}" y="${y - 30}" width="12" height="40" fill="#5a3a24"/>`).join('') + '</g>'
+    : '<g fill="#3e6a3a">' + [[40, 420], [370, 410]].map(([x, y]) => `<path d="M${x} ${y}c4-40 8-70 2-110" stroke="#6a4a2a" stroke-width="7" fill="none"/><path d="M${x + 2} ${y - 110}c-30-10-50 0-60 16 20-8 40-10 60-16zM${x + 2} ${y - 110}c30-10 50 0 60 16-20-8-40-10-60-16zM${x + 2} ${y - 110}c-14-20-34-24-48-20 20 2 32 8 48 20z"/>`).join('') + '</g>';
+  const ash = ch === 6 ? '<g fill="#ff7a2a" opacity=".6"><circle cx="80" cy="300" r="2"/><circle cx="250" cy="260" r="1.5"/><circle cx="330" cy="330" r="2"/><circle cx="140" cy="200" r="1.5"/></g>' : '';
+  return `<svg class="arena" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="${u}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${A.sky[0]}"/><stop offset=".65" stop-color="${A.sky[1]}"/></linearGradient><radialGradient id="${u}g"><stop offset="0" stop-color="${A.sun}"/><stop offset="1" stop-color="${A.sun}" stop-opacity="0"/></radialGradient></defs>
+  <rect width="400" height="700" fill="url(#${u}s)"/><circle cx="290" cy="170" r="110" fill="url(#${u}g)" opacity=".7"/><circle cx="290" cy="170" r="38" fill="${A.sun}"/>
+  <path d="M0 330C80 280 160 300 240 270S360 280 400 260V700H0z" fill="${A.far}"/>${deco}${ash}
   <path d="M0 420C100 370 200 400 300 370S380 380 400 370V700H0z" fill="${A.mid}"/>
   <path d="M0 520C120 480 240 520 400 490V700H0z" fill="${A.near}"/><ellipse cx="200" cy="600" rx="190" ry="40" fill="#0002"/></svg>`;
 }
-function startStage(key) {
-  if (S.vigor < 6) return toast('Not enough Vigor — rest a while or drink a Qahwa Flask', 'bad');
+function startStage(key, skipStory) {
+  { const [c0, n0] = key.split('-').map(Number); if (!skipStory && n0 === 1 && !S.seenStory[c0 + 'i']) { S.seenStory[c0 + 'i'] = 1; return chapterStory(c0, 'intro', () => startStage(key, true)); } }
+  if (S.vigor < 6) return toast('Not enough Vigor — rest a while or drink a Elixir of Vigor', 'bad');
   const squad = S.squad.filter(id => S.heroes[id] && S.heroes[id].stars > 0); if (!squad.length) return toast('Pick heroes for your squad', 'bad');
   S.vigor -= 6; const [ch, n] = key.split('-').map(Number);
-  const heroes = squad.map(id => { const s = heroStats(id); return { id, name: HERO[id].name.split(' ')[0], hero: HERO[id], hp: s.hp, max: s.hp, atk: s.atk, def: s.def, spd: s.spd, en: 20 }; });
+  const heroes = squad.map(id => { const s = heroStats(id); return { id, name: shortName(id), hero: HERO[id], hp: s.hp, max: s.hp, atk: s.atk, def: s.def, spd: s.spd, en: 20 }; });
   fight = { key, ch, n, heroes, foes: stageFoes(ch, n), turn: 0, buff: 0, shield: 0, auto: !!S.autoSkill, speed: S.fightSpeed || 1, over: false, q: [], next: now() + 1500, pauseUntil: 0 };
   closeSheet(); const b = $('#battle'); b.hidden = false; buildFight(); FX.setMood('battle'); FX.sound('horn');
   if (n === 6) setTimeout(() => FX.banner(`<span class="bossword">BOSS</span>${esc(CHAPTERS[ch - 1].boss.name)}`, `Chapter ${ch} · ${CHAPTERS[ch - 1].name}`, { cls: 'boss', ms: 1700, sound: 'alarm', art: ART.enemy(CHAPTERS[ch - 1].boss.kind, 110) }), 200);
@@ -788,21 +958,23 @@ function endFight(win) {
   if (win) {
     const fallen = f.heroes.filter(h => h.hp <= 0).length, first = !S.stages[f.key]; stars = 3 - Math.min(2, fallen);
     S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++; META.xp(15);
-    const xp = 100 + idx * 40; f.heroes.forEach(h => heroXP(h.id, xp));
+    const xp = 100 + idx * 45; f.heroes.forEach(h => heroXP(h.id, xp));
     r = { gold: 200 + idx * 120 }; if (first) r.gems = 10 + idx * 2;
     const sh = STAGE_SHARD[f.key]; if (sh && (first || Math.random() < .5)) r.shards = { [sh]: first ? 5 : 1 + Math.floor(Math.random() * 2) };
     else if (Math.random() < .3) r.shards = { [pick(HEROES).id]: 1 };
     if (n === 6 && first) r.items = { sp60: 1, vigor: 1 };
+    const joiner = first && STORY_JOIN[f.key]; if (joiner) { const hj = S.heroes[joiner] || (S.heroes[joiner] = { lvl: 0, xp: 0, stars: 0, shards: 0 }); if (!hj.stars) { hj.stars = 1; hj.lvl = Math.max(hj.lvl, Math.min(heroCap(), 1 + idx * 2)); } f.joined = joiner; }
+    if (n === 6 && first) f.outro = ch;
     give(r);
     const nextKey = n < 6 ? `${ch}-${n + 1}` : ch < CHAPTERS.length ? `${ch + 1}-1` : null;
-    html = `<div class="res-rays"></div><h2 class="win">Victory</h2><div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
+    html = `<div class="res-rays"></div><h2 class="win">Victory</h2>${f.joined ? `<div class="joined">${ART.portrait(HERO[f.joined], 64)}<div><small>New hero</small><b>${HERO[f.joined].name} joins your court!</b></div></div>` : ''}<div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
       <div class="rheroes">${f.heroes.map(h => `<div>${ART.portrait(h.hero, 54)}<small>Lv ${S.heroes[h.id].lvl}</small><em>+${xp} XP</em></div>`).join('')}</div>
       <div class="rloot">${META.rewardHTML(r)}</div>
       <div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn" data-act="retry">Retry</button>${nextKey ? `<button class="btn gold" data-act="nextstage" data-key="${nextKey}">Next stage ›</button>` : ''}</div>`;
     FX.sound('win'); setTimeout(() => FX.confetti(), 300);
     [0, 1, 2].forEach(i => i < stars && setTimeout(() => FX.sound('coin'), 700 + i * 300));
   } else {
-    html = `<h2 class="loss">Defeat</h2><p>Your squad was overwhelmed.</p><div class="tips"><p>⬆ Level heroes with Tomes or Tutors in the Falcon Mews</p><p>★ Raise stars with shards from Trials and the Falcon Summon</p><p>⇄ Try a squad with a Tank, a healer and a damage dealer</p></div><div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn gold" data-act="retry">Retry</button><button class="btn" data-act="sub" data-s="summon">Summon heroes</button></div>`;
+    html = `<h2 class="loss">Defeat</h2><p>Your squad was overwhelmed.</p><div class="tips"><p>⬆ Level heroes with Tomes or Tutors in the Hall of Heroes</p><p>★ Raise stars with shards from Trials and the Crown Summon</p><p>⇄ Try a squad with a Tank, a healer and a damage dealer</p></div><div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn gold" data-act="retry">Retry</button><button class="btn" data-act="sub" data-s="summon">Summon heroes</button></div>`;
     FX.sound('loss');
   }
   const box = document.createElement('div'); box.className = 'result ' + (win ? 'won' : 'lost'); box.innerHTML = html;
@@ -813,10 +985,10 @@ function leaveFight() { if (fight) { clearInterval(fight.timer); fight.over = tr
 
 /* ======================= Research tab ======================= */
 function renderResearch() {
-  if (!S.b.academy) return '<h2>Research</h2><div class="card"><p>Build the <b>House of Wisdom</b> (unlocks at Citadel 2) to start research.</p><button class="btn gold" data-act="bld" data-key="academy">Go to House of Wisdom</button></div>';
+  if (!S.b.academy) return '<h2>Research</h2><div class="card"><p>Build the <b>Royal Academy</b> (unlocks at Citadel 2) to start research.</p><button class="btn gold" data-act="bld" data-key="academy">Go to Royal Academy</button></div>';
   const tree = name => TECH.filter(t => t.tree === name).map(t => {
     const l = S.tech[t.id] || 0, to = l + 1, done = l >= t.max, c = done ? {} : techCost(t, to), need = techNeed(t, to), lock = S.b.academy < need || (t.req && !S.tech[t.req]);
-    return `<div class="tech ${done ? 'done' : ''} ${lock ? 'locked' : ''}"><div><b>${t.name}</b> <span class="muted">${l}/${t.max}</span><p>${t.desc}</p>${done ? '<p class="good">Complete</p>' : `<div class="costs">${costHTML(c)}<span class="cost">${ART.icon('clock', 14)}${fmtT(techTime(t, to))}</span></div>${lock ? `<p class="why">${t.req && !S.tech[t.req] ? 'Requires ' + TECHM[t.req].name : 'Needs House of Wisdom ' + need}</p>` : ''}`}</div>${!done && !lock ? `<button class="btn gold" data-act="research" data-id="${t.id}" ${S.rq ? 'disabled' : ''}>Study</button>` : ''}</div>`;
+    return `<div class="tech ${done ? 'done' : ''} ${lock ? 'locked' : ''}"><div><b>${t.name}</b> <span class="muted">${l}/${t.max}</span><p>${t.desc}</p>${done ? '<p class="good">Complete</p>' : `<div class="costs">${costHTML(c)}<span class="cost">${ART.icon('clock', 14)}${fmtT(techTime(t, to))}</span></div>${lock ? `<p class="why">${t.req && !S.tech[t.req] ? 'Requires ' + TECHM[t.req].name : 'Needs Royal Academy ' + need}</p>` : ''}`}</div>${!done && !lock ? `<button class="btn gold" data-act="research" data-id="${t.id}" ${S.rq ? 'disabled' : ''}>Study</button>` : ''}</div>`;
   }).join('');
   return `<h2>Research</h2>${S.rq ? `<div class="card"><b>Studying ${TECHM[S.rq.id].name} ${S.rq.to}</b>${bar(1 - (S.rq.end - now()) / S.rq.total, 'teal')}<button class="btn" data-act="speed" data-kind="r">Speed up · ${fmtT((S.rq.end - now()) / 1000)}</button></div>` : ''}
   <div class="cols"><div><h3>Economy</h3>${tree('Economy')}</div><div><h3>Military</h3>${tree('Military')}</div></div>`;
@@ -827,7 +999,7 @@ function renderQuests() {
   const q = QUESTS[S.quest], ready = q && q.c(S), chest = now() >= S.chestAt;
   const rw = r => Object.entries(r).map(([k, v]) => k === 'items' ? Object.entries(v).map(([i, n]) => `${ART.icon(ITEMS[i].icon, 14)}${n}× ${ITEMS[i].name}`).join(' ') : `${ART.icon(k === 'gems' ? 'gem' : k, 14)}${fmt(v)}`).join(' ');
   return `<h2>Quests</h2>${META.passHTML()}
-  <div class="card chest ${chest ? 'ready' : ''}">${ART.icon('chest', 42)}<div><h4>Caravan chest</h4><p class="muted">A merchant caravan brings supplies every 6 hours.</p></div>${chest ? '<button class="btn gold" data-act="chest">Open</button>' : `<span class="muted">${fmtT((S.chestAt - now()) / 1000)}</span>`}</div>
+  <div class="card chest ${chest ? 'ready' : ''}">${ART.icon('chest', 42)}<div><h4>Supply chest</h4><p class="muted">The royal quartermaster sends supplies every 6 hours.</p></div>${chest ? '<button class="btn gold" data-act="chest">Open</button>' : `<span class="muted">${fmtT((S.chestAt - now()) / 1000)}</span>`}</div>
   ${q ? `<div class="card quest ${ready ? 'ready' : ''}"><small>Story quest ${S.quest + 1} / ${QUESTS.length}</small><h4>${q.t}</h4><p>Reward: ${rw(q.r)}</p>${ready ? '<button class="btn gold" data-act="claim">Claim</button>' : '<span class="muted">In progress</span>'}</div>` : '<div class="card"><h4>Every story quest complete. You rule the sands!</h4></div>'}
   <div class="card"><h4>Upcoming</h4>${QUESTS.slice(S.quest + 1, S.quest + 4).map(x => `<p class="muted">· ${x.t}</p>`).join('') || '<p class="muted">—</p>'}</div>
   ${META.achHTML()}<div class="card"><h4>Rankings · Might</h4><ol class="rank">${ranking().map(r => `<li class="${r.me ? 'me' : ''}"><span style="color:${r.color}">■</span> ${esc(r.name)} <b>${fmt(r.m)}</b></li>`).join('')}</ol></div>`;
@@ -838,16 +1010,16 @@ function ranking() {
   return list.sort((a, b) => b.m - a.m);
 }
 function claimQuest() { const q = QUESTS[S.quest]; if (!q || !q.c(S)) return; META.grant(q.r, 'Quest reward'); S.quest++; META.xp(40); FX.confetti(); sfx('win'); render(); }
-function openChest() { if (now() < S.chestAt) return; S.chestAt = now() + 6 * 3600e3; const r = { gems: 25, items: { [pick(['sp5', 'sp5', 'crate', 'scroll', 'vigor', 'sp60'])]: 1 } }; r[pick(['grain', 'timber', 'stone', 'ore'])] = 2000 + S.b.citadel * 600; give(r, 'Caravan chest'); burst(); render(); }
+function openChest() { if (now() < S.chestAt) return; S.chestAt = now() + 6 * 3600e3; const r = { gems: 25, items: { [pick(['sp5', 'sp5', 'crate', 'scroll', 'vigor', 'sp60'])]: 1 } }; r[pick(['grain', 'timber', 'stone', 'ore'])] = 2000 + S.b.citadel * 600; give(r, 'Supply chest'); burst(); render(); }
 
 /* ======================= House tab ======================= */
 function renderHouse() {
-  return `<h2>House of the Dawn Falcon</h2>
-  <div class="card house">${ART.emblem(56)}<div><p>Your House: 12 members · Honor <b>${fmt(S.house.honor)}</b> · Helps received <b>${fmt(S.house.helpsGot || 0)}</b></p><p class="muted">${S.b.embassy ? 'Members help your builds and research automatically.' : 'Build the House Embassy (Citadel 4) so members can speed your timers.'}</p></div></div>
+  return `<h2>Order of the Dawn</h2>
+  <div class="card house">${ART.emblem(56)}<div><p>Your Alliance: 16 members · Honor <b>${fmt(S.house.honor)}</b> · Helps received <b>${fmt(S.house.helpsGot || 0)}</b></p><p class="muted">${S.b.embassy ? 'Members help your builds and research automatically.' : 'Build the Alliance Embassy (Citadel 4) so members can speed your timers.'}</p></div></div>
   <div class="card"><h4>Help requests (${S.house.requests.length})</h4>${S.house.requests.map(r => `<p>${esc(r.from)} · ${esc(r.what)}</p>`).join('') || '<p class="muted">Nobody needs help right now.</p>'}${S.house.requests.length ? '<button class="btn gold" data-act="helpall">Help all (+10 Honor each)</button>' : ''}</div>
-  <div class="card"><h4>Honor shop</h4><div class="btns"><button class="btn" data-act="hshop" data-i="sp5" data-c="60">${ART.icon('clock', 14)} 5-min Hourglass · 60</button><button class="btn" data-act="hshop" data-i="crate" data-c="150">${ART.icon('crate', 14)} Caravan Crate · 150</button><button class="btn" data-act="hshop" data-i="scroll" data-c="120">${ART.icon('scroll', 14)} Hero Tome · 120</button></div></div>
-  <div class="card chat"><h4>House chat</h4>${S.house.chat.slice(-12).reverse().map(c => `<p><b class="${c.from === 'Herald' ? 'good' : ''}">${esc(c.from)}:</b> ${esc(c.t)}</p>`).join('') || '<p class="muted">Quiet in the hall…</p>'}
-  <form data-act="chat" class="chatform"><input name="m" maxlength="80" placeholder="Say something to your House"><button class="btn">Send</button></form></div>`;
+  <div class="card"><h4>Honor shop</h4><div class="btns"><button class="btn" data-act="hshop" data-i="sp5" data-c="60">${ART.icon('clock', 14)} 5-min Hourglass · 60</button><button class="btn" data-act="hshop" data-i="crate" data-c="150">${ART.icon('crate', 14)} Supply Crate · 150</button><button class="btn" data-act="hshop" data-i="scroll" data-c="120">${ART.icon('scroll', 14)} Hero Tome · 120</button></div></div>
+  <div class="card chat"><h4>Alliance chat</h4>${S.house.chat.slice(-12).reverse().map(c => `<p><b class="${c.from === 'Herald' ? 'good' : ''}">${esc(c.from)}:</b> ${esc(c.t)}</p>`).join('') || '<p class="muted">Quiet in the hall…</p>'}
+  <form data-act="chat" class="chatform"><input name="m" maxlength="80" placeholder="Say something to your Alliance"><button class="btn">Send</button></form></div>`;
 }
 
 /* ======================= Bag & shop ======================= */
@@ -858,65 +1030,66 @@ function renderBag() {
 }
 function useItem(i) {
   if (!S.items[i]) return;
-  if (i === 'shield') { S.shieldUntil = Math.max(now(), S.shieldUntil) + 8 * 3600e3; toast('Mirage Veil raised for 8 hours', 'good'); }
+  if (i === 'shield') { S.shieldUntil = Math.max(now(), S.shieldUntil) + 8 * 3600e3; toast('Aegis Ward raised for 8 hours', 'good'); }
   else if (i === 'crate') { const k = pick(['grain', 'timber', 'stone', 'ore']); S.res[k] += 5000; toast(`+5,000 ${RNAME[k]}`, 'good'); }
   else if (i === 'vigor') { S.vigor += 30; toast('+30 Vigor', 'good'); }
   else if (i === 'builder') { S.builderUntil = Math.max(now(), S.builderUntil) + 24 * 3600e3; toast('A second builder joined for 24h', 'good'); }
-  else if (i === 'gift') { const r = pick([{ gems: 10 }, { items: { sp5: 1 } }, { gold: 2500 }, { items: { scroll: 1 } }, { shards: { [pick(HEROES).id]: 2 } }, { ore: 1500 }]); S.items[i]--; give(r, 'House Gift'); render(); return; }
+  else if (i === 'gift') { const r = pick([{ gems: 10 }, { items: { sp5: 1 } }, { gold: 2500 }, { items: { scroll: 1 } }, { shards: { [pick(HEROES).id]: 2 } }, { ore: 1500 }]); S.items[i]--; give(r, 'Alliance Gift'); render(); return; }
   S.items[i]--; sfx('done'); render();
 }
 
 /* ======================= World map (canvas) ======================= */
 const cam = { x: 0, y: 0, z: 1 }; let mapSel = null, mapDirty = true;
-const TS = 64;
+const TS = 60;
 function centerOn(x, y) { const c = $('#map'); cam.x = x * TS * cam.z - c.clientWidth / 2 + TS * cam.z / 2; cam.y = y * TS * cam.z - c.clientHeight / 2 + TS * cam.z / 2; }
 function drawMap() {
-  const c = $('#map'); if (!c || c.offsetParent === null) return;
-  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  const c = $('#map'); if (!c || c.offsetParent === null || !TERR) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1), w = c.clientWidth, h = c.clientHeight;
   if (c.width !== w * dpr || c.height !== h * dpr) { c.width = w * dpr; c.height = h * dpr; }
   const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const s = TS * cam.z; ctx.fillStyle = '#b98a52'; ctx.fillRect(0, 0, w, h);
+  const s = TS * cam.z, t = now();
+  ctx.fillStyle = '#1f4a6a'; ctx.fillRect(0, 0, w, h);
+  ctx.save(); ctx.translate(-cam.x, -cam.y); ctx.scale(s / TB, s / TB); ctx.imageSmoothingEnabled = true; ctx.drawImage(TERR.canvas, 0, 0); ctx.restore();
+  // animated water shimmer
+  ctx.globalAlpha = .12; ctx.fillStyle = '#fff';
   const x0 = Math.max(0, Math.floor(cam.x / s)), y0 = Math.max(0, Math.floor(cam.y / s)), x1 = Math.min(W, Math.ceil((cam.x + w) / s)), y1 = Math.min(H, Math.ceil((cam.y + h) / s));
-  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-    const px = x * s - cam.x, py = y * s - cam.y, n = rng(S.seed + x * 131 + y * 7919)();
-    const dc = Math.hypot(x - 20, y - 20);
-    ctx.fillStyle = dc < 3.2 ? '#3fae9f' : dc < 4.2 ? '#cfe0a0' : `hsl(${34 + n * 6},${52 + n * 10}%,${62 + n * 8}%)`;
-    ctx.fillRect(px, py, s + 1, s + 1);
-    if (dc >= 4.2 && n > .55) { ctx.strokeStyle = '#c99e6380'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px + s * .1, py + s * .7); ctx.quadraticCurveTo(px + s * .5, py + s * (.4 + n * .2), px + s * .9, py + s * .7); ctx.stroke(); }
-    if (dc >= 3.2 && dc < 5 && n > .4) ART.mapPaint.palm(ctx, px + s * .5, py + s * .6, s * .9);
-    else if (n > .965) ART.mapPaint.palm(ctx, px + s * .5, py + s * .6, s * .8);
-  }
-  ctx.strokeStyle = '#00000014'; ctx.lineWidth = 1;
-  for (let x = x0; x <= x1; x++) { ctx.beginPath(); ctx.moveTo(x * s - cam.x, 0); ctx.lineTo(x * s - cam.x, h); ctx.stroke(); }
-  for (let y = y0; y <= y1; y++) { ctx.beginPath(); ctx.moveTo(0, y * s - cam.y); ctx.lineTo(w, y * s - cam.y); ctx.stroke(); }
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (TERR.water[tIdx(x, y)] && ((x * 7 + y * 13 + Math.floor(t / 900)) % 11 === 0)) ctx.fillRect(x * s - cam.x + s * .2, y * s - cam.y + s * .5, s * .3, Math.max(1, s * .03));
+  ctx.globalAlpha = 1;
+  const label = (txt, x, y, col = '#140f22d9', size = 11) => { ctx.font = `800 ${Math.max(10, size * cam.z)}px Cairo,system-ui,sans-serif`; const tw = ctx.measureText(txt).width + 12; ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - tw / 2, y - 9 * cam.z - 1, tw, 17 * cam.z + 3, 8); ctx.fill(); ctx.fillStyle = '#f8eedb'; ctx.textAlign = 'center'; ctx.fillText(txt, x, y + 4 * cam.z); };
   // marches
   for (const m of S.marches) {
     const a = { x: (S.home.x + .5) * s - cam.x, y: (S.home.y + .5) * s - cam.y }, b = { x: (m.tx + .5) * s - cam.x, y: (m.ty + .5) * s - cam.y };
-    ctx.strokeStyle = m.kind === 'attack' ? '#ff5e3acc' : m.kind === 'scout' ? '#9fc3e6cc' : '#3fd7c8cc'; ctx.setLineDash([6, 6]); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
-    let p = 1; const t = now(); if (m.state === 'out') p = (t - m.start) / (m.arrive - m.start); else if (m.state === 'back') p = 1 - (t - m.bstart) / (m.back - m.bstart);
+    ctx.strokeStyle = m.kind === 'attack' ? '#ff5e3a' : m.kind === 'gather' ? '#3fd7c8' : '#c9d6e3'; ctx.setLineDash([8, 7]); ctx.lineDashOffset = -t / 40; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    let p = 1; if (m.state === 'out') p = (t - m.start) / (m.arrive - m.start); else if (m.state === 'back') p = 1 - (t - m.bstart) / (m.back - m.bstart);
     p = clamp(p, 0, 1); const mx = a.x + (b.x - a.x) * p, my = a.y + (b.y - a.y) * p;
-    ctx.fillStyle = S.color; ctx.beginPath(); ctx.arc(mx, my, 7 * cam.z + 2, 0, 7); ctx.fill(); ctx.strokeStyle = '#1b1430'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#140f22'; ctx.beginPath(); ctx.arc(mx, my, 9 * cam.z + 3, 0, 7); ctx.fill(); ctx.fillStyle = S.color; ctx.beginPath(); ctx.arc(mx, my, 7 * cam.z + 2, 0, 7); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `900 ${Math.max(9, 10 * cam.z)}px Cairo,sans-serif`; ctx.textAlign = 'center'; ctx.fillText(m.kind === 'gather' ? '⛏' : m.kind === 'attack' ? '⚔' : '👁', mx, my + 4 * cam.z);
   }
-  if (S.incoming) { const o = S.world.find(w => w.id === S.incoming.from); if (o) { const p = clamp(1 - (S.incoming.arrive - now()) / ((60 + S.b.tower * 15) * 1000), 0, 1); const a = { x: (o.x + .5) * s - cam.x, y: (o.y + .5) * s - cam.y }, b = { x: (S.home.x + .5) * s - cam.x, y: (S.home.y + .5) * s - cam.y }; ctx.strokeStyle = '#ff2b2b'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#ff2b2b'; ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p, a.y + (b.y - a.y) * p, 8, 0, 7); ctx.fill(); } }
-  // objects
-  const label = (txt, x, y, col = '#1b1430cc') => { ctx.font = `700 ${Math.max(10, 11 * cam.z)}px system-ui,sans-serif`; const tw = ctx.measureText(txt).width + 10; ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x - tw / 2, y - 9 * cam.z, tw, 16 * cam.z + 2, 8); ctx.fill(); ctx.fillStyle = '#f2e6cf'; ctx.textAlign = 'center'; ctx.fillText(txt, x, y + 3 * cam.z); };
+  if (S.incoming) { const o = S.world.find(q => q.id === S.incoming.from); if (o) { const p = clamp(1 - (S.incoming.arrive - t) / ((60 + S.b.tower * 15) * 1000), 0, 1); const a = { x: (o.x + .5) * s - cam.x, y: (o.y + .5) * s - cam.y }, b = { x: (S.home.x + .5) * s - cam.x, y: (S.home.y + .5) * s - cam.y }; ctx.strokeStyle = '#ff2b2b'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#ff2b2b'; ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p, a.y + (b.y - a.y) * p, 9, 0, 7); ctx.fill(); } }
+  // objects (only where explored)
   for (const o of S.world) {
-    if (o.dead || o.x < x0 - 2 || o.x > x1 + 2 || o.y < y0 - 2 || o.y > y1 + 2) continue;
+    if (o.dead || o.x < x0 - 2 || o.x > x1 + 2 || o.y < y0 - 2 || o.y > y1 + 2 || !seen(o.x, o.y)) continue;
     const px = (o.x + .5) * s - cam.x, py = (o.y + .5) * s - cam.y;
-    if (o.kind === 'node') { ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .6) label('L' + o.lvl, px, py + s * .38); }
-    else if (o.kind === 'camp') { ART.mapPaint.camp(ctx, px, py, s); if (cam.z > .5) label('Bandits ' + o.lvl, px, py + s * .38, '#7e2f2fdd'); }
-    else if (o.kind === 'city') { ART.mapPaint.city(ctx, px, py, s * 1.1, o.color, o.lvl); if (cam.z > .45) label(o.name, px, py + s * .45); }
-    else if (o.kind === 'throne') { ART.mapPaint.throne(ctx, px, py, s * 1.4); label(S.throne ? 'Oasis Throne · yours' : 'Oasis Throne', px, py + s * 1.2, '#7a4fb3dd'); }
+    if (o.kind === 'node') { ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .95) label('Lv ' + o.lvl, px, py + s * .42, '#140f22b8', 10); }
+    else if (o.kind === 'camp') { ART.mapPaint.camp(ctx, px, py, s, o.lvl); if (cam.z > .7) label('Outpost ' + o.lvl, px, py + s * .42, '#6a1f1fe0', 10); }
+    else if (o.kind === 'city') { ART.mapPaint.city(ctx, px, py, s * 1.15, o.color, o.realm); if (cam.z > .4) label(o.name, px, py + s * .5, '#140f22e0'); }
+    else if (o.kind === 'throne') { ART.mapPaint.throne(ctx, px, py, s * 1.3, S.throne); label(S.throne ? 'Sunspire Throne · yours' : 'The Sunspire Throne', px, py + s * 1.15, '#5a3a8ae6', 12); }
   }
   const hx = (S.home.x + .5) * s - cam.x, hy = (S.home.y + .5) * s - cam.y;
-  if (S.shieldUntil > now()) { ctx.fillStyle = '#3fd7c833'; ctx.strokeStyle = '#3fd7c8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, s * .7, 0, 7); ctx.fill(); ctx.stroke(); }
-  ART.mapPaint.city(ctx, hx, hy, s * 1.2, S.color, S.b.citadel); label(S.name + ' (you)', hx, hy + s * .5, '#1c6f73ee');
+  if (S.shieldUntil > t) { ctx.fillStyle = '#3fd7c826'; ctx.strokeStyle = '#3fd7c8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, s * .8 + Math.sin(t / 400) * 2, 0, 7); ctx.fill(); ctx.stroke(); }
+  ART.mapPaint.city(ctx, hx, hy, s * 1.3, S.color, S.realm); label(S.name + ' (you)', hx, hy + s * .58, '#1c5a8ae6', 12);
+  // fog of war
+  ctx.save(); ctx.translate(-cam.x, -cam.y); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogCanvas(), -s, -s, (W + 2) * s, (H + 2) * s); ctx.restore();
+  // realm names
+  ctx.textAlign = 'center';
+  for (const [k, [rx, ry]] of Object.entries(REGION_SEEDS)) { if (k === 'sunspire') continue; const px = (rx + .5) * s - cam.x, py = (ry - 1.2) * s - cam.y; if (px < -200 || px > w + 200 || py < -60 || py > h + 60) continue; ctx.font = `900 ${Math.max(13, 22 * cam.z)}px Cinzel,Georgia,serif`; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(20,15,34,.6)'; ctx.strokeText(REGION_NAME[k].toUpperCase(), px, py); ctx.fillStyle = k === 'ash' ? 'rgba(255,140,90,.85)' : 'rgba(255,241,196,.88)'; ctx.fillText(REGION_NAME[k].toUpperCase(), px, py); }
   if (mapSel) { ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 3; ctx.strokeRect(mapSel.x * s - cam.x + 2, mapSel.y * s - cam.y + 2, s - 4, s - 4); }
   // minimap
-  const mm = 90, k = mm / W; ctx.fillStyle = '#1b1430cc'; ctx.fillRect(w - mm - 10, 10, mm, mm);
-  for (const o of S.world) { if (o.dead) continue; ctx.fillStyle = o.kind === 'city' ? o.color : o.kind === 'camp' ? '#ff5e3a' : o.kind === 'throne' ? '#ffd36b' : '#c9b48a88'; ctx.fillRect(w - mm - 10 + o.x * k, 10 + o.y * k, o.kind === 'node' ? 1.5 : 3, o.kind === 'node' ? 1.5 : 3); }
-  ctx.fillStyle = '#3fd7c8'; ctx.fillRect(w - mm - 10 + S.home.x * k - 1, 10 + S.home.y * k - 1, 4, 4);
-  ctx.strokeStyle = '#f2e6cf'; ctx.lineWidth = 1; ctx.strokeRect(w - mm - 10 + cam.x / s * k, 10 + cam.y / s * k, w / s * k, h / s * k);
+  const mm = Math.min(120, w * .28), k2 = mm / W, ox = w - mm - 10, oy = 10;
+  ctx.fillStyle = '#140f22d9'; ctx.fillRect(ox - 3, oy - 3, mm + 6, mm + 6); ctx.drawImage(TERR.canvas, ox, oy, mm, mm); ctx.drawImage(fogCanvas(), ox - k2, oy - k2, mm + 2 * k2, mm + 2 * k2);
+  for (const o of S.world) { if (o.dead || !seen(o.x, o.y) || o.kind === 'node') continue; ctx.fillStyle = o.kind === 'city' ? o.color : o.kind === 'camp' ? '#ff5e3a' : '#ffd36b'; ctx.fillRect(ox + o.x * k2 - 1, oy + o.y * k2 - 1, 3, 3); }
+  ctx.fillStyle = '#fff'; ctx.fillRect(ox + S.home.x * k2 - 2, oy + S.home.y * k2 - 2, 5, 5);
+  ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 1.2; ctx.strokeRect(ox + cam.x / s * k2, oy + cam.y / s * k2, w / s * k2, h / s * k2);
 }
 function mapLoop() { if (tab === 'world') { drawMap(); requestAnimationFrame(mapLoop); } }
 function initMapInput() {
@@ -932,37 +1105,46 @@ function initMapInput() {
   c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
   c.addEventListener('wheel', e => { e.preventDefault(); zoomAt(cam.z * (e.deltaY < 0 ? 1.12 : .89), e.clientX, e.clientY); }, { passive: false });
 }
-function zoomAt(z, sx, sy) { const c = $('#map').getBoundingClientRect(); const px = sx - c.left, py = sy - c.top; const wx = (cam.x + px) / cam.z, wy = (cam.y + py) / cam.z; cam.z = clamp(z, .35, 1.8); cam.x = wx * cam.z - px; cam.y = wy * cam.z - py; clampCam(); }
+function zoomAt(z, sx, sy) { const c = $('#map').getBoundingClientRect(); const px = sx - c.left, py = sy - c.top; const wx = (cam.x + px) / cam.z, wy = (cam.y + py) / cam.z; cam.z = clamp(z, .22, 1.8); cam.x = wx * cam.z - px; cam.y = wy * cam.z - py; clampCam(); }
 function clampCam() { const c = $('#map'), s = TS * cam.z; cam.x = clamp(cam.x, -c.clientWidth / 2, W * s - c.clientWidth / 2); cam.y = clamp(cam.y, -c.clientHeight / 2, H * s - c.clientHeight / 2); }
 function mapClick(e) {
   const r = $('#map').getBoundingClientRect(), s = TS * cam.z, x = Math.floor((e.clientX - r.left + cam.x) / s), y = Math.floor((e.clientY - r.top + cam.y) / s);
   if (x < 0 || y < 0 || x >= W || y >= H) return;
   mapSel = { x, y }; sfx('click');
+  const mm = Math.min(120, r.width * .28); if (e.clientX - r.left > r.width - mm - 12 && e.clientY - r.top < mm + 14) { const k = mm / W; centerOn((e.clientX - r.left - (r.width - mm - 10)) / k, (e.clientY - r.top - 10) / k); clampCam(); mapSel = null; return; }
   if (x === S.home.x && y === S.home.y) return openTab('city');
-  const o = S.world.find(w => !w.dead && (w.kind === 'throne' ? Math.abs(w.x - x) <= 1 && Math.abs(w.y - y) <= 1 : w.x === x && w.y === y));
-  if (!o) return openSheet(`Desert (${x}, ${y})`, `<p class="muted">Open sand, warm wind. Nothing here — yet.</p><p>Distance from your city: ${dist(S.home, { x, y }).toFixed(1)} leagues.</p>`);
+  const reg = REGION_NAME[regionAt(x, y)];
+  if (!seen(x, y)) return openSheet('Uncharted lands', `<p class="muted">${reg} · (${x}, ${y}) · ${dist(S.home, { x, y }).toFixed(1)} leagues away</p><p>The mists hide what lies here. Send scouts to chart the land and reveal outposts, resources and rival lords.</p><button class="btn gold" data-act="explore" data-x="${x}" data-y="${y}">Explore (${ART.icon('gold', 13)} ${fmt(exploreCost(x, y))})</button>`);
+  const o = S.world.find(q => !q.dead && (q.kind === 'throne' ? Math.abs(q.x - x) <= 1 && Math.abs(q.y - y) <= 1 : q.x === x && q.y === y));
+  if (!o) { const T = TERR.water[tIdx(x, y)] ? 'Open water' : TERR.mount[tIdx(x, y)] ? 'Mountains' : TERR.forest[tIdx(x, y)] ? 'Forest' : 'Open land'; return openSheet(`${T} · ${reg}`, `<p class="muted">(${x}, ${y}) · ${dist(S.home, { x, y }).toFixed(1)} leagues from your city</p><p>${REALMS[regionAt(x, y)] ? REALMS[regionAt(x, y)].desc : regionAt(x, y) === 'ash' ? 'Scorched earth where the Hollow King first rose. Ashen outposts gather here in force.' : 'The golden heart of Aeloria.'}</p>`); }
   openTile(o);
+}
+const exploreCost = (x, y) => Math.round(100 + dist(S.home, { x, y }) * 20);
+function explore(x, y) {
+  if (S.marches.length >= maxMarches()) return toast('All march slots are busy', 'bad');
+  const c = { gold: exploreCost(x, y) }; if (!afford(c)) return toast('Not enough Gold', 'bad'); pay(c);
+  sendMarch({ id: 0, x, y }, 'explore', {});
 }
 function openTile(o) {
   const d = dist(S.home, o), eta = fmtT(travelMs(o, {}) / 1000);
   let html = `<p class="muted">Coordinates (${o.x}, ${o.y}) · ${d.toFixed(1)} leagues · march ≈ ${eta}</p>`;
   if (o.kind === 'node') {
-    html += `<div class="bhead">${ART.icon(o.res, 60)}<div><p><b>Level ${o.lvl} ${RNAME[o.res]} site</b></p><p>Remaining: ${fmt(o.amount)}</p><p class="muted">Send troops to gather. Load depends on troop type (camel riders carry the most).</p></div></div>
+    html += `<div class="bhead">${ART.icon(o.res, 60)}<div><p><b>Level ${o.lvl} ${RNAME[o.res]} site</b></p><p>Remaining: ${fmt(o.amount)}</p><p class="muted">Send troops to gather. Cavalry carry the most.</p></div></div>
     <button class="btn gold" data-act="sendform" data-id="${o.id}" data-kind="gather">Gather</button>`;
   } else if (o.kind === 'camp') {
-    html += `<div class="bhead">${ART.enemy('raider', 70)}<div><p><b>Bandit camp · level ${o.lvl}</b></p><p>Guards: ${troopsHTML(o.troops)}</p><p class="muted">Defeat them for Dinars, resources, House gifts and hero shards.</p></div></div>
+    html += `<div class="bhead">${ART.enemy('raider', 70)}<div><p><b>Ashen outpost · level ${o.lvl}</b></p><p>Guards: ${troopsHTML(o.troops)}</p><p class="muted">The Hollow King's soldiers hold this ground. Destroy the outpost for Gold, resources, Alliance gifts and hero shards.</p></div></div>
     <button class="btn gold" data-act="sendform" data-id="${o.id}" data-kind="attack">Attack</button>`;
   } else if (o.kind === 'city') {
-    html += `<div class="bhead"><svg viewBox="0 0 24 24" width="60" height="60"><rect width="24" height="24" rx="5" fill="${o.color}"/><g transform="translate(-2 -1) scale(.28)">${ART.falcon('#1b1430')}</g></svg><div><p><b>${esc(o.name)}</b> · Citadel ${o.lvl}</p><p>Might ≈ ${fmt(troopMight(o.troops) + o.lvl * o.lvl * 400)}</p><p class="muted">A rival lord. Scout first, then strike when their army is weaker than yours.</p></div></div>
+    html += `<div class="bhead"><svg viewBox="0 0 100 100" width="64" height="64"><rect width="100" height="100" rx="16" fill="${o.color}"/><path d="M20 20h60v40c0 14-14 22-30 28-16-6-30-14-30-28z" fill="#140f22" opacity=".85"/><g transform="translate(20 22) scale(.6)">${ART.crownPath('#8a8590', '#2a2228')}</g></svg><div><p><b>${esc(o.name)}</b> · ${REALMS[o.realm].name} · Citadel ${o.lvl}</p><p>Might ≈ ${fmt(troopMight(o.troops) + o.lvl * o.lvl * 400)}</p><p class="muted">An Ash-sworn lord who bent the knee to the Hollow King. Scout first, then strike when their army is weaker than yours.</p></div></div>
     <div class="btns"><button class="btn" data-act="scout" data-id="${o.id}">Scout (${ART.icon('gold', 13)} ${fmt(200 * o.lvl)})</button><button class="btn gold" data-act="sendform" data-id="${o.id}" data-kind="attack">Attack</button></div>`;
   } else if (o.kind === 'throne') {
-    html += `<div class="bhead"><svg viewBox="-60 -60 120 100" width="90" height="80">${ART.building('citadel', 12)}</svg><div><p><b>The Oasis Throne</b></p><p>${S.throne ? 'Held by you, Sovereign of the Sands.' : `Garrison: ${troopsHTML(o.troops)}`}</p><p class="muted">Whoever holds the Throne rules every dune. Its garrison is vast; wear it down with several attacks.</p></div></div>
+    html += `<div class="bhead"><div style="width:90px;height:90px;flex:none">${ART.emblem(90)}</div><div><p><b>The Sunspire Throne</b></p><p>${S.throne ? 'Held by you, Sovereign of Aeloria.' : `Garrison: ${troopsHTML(o.troops)}`}</p><p class="muted">Seat of the Sunspire Crown, held by the Hollow King's elite guard. Its garrison is vast; wear it down with many attacks.</p></div></div>
     ${S.throne ? '' : `<button class="btn gold" data-act="sendform" data-id="${o.id}" data-kind="attack">Attack</button>`}`;
   }
-  openSheet(o.kind === 'city' ? esc(o.name) : o.kind === 'node' ? `${RNAME[o.res]} site` : o.kind === 'camp' ? 'Bandit camp' : 'Oasis Throne', html);
+  openSheet(o.kind === 'city' ? esc(o.name) : o.kind === 'node' ? `${RNAME[o.res]} site` : o.kind === 'camp' ? 'Ashen outpost' : 'Sunspire Throne', html);
 }
 function scout(id) {
-  const o = S.world.find(w => w.id === id), c = { gold: 200 * o.lvl }; if (!afford(c)) return toast('Not enough Dinars', 'bad');
+  const o = S.world.find(w => w.id === id), c = { gold: 200 * o.lvl }; if (!afford(c)) return toast('Not enough Gold', 'bad');
   if (S.marches.length >= maxMarches()) return toast('All march slots are busy', 'bad');
   pay(c); sendMarch(o, 'scout', {});
 }
@@ -974,7 +1156,7 @@ function openSend(id, kind) {
   const capN = marchCap(); sendSel = {}; let left = capN;
   // sensible default: for gather prefer riders; for attack send a balanced share
   for (const [k, n] of home.sort((a, b) => kind === 'gather' ? TROOP[tparse(b[0])[0]].load - TROOP[tparse(a[0])[0]].load : b[1] - a[1])) { const t = Math.min(n, left); sendSel[k] = t; left -= t; }
-  openSheet(`${kind === 'gather' ? 'Gather' : 'Attack'} · send troops`, `<p class="muted">Max march size ${fmt(capN)} (raise Barracks and Falcon Mews). Travel ≈ ${fmtT(travelMs(o, sendSel) / 1000)}</p>
+  openSheet(`${kind === 'gather' ? 'Gather' : 'Attack'} · send troops`, `<p class="muted">Max march size ${fmt(capN)} (raise Barracks and Hall of Heroes). Travel ≈ ${fmtT(travelMs(o, sendSel) / 1000)}</p>
   ${home.map(([k, n]) => { const [t, ti] = tparse(k); return `<label class="slider">${ART.troop(t, ti, 32)} ${TROOP[t].name} ${'I'.repeat(ti)}<input type="range" min="0" max="${n}" value="${sendSel[k] || 0}" data-act="sendn" data-k="${k}"><b id="sn-${k}">${sendSel[k] || 0}</b></label>`; }).join('')}
   <p id="sendInfo"></p><button class="btn gold" data-act="go" data-id="${id}" data-kind="${kind}">March!</button>`);
   sendInfo(o, kind);
@@ -986,7 +1168,7 @@ function sendInfo(o, kind) {
 }
 function openMarch(id) {
   const m = S.marches.find(x => x.id === id); if (!m) return;
-  openSheet('March', `<p>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout' }[m.kind]} at (${m.tx}, ${m.ty}) · ${m.state}</p>${troopsHTML(m.troops)}${Object.keys(m.loot).length ? `<p>Carrying: ${Object.entries(m.loot).map(([k, v]) => ART.icon(k, 14) + fmt(v)).join(' ')}</p>` : ''}
+  openSheet('March', `<p>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout', explore: 'Exploring' }[m.kind]} at (${m.tx}, ${m.ty}) · ${m.state}</p>${troopsHTML(m.troops)}${Object.keys(m.loot).length ? `<p>Carrying: ${Object.entries(m.loot).map(([k, v]) => ART.icon(k, 14) + fmt(v)).join(' ')}</p>` : ''}
   ${m.state !== 'back' ? `<button class="btn" data-act="recall" data-id="${m.id}">Recall</button>` : ''}<button class="btn" data-act="goto" data-x="${m.tx}" data-y="${m.ty}">Show on map</button>`);
 }
 
@@ -1028,7 +1210,7 @@ function onAct(e) {
     case 'speed': openSpeed(d.kind, d.key); break;
     case 'usesp': speedUp(d.kind, d.key || undefined, d.i); break;
     case 'tsel': trainSel.t = d.t; openBuilding('barracks'); break;
-    case 'tier': if (!tierOpen(+d.n)) { toast('Research this tier in the House of Wisdom'); break; } trainSel.tier = +d.n; openBuilding('barracks'); break;
+    case 'tier': if (!tierOpen(+d.n)) { toast('Research this tier in the Royal Academy'); break; } trainSel.tier = +d.n; openBuilding('barracks'); break;
     case 'train': startTraining(trainSel.t, trainSel.tier, trainSel.n); break;
     case 'heal': healAll(); break;
     case 'trade': trade(d.a, d.b); break;
@@ -1036,15 +1218,16 @@ function onAct(e) {
     case 'star': { const h = S.heroes[d.id], need = STAR_SHARDS[h.stars + 1]; if (h.shards >= need) { h.shards -= need; h.stars++; if (!h.lvl) h.lvl = 1; burst(); sfx('win'); toast(`${HERO[d.id].name} ${h.stars === 1 ? 'joined your court!' : 'reached ' + h.stars + ' stars'}`, 'good'); } render(); openHero(d.id); break; }
     case 'squad': { const i = S.squad.indexOf(d.id); if (i >= 0) S.squad.splice(i, 1); else { if (S.squad.length >= 3) S.squad.shift(); S.squad.push(d.id); } render(); openHero(d.id); break; }
     case 'tome': if (S.items.scroll) { S.items.scroll--; heroXP(d.id, 600); sfx('done'); render(); openHero(d.id); } break;
-    case 'tutor': { const h = S.heroes[d.id], c = Math.floor(150 * h.lvl * h.lvl); if (h.lvl >= heroCap()) { toast('Raise the Falcon Mews to lift the level cap', 'bad'); break; } if (S.res.gold < c) { toast('Not enough Dinars', 'bad'); break; } S.res.gold -= c; heroXP(d.id, xpFor(h.lvl) * .5); sfx('done'); render(); openHero(d.id); break; }
+    case 'tutor': { const h = S.heroes[d.id], c = Math.floor(150 * h.lvl * h.lvl); if (h.lvl >= heroCap()) { toast('Raise the Hall of Heroes to lift the level cap', 'bad'); break; } if (S.res.gold < c) { toast('Not enough Gold', 'bad'); break; } S.res.gold -= c; heroXP(d.id, xpFor(h.lvl) * .5); sfx('done'); render(); openHero(d.id); break; }
     case 'stages': openStages(); break;
     case 'stage': startStage(d.key); break;
     case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && now() >= fight.pauseUntil) { castSkill(u); updFight(); } break; }
     case 'auto': break;
-    case 'closefight': leaveFight(); render(); openStages(); break;
+    case 'closefight': { const oc = fight && fight.outro; leaveFight(); render(); if (oc) chapterStory(oc, 'outro', () => { if (oc === CHAPTERS.length) FX.banner('Aeloria Restored', 'The Hollow King is defeated. Now claim the Sunspire Throne on the World map.', { art: ART.emblem(120) }); openStages(); }); else openStages(); break; }
+    case 'story': closeSheet(); { const c = +d.ch; chapterStory(c, 'intro', () => { if (S.stages[c + '-6']) chapterStory(c, 'outro', openStages); else openStages(); }); } break;
     case 'retreat': if (fight && !fight.over && !confirm('Retreat from this battle? The Vigor is spent.')) break; leaveFight(); render(); break;
     case 'retry': { const k = fight.key; leaveFight(); startStage(k); break; }
-    case 'nextstage': leaveFight(); startStage(d.key); break;
+    case 'nextstage': { const oc = fight && fight.outro; leaveFight(); if (oc) chapterStory(oc, 'outro', () => startStage(d.key)); else startStage(d.key); break; }
     case 'bspeed': if (fight) { fight.speed = fight.speed === 1 ? 2 : 1; S.fightSpeed = fight.speed; el.textContent = fight.speed + '×'; } break;
     case 'usevigor': useItem('vigor'); openStages(); break;
     case 'research': startResearch(d.id); break;
@@ -1057,12 +1240,13 @@ function onAct(e) {
     case 'sendform': openSend(+d.id, d.kind); break;
     case 'go': { const o = S.world.find(w => w.id === +d.id); const tr = Object.fromEntries(Object.entries(sendSel).filter(([, n]) => n > 0)); if (troopCount(tr) > marchCap()) { toast('Too many troops for one march', 'bad'); break; } sendMarch(o, d.kind, tr); break; }
     case 'scout': scout(+d.id); break;
+    case 'explore': explore(+d.x, +d.y); break;
     case 'march': openMarch(+d.id); break;
     case 'recall': recall(+d.id); closeSheet(); break;
     case 'goto': openTab('world'); centerOn(+d.x, +d.y); mapSel = { x: +d.x, y: +d.y }; break;
     case 'home': if (tab === 'world') centerOn(S.home.x, S.home.y); else openTab('world'); break;
     case 'mail': openMail(); break;
-    case 'incoming': openSheet('Incoming attack!', `<p><b>${esc(S.incoming.name)}</b> marches with about ${fmt(troopCount(S.incoming.troops) * (S.b.tower >= 3 ? 1 : 1.1))} troops. Arrives in ${fmtT((S.incoming.arrive - now()) / 1000)}.</p><p>Your defenders: ${fmt(troopCount(S.troops))} troops, Ramparts ${S.b.wall}.</p>${S.items.shield ? '<button class="btn gold" data-act="use" data-i="shield">Raise Mirage Veil</button>' : `<button class="btn gold" data-act="buy" data-i="shield">${ART.icon('gem', 12)} ${ITEMS.shield.gems} Buy Mirage Veil</button>`}`); break;
+    case 'incoming': openSheet('Incoming attack!', `<p><b>${esc(S.incoming.name)}</b> marches with about ${fmt(troopCount(S.incoming.troops) * (S.b.tower >= 3 ? 1 : 1.1))} troops. Arrives in ${fmtT((S.incoming.arrive - now()) / 1000)}.</p><p>Your defenders: ${fmt(troopCount(S.troops))} troops, Ramparts ${S.b.wall}.</p>${S.items.shield ? '<button class="btn gold" data-act="use" data-i="shield">Raise Aegis Ward</button>' : `<button class="btn gold" data-act="buy" data-i="shield">${ART.icon('gem', 12)} ${ITEMS.shield.gems} Buy Aegis Ward</button>`}`); break;
     case 'mute': { const on = !(S.settings.music || S.settings.sfx); S.settings.music = on; S.settings.sfx = on; FX.music(on); FX.setSfx(on); el.textContent = on ? '🔊' : '🔇'; break; }
     case 'menu': openMenu(); break;
     case 'reset': if (confirm('Erase this realm and start over?')) { try { localStorage.removeItem(SAVE_KEY); } catch (x) { } location.reload(); } break;
@@ -1080,14 +1264,15 @@ function onInput(e) {
   if (a === 'auto') { fight.auto = el.checked; S.autoSkill = el.checked; updFight(); const h = $('#battle .hint'); if (h) h.textContent = el.checked ? 'Auto skills on' : 'Tap a glowing hero to unleash their skill'; }
 }
 function openMenu() {
-  openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
-  <div class="card"><h4>How to play</h4><ul class="howto"><li>Upgrade fields to grow Grain, Timber, Stone and Ore. The Citadel caps everything else.</li><li>Train troops in the Barracks. Spearmen › Riders › Archers › Spearmen.</li><li>On the World map, gather from resource sites, crush bandit camps and scout rivals.</li><li>Lead heroes through Hero Trials to earn XP and shards. Your squad boosts every army.</li><li>From Citadel 4 rivals may raid you. Watch the warning, raise a Mirage Veil, or fight back.</li><li>Final goal: break the garrison of the Oasis Throne at the heart of the desert.</li></ul></div>
-  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="logincal">📅 Daily Caravan</button></div></div>
+  openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">${REALMS[S.realm].name} · ${REALMS[S.realm].bonusText} · Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
+  <div class="card"><h4>How to play</h4><ul class="howto"><li>Upgrade fields to grow Grain, Timber, Stone and Iron. The Citadel caps everything else.</li><li>Train troops in the Barracks. Spearmen › Cavalry › Archers › Spearmen.</li><li>On the World map, explore the fog, gather resources, destroy Ashen outposts and scout Ash-sworn lords.</li><li>Lead heroes through the Story Campaign across six realms to earn XP, shards and new heroes. Your squad boosts every army.</li><li>From Citadel 4 rivals may raid you. Watch the warning, raise an Aegis Ward, or fight back.</li><li>Final goal: break the garrison of the Sunspire Throne at the heart of Aeloria.</li></ul></div>
+  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="logincal">📅 Royal Courier</button></div></div>
   <p class="muted">Progress is saved in this browser.</p><button class="btn" data-act="reset">Start a new realm</button>`);
 }
 
 /* ======================= start ======================= */
 function start() {
+  if (!TERR) TERR = buildTerrain(S.seed); ART.setRealm(S.realm || 'greenhold'); document.title = `${GAME.name} · ${S.name}`;
   document.addEventListener('click', onAct); document.addEventListener('input', onInput);
   document.addEventListener('submit', e => { if (e.target.dataset.act === 'chat') { e.preventDefault(); const v = e.target.m.value.trim(); if (v) { S.house.chat.push({ from: S.name, t: v, at: now() }); setTimeout(() => { S.house.chat.push({ from: pick(HOUSE_NAMES), t: pick(['Well said!', 'Agreed, my lord.', 'Ha! Good one.', 'On it.', 'For the Dawn Falcon!']), at: now() }); if (tab === 'house') render(); }, 1500); render(); } } });
   $('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
@@ -1125,27 +1310,28 @@ function playIntro(onDone) {
     const sy = lerp(hz + 80, hz - H * .2, e), sr = Math.min(W, H) * .09;
     const sg = ctx.createRadialGradient(W * .62, sy, 0, W * .62, sy, sr * 4); sg.addColorStop(0, `rgba(255,220,150,${.75 * e + .1})`); sg.addColorStop(1, 'rgba(255,180,100,0)');
     ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H); ctx.fillStyle = mix('#ff9a5a', '#fff1c4', e); ctx.beginPath(); ctx.arc(W * .62, sy, sr, 0, 7); ctx.fill();
-    dune(hz, 18, .006, t * .05, mix('#2a1838', '#b5783f', e));
-    // distant citadel silhouette
-    const cx = W * .28, cy = hz - 6; ctx.fillStyle = mix('#1b1026', '#8a5a3a', e);
-    ctx.fillRect(cx - 40, cy - 30, 80, 30); ctx.fillRect(cx - 52, cy - 50, 16, 50); ctx.fillRect(cx + 36, cy - 50, 16, 50); ctx.beginPath(); ctx.arc(cx, cy - 30, 18, Math.PI, 0); ctx.fill(); ctx.fillRect(cx - 1, cy - 62, 2, 14);
-    dune(hz + H * .1, 24, .004, 1 + t * .1, mix('#1f1230', '#c98a52', e));
+    dune(hz, 44, .0045, t * .03, mix('#1d1838', '#6a7aa0', e)); ctx.fillStyle = `rgba(255,255,255,${.25 + .6 * e})`; for (let x = 0; x < W; x += 9) { const yy = hz + Math.sin(x * .0045 + t * .03) * 44 + Math.sin(x * .0045 * 2.3 + t * .03 * 1.7) * 15; if (yy < hz - 24) ctx.fillRect(x, yy, 9, 5); }
+    // the Sunspire on the horizon
+    const cx = W * .5, cy = hz + 10; ctx.fillStyle = mix('#140f22', '#5a4a6a', e);
+    ctx.beginPath(); ctx.moveTo(cx - 8, cy); ctx.lineTo(cx, cy - H * .22); ctx.lineTo(cx + 8, cy); ctx.fill(); ctx.fillRect(cx - 30, cy - 18, 60, 18); ctx.fillRect(cx - 40, cy - 34, 10, 34); ctx.fillRect(cx + 30, cy - 34, 10, 34);
+    ctx.fillStyle = `rgba(255,211,107,${.4 + .6 * e})`; ctx.beginPath(); ctx.arc(cx, cy - H * .22, 3 + 2 * Math.sin(t * 3), 0, 7); ctx.fill();
+    dune(hz + H * .1, 24, .004, 1 + t * .1, mix('#141a2a', '#5f8a4a', e));
     // caravan
     const cvx = ((t * 18) % (W + 200)) - 100, cvy = hz + H * .1 + 4;
-    ctx.fillStyle = mix('#0d0716', '#5a3418', e);
+    ctx.fillStyle = mix('#0a0d14', '#2a3a1a', e);
     for (let i = 0; i < 4; i++) { const x = cvx - i * 34, y = cvy + Math.sin((x) * .004 + 1 + t * .1) * 24 - 10; ctx.beginPath(); ctx.ellipse(x, y, 11, 5, 0, 0, 7); ctx.fill(); ctx.fillRect(x + 8, y - 12, 3, 10); ctx.fillRect(x - 8, y + 3, 2, 8); ctx.fillRect(x + 6, y + 3, 2, 8); ctx.beginPath(); ctx.arc(x - 2, y - 8, 3, 0, 7); ctx.fill(); }
-    dune(hz + H * .24, 30, .003, 2 + t * .2, mix('#140b20', '#d9a868', e));
+    dune(hz + H * .24, 30, .003, 2 + t * .2, mix('#0d1018', '#3e6a34', e));
     // falcon
     if (t > 3.5 && t < 12) { const p = (t - 3.5) / 8.5, fx = lerp(-80, W + 80, p), fy = H * .3 + Math.sin(p * 6) * 30 - p * 40, fl = Math.sin(t * 11), s = Math.min(W, H) / 600 * (1.4 + p * .8);
       ctx.save(); ctx.translate(fx, fy); ctx.scale(s, s); ctx.fillStyle = '#140b20';
       ctx.beginPath(); ctx.moveTo(-22, 0); ctx.quadraticCurveTo(-10, -4 - fl * 16, -40, -10 - fl * 22); ctx.quadraticCurveTo(-14, -2, 0, 2); ctx.quadraticCurveTo(14, -2, 40, -10 - fl * 22); ctx.quadraticCurveTo(10, -4 - fl * 16, 22, 0); ctx.quadraticCurveTo(10, 8, 0, 6); ctx.quadraticCurveTo(-10, 8, -22, 0); ctx.fill();
       ctx.beginPath(); ctx.moveTo(0, 4); ctx.lineTo(-6, 16); ctx.lineTo(6, 16); ctx.fill(); ctx.beginPath(); ctx.arc(14, -2, 4, 0, 7); ctx.fill(); ctx.restore(); }
     // drifting sand
-    ctx.fillStyle = `rgba(255,230,190,${.25 * e})`; for (let i = 0; i < 40; i++) { const x = ((i * 97 + t * 60 * (1 + i % 3)) % (W + 40)) - 20, y = H * .7 + (i * 53 % (H * .3)); ctx.fillRect(x, y, 2, 1); }
+    ctx.fillStyle = `rgba(255,240,200,${.35 * e})`; for (let i = 0; i < 40; i++) { const x = ((i * 97 + t * 60 * (1 + i % 3)) % (W + 40)) - 20, y = H * .7 + (i * 53 % (H * .3)); ctx.fillRect(x, y, 2, 1); }
     if (!ended) raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
-  const lines = ['Long ago, the Oasis Throne united every dune.', 'Then the Sultan vanished, and the desert broke into quarrelling realms.', 'Nine lords now race for the Throne…', '…and a new banner rises with the sun.'];
+  const lines = STORY.prologue.map(l => l[1]);
   const box = $('#introLines'); let timers = [];
   lines.forEach((l, i) => timers.push(setTimeout(() => { box.innerHTML = `<p>${l}</p>`; FX.sound('whoosh'); }, 800 + i * 2700)));
   const finish = () => { if (ended && !onDone) return; timers.forEach(clearTimeout); box.innerHTML = ''; $('#skipIntro').hidden = true; $('#introTitle').classList.add('show'); FX.sound('fanfare'); setTimeout(() => { $('#introForm').hidden = false; $('#lordName').focus({ preventScroll: true }); }, 900); const cb = onDone; onDone = null; cb && cb(); };
@@ -1155,15 +1341,19 @@ function playIntro(onDone) {
 }
 
 function boot() {
+  window.addEventListener('artready', () => { const k = ART.keyUrl('title'); if (k) { $('#introTap').style.background = `linear-gradient(#05030d66,#05030dcc),url(${k}) center/cover`; } if (S && document.querySelector('#app')) render(); });
   S = load();
   if (S) { start(); return; }
   const colors = ['#e8a33d', '#3fd7c8', '#b3433a', '#9b7bff', '#3e8a4a', '#ff7a59'];
   $('#intro').hidden = false;
   $('#introEmblem').innerHTML = ART.emblem(110); $('#introEmblem2').innerHTML = ART.emblem(96);
   $('#colors').innerHTML = colors.map((c, i) => `<button type="button" class="sw ${i ? '' : 'on'}" style="background:${c}" data-c="${c}" aria-label="Banner colour ${i + 1}"></button>`).join('');
-  let color = colors[0], stop = null;
+  let color = colors[0], stop = null, realm = 'greenhold';
+  $('#realms').innerHTML = REALM_IDS.map(k => { const R = REALMS[k]; return `<button type="button" class="realm ${k === realm ? 'on' : ''}" data-r="${k}" style="--rc:${R.color}"><b>${R.name}</b><small>${R.bonusText}</small></button>`; }).join('');
+  $('#realmDesc').textContent = REALMS[realm].desc;
+  $('#realms').addEventListener('click', e => { const b = e.target.closest('.realm'); if (!b) return; realm = b.dataset.r; document.querySelectorAll('.realm').forEach(x => x.classList.toggle('on', x === b)); $('#realmDesc').textContent = REALMS[realm].desc; FX.sound('click'); });
   $('#colors').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); FX.sound('click'); });
   $('#introTap').addEventListener('click', () => { $('#introTap').hidden = true; $('#skipIntro').hidden = false; FX.setMood('cine'); FX.music(true); stop = playIntro(); }, { once: true });
-  $('#introForm').onsubmit = e => { e.preventDefault(); const name = ($('#lordName').value.trim() || 'Lord of the Sands').slice(0, 24); S = newState(name, color); save(); if (stop) stop(); $('#intro').classList.add('leaving'); setTimeout(() => { $('#intro').hidden = true; }, 700); FX.sound('horn'); start.fromIntro = true; start(); FX.setMood('city'); setTimeout(() => FX.banner(`Welcome, ${esc(name)}`, 'Your realm is founded. Follow the quest guide to grow it.', { art: ART.emblem(110) }), 600); };
+  $('#introForm').onsubmit = e => { e.preventDefault(); const name = ($('#lordName').value.trim() || 'Lord of Aeloria').slice(0, 24); S = newState(name, color, realm); save(); if (stop) stop(); $('#intro').classList.add('leaving'); setTimeout(() => { $('#intro').hidden = true; }, 700); FX.sound('horn'); start.fromIntro = true; start(); FX.setMood('city'); setTimeout(() => FX.banner(`Welcome, ${esc(name)}`, `Your citadel rises in ${REALMS[realm].name}. The Hollow King's ash is spreading — gather heroes and begin the Story Campaign.`, { art: ART.emblem(110) }), 600); };
 }
 boot();
