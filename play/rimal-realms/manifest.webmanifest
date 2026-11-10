@@ -1,0 +1,15 @@
+{
+  "name": "Rimal Realms",
+  "short_name": "Rimal Realms",
+  "description": "Build a desert kingdom, lead heroes and claim the Oasis Throne.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#140f22",
+  "theme_color": "#140f22",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

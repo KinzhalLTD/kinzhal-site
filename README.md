@@ -6,6 +6,8 @@ The root serves the studio home page and the one shared `app-ads.txt` that AdMob
 - `games.json` — the list of games (add a game here; edit it right on GitHub).
 - `site.json` — company, contact email and the **app-ads.txt lines**.
 - `static/` — logo, icons and share image (copied into the site).
+- `play/<slug>/` — a game that runs in the browser. The build copies it to `/<slug>/play/` and adds a **Play now** button. `play/rimal-realms/` is Rimal Realms (desert kingdom strategy: city, troops, heroes, world map; saves in the browser).
+- `icons/<slug>.png` — optional icon for a game's card and pages.
 - `build.mjs` — builds `public/` (not stored on GitHub). Netlify runs it on every push (`netlify.toml`).
 - `check.mjs` — `node check.mjs` checks every URL on the live domain.
 - `GAME_PROMPTS.md` — one prompt per game project to switch its links to kinzhal.space.

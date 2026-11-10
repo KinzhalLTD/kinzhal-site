@@ -2,6 +2,24 @@
 
 Open each game project (Replit, Claude or any coding agent) and paste its block.
 
+## Rimal Realms
+
+```
+Move this game's public links to the studio domain kinzhal.space. Game slug: rimal-realms
+
+1. Create (or update) ONE config for links and use it everywhere:
+   MARKETING_URL = https://kinzhal.space/rimal-realms/
+   SUPPORT_URL   = https://kinzhal.space/rimal-realms/support/
+   PRIVACY_URL   = https://kinzhal.space/rimal-realms/privacy/
+   TERMS_URL     = https://kinzhal.space/rimal-realms/terms/
+   DEVELOPER_WEBSITE = https://kinzhal.space/
+2. Replace every old link (*.replit.app, *.repl.co, *.netlify.app, github.io or any other domain used for privacy, terms, support or website) in: the in-app Privacy & Settings screen, the game bridge / WebView links, app.json or app.config, the store listing files (English and Arabic), APP_STORE_SUBMISSION.md and README. Do not change the bundle ID, ad unit IDs, AdMob app ID, consent/ATT flow or game code.
+3. The website/ folder stays as source, but add website/README.md saying the live pages are served from https://kinzhal.space/rimal-realms/ and that the shared app-ads.txt lives at https://kinzhal.space/app-ads.txt. Do not publish a separate app-ads.txt for this game.
+4. Update the npm run check:store script so it fails unless: all four URLs above answer HTTP 200, and https://kinzhal.space/app-ads.txt contains this game's AdMob publisher ID (the pub-… part of the AdMob app ID in app config).
+5. Bump the build number (not the version name) only if a link inside the app changed.
+6. Run npm run check:store and show me the result and the four URLs.
+```
+
 ## Brick Blast
 
 ```

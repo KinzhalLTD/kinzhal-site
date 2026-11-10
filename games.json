@@ -1,5 +1,17 @@
 [
  {
+  "slug": "rimal-realms",
+  "name": "Rimal Realms",
+  "nameAr": "ممالك الرمال",
+  "genre": "Strategy · kingdom builder",
+  "genreAr": "استراتيجية · بناء الممالك",
+  "status": "live",
+  "color": "#e8a33d",
+  "appStoreId": "",
+  "about": "Raise a desert citadel, farm dates and quarry sandstone, train spearmen, archers, camel riders and ballistae, lead nine heroes through the Hero Trials, crush bandit camps, outwit nine rival lords and claim the Oasis Throne. Plays in any browser on phone or computer.",
+  "aboutAr": "ابنِ قلعتك في الصحراء، ازرع النخيل واقطع الحجر، درّب الرماحين والرماة وراكبي الهجن والمجانيق، وقُد تسعة أبطال في تحديات الأبطال، واهزم معسكرات قطاع الطرق والأمراء المنافسين، واستولِ على عرش الواحة."
+ },
+ {
   "slug": "brick-blast",
   "name": "Brick Blast",
   "nameAr": "انفجار الطوب",

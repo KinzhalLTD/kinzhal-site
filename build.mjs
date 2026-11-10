@@ -118,7 +118,7 @@ const support = (name, nameAr) => `
 <h3>إجابات سريعة</h3><ul><li><b>استعادة المشتريات:</b> الإعدادات داخل اللعبة ← استعادة المشتريات بنفس حساب Apple.</li><li><b>إعلانات كثيرة؟</b> الإعلانات البينية تظهر بين المراحل فقط، و«إزالة الإعلانات» توقفها.</li><li><b>فقدان التقدم:</b> يُحفظ على الجهاز، وحذف التطبيق يحذفه.</li><li><b>الاسترداد</b> عبر Apple في reportaproblem.apple.com.</li></ul></div>`;
 
 // "On the App Store" / "On Steam" only when the game really has a store ID; everything else is "Coming soon".
-const statusPill = g => g.appStoreId ? '<span class="pill live">On the App Store</span>' : g.steamAppId ? '<span class="pill live">On Steam</span>' : g.status === 'live' ? '<span class="pill" style="border-color:#ff2bd655;color:#ff9be9">Coming soon to iPhone</span>' : '<span class="pill">Coming soon</span>';
+const statusPill = g => PLAY[g.slug] && !g.appStoreId ? '<span class="pill live">Play in browser</span>' : g.appStoreId ? '<span class="pill live">On the App Store</span>' : g.steamAppId ? '<span class="pill live">On Steam</span>' : g.status === 'live' ? '<span class="pill" style="border-color:#ff2bd655;color:#ff9be9">Coming soon to iPhone</span>' : '<span class="pill">Coming soon</span>';
 const ico = g => `<img class="ico" src="${ICON[g.slug].href}" alt="${esc(g.name)} icon" width="46" height="46" loading="lazy" style="box-shadow:0 0 14px ${esc(g.color)}66">`;
 const ordered = [...GAMES].sort((a, b) => (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1));
 
@@ -164,6 +164,9 @@ for (const g of GAMES) {
   }
   const dest = `${g.slug}/icon.svg`; fs.mkdirSync(path.join(OUT, g.slug), { recursive: true }); fs.writeFileSync(path.join(OUT, dest), genIcon(g)); ICON[g.slug] = { href: '/' + dest, svg: true, src: 'drawn' };
 }
+// Browser-playable games: play/<slug>/ is copied to /<slug>/play/ and gets a "Play now" button.
+const PLAY = {};
+for (const g of GAMES) if (fs.existsSync(path.join('play', g.slug, 'index.html'))) { fs.cpSync(path.join('play', g.slug), path.join(OUT, g.slug, 'play'), { recursive: true }); PLAY[g.slug] = `/${g.slug}/play/`; }
 console.log('Icons:', Object.entries(ICON).reduce((a, [, v]) => (a[v.src] = (a[v.src] || 0) + 1, a), {}));
 write('index.html', page({ title: `${SITE.company} · Games`, desc: `Mobile and PC games by ${SITE.company}, made in Saudi Arabia.`, rel: '', body: `
 <section style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px;align-items:center;margin:16px 0 28px" class="hero">
@@ -179,16 +182,17 @@ for (const [k, fn, t, d] of [['privacy', privacy, 'Privacy policy', 'How Kinzhal
 }
 for (const g of GAMES) {
   const store = g.appStoreId ? `<a class="btn" href="https://apps.apple.com/app/id${esc(g.appStoreId)}">Download on the App Store</a>` : '';
+  const play = PLAY[g.slug] ? `<a class="btn" href="${PLAY[g.slug]}" style="border-color:var(--good);box-shadow:0 0 14px #3dffa955">Play now in your browser</a>` : '';
   const steam = g.steamAppId ? `<a class="btn" href="https://store.steampowered.com/app/${esc(g.steamAppId)}/" style="border-color:#66c0f4;box-shadow:0 0 14px #66c0f455">Wishlist on Steam</a>` : '';
   write(`${g.slug}/index.html`, page({ title: `${g.name} · ${SITE.company}`, desc: `${g.name} — ${g.genre}. A game by ${SITE.company}.`, rel: `${g.slug}/`, icon: ICON[g.slug], body: `
-<div class="card">${ico(g)}<h1>${esc(g.name)}</h1><p class="muted">${esc(g.genre)}</p>${statusPill(g)}<div style="margin-top:14px">${store}${steam}</div>
+<div class="card">${ico(g)}<h1>${esc(g.name)}</h1><p class="muted">${esc(g.genre)}</p>${statusPill(g)}<div style="margin-top:14px">${play}${store}${steam}</div>${g.about ? `<p style="margin-top:12px">${esc(g.about)}</p>` : ''}
 <p style="margin-top:14px"><a href="/${g.slug}/privacy/">Privacy policy</a> · <a href="/${g.slug}/terms/">Terms</a> · <a href="/${g.slug}/support/">Support</a></p></div>
-<div class="card ar" dir="rtl" lang="ar"><h2 style="margin-top:0">${esc(g.nameAr || g.name)}</h2><p class="muted">${esc(g.genreAr || g.genre)}</p><p><a href="/${g.slug}/privacy/">سياسة الخصوصية</a> · <a href="/${g.slug}/terms/">الشروط</a> · <a href="/${g.slug}/support/">الدعم</a></p></div>` }));
+<div class="card ar" dir="rtl" lang="ar"><h2 style="margin-top:0">${esc(g.nameAr || g.name)}</h2><p class="muted">${esc(g.genreAr || g.genre)}</p>${g.aboutAr ? `<p>${esc(g.aboutAr)}</p>` : ''}${PLAY[g.slug] ? `<p><a href="${PLAY[g.slug]}">العب الآن في المتصفح</a></p>` : ''}<p><a href="/${g.slug}/privacy/">سياسة الخصوصية</a> · <a href="/${g.slug}/terms/">الشروط</a> · <a href="/${g.slug}/support/">الدعم</a></p></div>` }));
 }
 write('404.html', page({ title: 'Page not found', desc: 'Page not found', rel: '', noindex: true, body: '<div class="card"><h1>Page not found</h1><p><a href="/">Back to all games</a></p></div>' }));
 write('app-ads.txt', SITE.adsTxt.join('\n') + '\n');
 write('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${D}/sitemap.xml\n`);
-const urls = ['', 'privacy/', 'terms/', 'support/', ...GAMES.flatMap(g => [`${g.slug}/`, `${g.slug}/privacy/`, `${g.slug}/terms/`, `${g.slug}/support/`])];
+const urls = ['', 'privacy/', 'terms/', 'support/', ...GAMES.flatMap(g => [`${g.slug}/`, `${g.slug}/privacy/`, `${g.slug}/terms/`, `${g.slug}/support/`, ...(PLAY[g.slug] ? [`${g.slug}/play/`] : [])])];
 write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${D}/${u}</loc></url>`).join('\n')}\n</urlset>\n`);
 // One list of every game's store URLs, to paste into App Store Connect and each game project.
 write('urls.txt', GAMES.map(g => `${g.name}\n  Marketing URL:      ${D}/${g.slug}/\n  Support URL:        ${D}/${g.slug}/support/\n  Privacy Policy URL: ${D}/${g.slug}/privacy/\n  Terms (EULA) URL:   ${D}/${g.slug}/terms/`).join('\n\n') + '\n');
