@@ -177,6 +177,15 @@ function makeCamp(id, [x, y], r = Math.random) {
   return { id, kind: 'camp', x, y, lvl, troops: { ['inf' + tier]: Math.floor(n * .4), ['rng' + tier]: Math.floor(n * .35), ['cav' + tier]: Math.floor(n * .25) } };
 }
 function freeSpot() { const occ = new Set(S.world.map(o => o.x + ',' + o.y)); occ.add(S.home.x + ',' + S.home.y); for (let i = 0; i < 800; i++) { const x = 1 + Math.floor(Math.random() * (W - 2)), y = 1 + Math.floor(Math.random() * (H - 2)); if (isLand(x, y) && !occ.has(x + ',' + y) && Math.hypot(x - CX, y - CY) > 3) return [x, y]; } return [S.home.x + 2, S.home.y]; }
+// Lost treasure chests and wandering merchants on the world map (added to old saves too).
+function nearSpot() { const occ = new Set(S.world.map(o => o.x + ',' + o.y)); occ.add(S.home.x + ',' + S.home.y); for (let i = 0; i < 500; i++) { const a = Math.random() * 6.283, d = 2.5 + Math.random() * (i < 300 ? 6 : 14), x = Math.round(S.home.x + Math.cos(a) * d), y = Math.round(S.home.y + Math.sin(a) * d); if (x > 0 && y > 0 && x < W - 1 && y < H - 1 && isLand(x, y) && !occ.has(x + ',' + y) && (i >= 300 || seen(x, y))) return [x, y]; } return freeSpot(); }
+function ensureExtras() {
+  let id = S.world.reduce((m, o) => Math.max(m, o.id), 0) + 1; const n = k => S.world.filter(o => o.kind === k).length;
+  while (n('chest') < 6) { const [x, y] = nearSpot(); S.world.push({ id: id++, kind: 'chest', x, y, lvl: 1 }); }
+  while (n('merchant') < 2) { const [x, y] = nearSpot(); S.world.push({ id: id++, kind: 'merchant', x, y, lvl: 1 }); }
+}
+const mapFx = [], MIMG = {};
+const mimg = url => { if (!url) return null; let i = MIMG[url]; if (!i) { i = MIMG[url] = new Image(); i.src = url; } return i.complete && i.naturalWidth ? i : null; };
 function reveal(s, cx, cy, rad) {
   const f = s.fog.split(''); for (let y = Math.max(0, cy - rad); y <= Math.min(H - 1, cy + rad); y++) for (let x = Math.max(0, cx - rad); x <= Math.min(W - 1, cx + rad); x++) if (Math.hypot(x - cx, y - cy) <= rad + .3) f[tIdx(x, y)] = '1';
   s.fog = f.join(''); fogDirty = true;
@@ -406,11 +415,11 @@ const travelMs = (o, troops) => { const slow = troops.sie1 || troops.sie2 || tro
 const loadOf = t => Object.entries(t).reduce((a, [k, n]) => { const [ty, ti] = tparse(k); return a + n * TROOP[ty].load * (1 + (ti - 1) * .5); }, 0) * (1 + tech('gather'));
 function sendMarch(o, kind, troops) {
   if (S.marches.length >= maxMarches()) return toast('All march slots are busy', 'bad');
-  if (kind !== 'scout' && kind !== 'explore' && troopCount(troops) <= 0) return toast('Choose some troops', 'bad');
+  if (kind !== 'scout' && kind !== 'explore' && kind !== 'collect' && troopCount(troops) <= 0) return toast('Choose some troops', 'bad');
   for (const [k, n] of Object.entries(troops)) { if ((S.troops[k] || 0) < n) return toast('Not enough troops at home', 'bad'); }
   for (const [k, n] of Object.entries(troops)) S.troops[k] -= n;
   if (kind === 'attack' && S.shieldUntil > now()) { S.shieldUntil = 0; toast('Attacking lifted your Aegis Ward'); }
-  const ms = kind === 'scout' || kind === 'explore' ? travelMs(o, {}) * .5 : travelMs(o, troops);
+  const ms = kind === 'scout' || kind === 'explore' || kind === 'collect' ? travelMs(o, {}) * .5 : travelMs(o, troops);
   S.marches.push({ id: S.mid++, kind, target: o.id, tx: o.x, ty: o.y, troops, start: now(), arrive: now() + ms, out: ms, state: 'out', loot: {} });
   sfx('horn'); closeSheet(); render();
 }
@@ -425,7 +434,11 @@ function arrive(m) {
   const goBack = () => { m.state = 'back'; m.bstart = now(); m.back = now() + m.out; };
   reveal(S, m.tx, m.ty, m.kind === 'explore' ? 5 : m.kind === 'scout' ? 3 : 2);
   if (m.kind === 'explore') { S.stats.scouts++; const found = S.world.filter(q => !q.dead && Math.hypot(q.x - m.tx, q.y - m.ty) <= 5); const n = k => found.filter(q => q.kind === k).length; report(`Lands charted · ${REGION_NAME[regionAt(m.tx, m.ty)]}`, `<p>Your scouts mapped the land around (${m.tx}, ${m.ty}).</p><p>Found: ${n('node')} resource sites, ${n('camp')} Ashen outposts${n('city') ? `, ${n('city')} rival citadel` : ''}${found.some(q => q.kind === 'throne') ? ' and <b>the Sunspire Throne</b>' : ''}.</p>`, 'scout'); META.xp(10); return goBack(); }
-  if (!o || o.x !== m.tx || o.y !== m.ty) { report('March returned', 'The target had moved on before your troops arrived.'); return goBack(); }
+  if (!o || o.dead || o.x !== m.tx || o.y !== m.ty) { report('March returned', m.kind === 'collect' ? 'Someone reached the treasure before your riders.' : 'The target was gone before your troops arrived.'); return goBack(); }
+  if (m.kind === 'collect') {
+    const L = 1 + Math.floor(dist(S.home, o) / 8), rw = { gold: 300 * L, [pick(['grain', 'timber', 'stone', 'ore'])]: 2000 * L }; const r = Math.random(); if (r < .3) rw.gems = 5 * L; else if (r < .45) rw.items = { sp5: 1 }; else if (r < .5) rw.shards = { [pick(HEROES).id]: 2 };
+    const txt = give(rw); o.dead = true; o.respawnAt = now() + 3 * 60e3; S.stats.chests = (S.stats.chests || 0) + 1; META.xp(8); mapFx.push({ x: o.x, y: o.y, t: now(), win: true }); report('Treasure recovered', `<p>Your riders opened a lost chest in ${REGION_NAME[regionAt(o.x, o.y)]}.</p><p>Found: ${txt}</p>`, 'win'); sfx('chest'); return goBack();
+  }
   if (m.kind === 'scout') {
     S.stats.scouts++;
     const lvl = S.b.tower; const show = t => lvl >= 3 ? troopsHTML(t) : `about ${fmt(troopCount(t) * (0.8 + Math.random() * .4))} troops`;
@@ -462,6 +475,8 @@ function arrive(m) {
     }
   }
   report(`${res.win ? 'Victory' : 'Defeat'} · ${o.name || (o.kind === 'camp' ? 'Ashen outpost L' + o.lvl : 'Sunspire Throne')}`, body, res.win ? 'win' : 'loss');
+  mapFx.push({ x: o.x, y: o.y, t: now(), win: res.win });
+  if (!fight && !document.querySelector('.story,.reveal,.cine')) { FX.banner(res.win ? 'VICTORY' : 'DEFEAT', `${esc(o.name || (o.kind === 'camp' ? 'Ashen outpost level ' + o.lvl : 'Sunspire Throne'))} · ${res.win ? 'the spoils are on their way home' : 'your army was driven back'}`, { ms: 1500, cls: res.win ? '' : 'boss', art: o.kind === 'camp' ? ART.enemy('raider', 110) : '' }); if (res.win) setTimeout(() => FX.confetti(), 300); }
   sfx(res.win ? 'win' : 'loss'); void deadMine; void isCity;
   if (troopCount(m.troops) === 0) { S.marches = S.marches.filter(x => x !== m); give(m.loot); return; }
   goBack();
@@ -501,7 +516,7 @@ function resolveRaid() {
 }
 
 /* ======================= reports & log ======================= */
-function report(title, body, kind = 'info') { S.reports.unshift({ t: now(), title, body, kind }); S.reports = S.reports.slice(0, 40); S.unread++; }
+function report(title, body, kind = 'info') { toast(`✉ ${title}`, kind === 'win' ? 'good' : kind === 'loss' ? 'bad' : ''); S.reports.unshift({ t: now(), title, body, kind }); S.reports = S.reports.slice(0, 40); S.unread++; }
 function log(t) { S.house.chat.push({ from: 'Herald', t, at: now() }); S.house.chat = S.house.chat.slice(-30); }
 
 /* ======================= tick ======================= */
@@ -519,6 +534,7 @@ function tick() {
     else if (m.state === 'back' && t >= m.back) marchHome(m);
   }
   for (const o of S.world) {
+    if (o.dead && o.kind === 'chest' && o.respawnAt <= t) { const [x, y] = nearSpot(); o.x = x; o.y = y; delete o.dead; delete o.respawnAt; }
     if (o.dead && o.kind === 'camp' && o.respawnAt <= t) { const p = freeSpot(); Object.assign(o, makeCamp(o.id, p)); delete o.dead; delete o.respawnAt; }
     if (o.kind === 'city' && Math.random() < dt / 60) { for (const k in o.troops) o.troops[k] += Math.ceil(o.troops[k] * .01); for (const k of RES) o.res[k] = Math.min(o.res[k] + 400 * o.lvl, 60000 * o.lvl); }
   }
@@ -586,7 +602,7 @@ function renderQueues() {
   else if (S.b.academy) rows.push(`<div class="q idle" data-act="tab" data-tab="research">${ART.icon('scroll', 16)}<div><b>Research idle</b><small>Study a science</small></div></div>`);
   for (const m of S.marches) {
     const end = m.state === 'out' ? m.arrive : m.state === 'gather' ? m.gend : m.back, st = m.state === 'out' ? m.start : m.state === 'gather' ? m.gstart : m.bstart;
-    rows.push(`<div class="q march" data-act="march" data-id="${m.id}">${ART.icon(m.kind === 'gather' ? (m.res || 'crate') : m.kind === 'scout' || m.kind === 'explore' ? 'scroll' : 'might', 16)}<div><b>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout', explore: 'Exploring' }[m.kind]} · ${m.state === 'back' ? 'returning' : m.state === 'gather' ? 'gathering' : 'marching'}</b>${bar((t - st) / Math.max(1, end - st), 'teal')}<small>${fmtT((end - t) / 1000)}</small></div></div>`);
+    rows.push(`<div class="q march" data-act="march" data-id="${m.id}">${ART.icon(m.kind === 'gather' ? (m.res || 'crate') : m.kind === 'collect' ? 'chest' : m.kind === 'scout' || m.kind === 'explore' ? 'scroll' : 'might', 16)}<div><b>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout', explore: 'Exploring', collect: 'Treasure run' }[m.kind]} · ${m.state === 'back' ? 'returning' : m.state === 'gather' ? 'gathering' : 'marching'}</b>${bar((t - st) / Math.max(1, end - st), 'teal')}<small>${fmtT((end - t) / 1000)}</small></div></div>`);
   }
   $('#queues').innerHTML = rows.filter(r => tab === 'city' || !r.includes('q idle')).join('');
 }
@@ -1241,8 +1257,15 @@ function drawMap() {
     ctx.strokeStyle = m.kind === 'attack' ? '#ff5e3a' : m.kind === 'gather' ? '#3fd7c8' : '#c9d6e3'; ctx.setLineDash([8, 7]); ctx.lineDashOffset = -t / 40; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
     let p = 1; if (m.state === 'out') p = (t - m.start) / (m.arrive - m.start); else if (m.state === 'back') p = 1 - (t - m.bstart) / (m.back - m.bstart);
     p = clamp(p, 0, 1); const mx = a.x + (b.x - a.x) * p, my = a.y + (b.y - a.y) * p;
-    ctx.fillStyle = '#140f22'; ctx.beginPath(); ctx.arc(mx, my, 9 * cam.z + 3, 0, 7); ctx.fill(); ctx.fillStyle = S.color; ctx.beginPath(); ctx.arc(mx, my, 7 * cam.z + 2, 0, 7); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = `900 ${Math.max(9, 10 * cam.z)}px Cairo,sans-serif`; ctx.textAlign = 'center'; ctx.fillText(m.kind === 'gather' ? '⛏' : m.kind === 'attack' ? '⚔' : '👁', mx, my + 4 * cam.z);
+    const rider = m.kind !== 'attack' || Object.keys(m.troops || {}).some(k => k.startsWith('cav')), im = mimg(ART.asset('army', rider ? 'cav' : 'foot'));
+    if (im && m.state !== 'gather') {
+      const hh = Math.max(30, s * .62), ww = hh * im.naturalWidth / im.naturalHeight, flip = (b.x < a.x) !== (m.state === 'back'), n = m.kind === 'attack' ? 3 : 1;
+      for (let k = n - 1; k >= 0; k--) { const ox = (k - (n - 1) / 2) * hh * .5, oy = (k % 2) * hh * .16, bob = Math.abs(Math.sin(t / 110 + k * 1.7)) * hh * .08; ctx.fillStyle = '#0005'; ctx.beginPath(); ctx.ellipse(mx + ox, my + oy + hh * .42, hh * .32, hh * .08, 0, 0, 7); ctx.fill(); ctx.save(); ctx.translate(mx + ox, my + oy - bob); if (flip) ctx.scale(-1, 1); ctx.drawImage(im, -ww / 2, -hh * .58, ww, hh); ctx.restore(); }
+      ctx.fillStyle = S.color; ctx.strokeStyle = '#140f22'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mx, my - hh * .78, 5, 0, 7); ctx.fill(); ctx.stroke();
+    } else {
+      ctx.fillStyle = '#140f22'; ctx.beginPath(); ctx.arc(mx, my, 9 * cam.z + 3, 0, 7); ctx.fill(); ctx.fillStyle = S.color; ctx.beginPath(); ctx.arc(mx, my, 7 * cam.z + 2, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = `900 ${Math.max(9, 10 * cam.z)}px Cairo,sans-serif`; ctx.textAlign = 'center'; ctx.fillText(m.kind === 'gather' ? '⛏' : m.kind === 'attack' ? '⚔' : '👁', mx, my + 4 * cam.z);
+    }
   }
   if (S.incoming) { const o = S.world.find(q => q.id === S.incoming.from); if (o) { const p = clamp(1 - (S.incoming.arrive - t) / ((60 + S.b.tower * 15) * 1000), 0, 1); const a = { x: (o.x + .5) * s - cam.x, y: (o.y + .5) * s - cam.y }, b = { x: (S.home.x + .5) * s - cam.x, y: (S.home.y + .5) * s - cam.y }; ctx.strokeStyle = '#ff2b2b'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#ff2b2b'; ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p, a.y + (b.y - a.y) * p, 9, 0, 7); ctx.fill(); } }
   if (cam.z > .45 && ART.asset('map', 'trees')) {
@@ -1256,12 +1279,18 @@ function drawMap() {
     if (o.kind === 'node') { if (!medallion(ctx, NODE_ART[o.res], px, py, s * .36, NODE_RIM[o.res] || '#ffd36b')) ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .95) label('Lv ' + o.lvl, px, py + s * .42, '#140f22b8', 10); }
     else if (o.kind === 'camp') { if (!medallion(ctx, 'camp', px, py, s * .42, '#ff5e3a')) ART.mapPaint.camp(ctx, px, py, s, o.lvl); if (cam.z > .7) label('Outpost ' + o.lvl, px, py + s * .42, '#6a1f1fe0', 10); }
     else if (o.kind === 'city') { if (!cityMark(ctx, px, py, s * 1.15, o.color)) ART.mapPaint.city(ctx, px, py, s * 1.15, o.color, o.realm); if (cam.z > .4) label(o.name, px, py + s * .5, '#140f22e0'); }
+    else if (o.kind === 'chest') { const im = mimg(ART.asset('icons', 'chest')), bob = Math.sin(t / 300 + o.id) * s * .04, pu = .5 + Math.sin(t / 250 + o.id) * .5; ctx.strokeStyle = `rgba(255,211,107,${.35 + pu * .5})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(px, py + s * .22, s * (.3 + pu * .06), s * (.12 + pu * .02), 0, 0, 7); ctx.stroke(); if (im) ctx.drawImage(im, px - s * .3, py - s * .36 + bob, s * .6, s * .6); else { ctx.fillStyle = '#e8a33d'; ctx.fillRect(px - s * .2, py - s * .15, s * .4, s * .3); } if (cam.z > .7) label('Treasure', px, py + s * .44, '#7a4a12e6', 10); }
+    else if (o.kind === 'merchant') { const im = mimg(ART.asset('landmark', 'bazaar')); if (im) { const ww = s * 1.2, hh = ww * im.naturalHeight / im.naturalWidth; ctx.drawImage(im, px - ww / 2, py - hh * .62, ww, hh); } if (cam.z > .5) label('Merchant', px, py + s * .5, '#1c6f73e6', 10); }
     else if (o.kind === 'boss') { LIVE.drawBoss(ctx, px, py, s, o, t); label('World Boss · Lv ' + o.lvl, px, py + s * .7, '#7a1f1ae6', 11); }
     else if (o.kind === 'throne') { if (!medallion(ctx, 'throne', px, py - s * .2, s * 1.15, '#ffd36b')) ART.mapPaint.throne(ctx, px, py, s * 1.3, S.throne); label(S.throne ? 'Sunspire Throne · yours' : 'The Sunspire Throne', px, py + s * 1.15, '#5a3a8ae6', 12); }
   }
   const hx = (S.home.x + .5) * s - cam.x, hy = (S.home.y + .5) * s - cam.y;
   if (S.shieldUntil > t) { ctx.fillStyle = '#3fd7c826'; ctx.strokeStyle = '#3fd7c8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, s * .8 + Math.sin(t / 400) * 2, 0, 7); ctx.fill(); ctx.stroke(); }
   if (!cityMark(ctx, hx, hy, s * 1.45, S.color)) ART.mapPaint.city(ctx, hx, hy, s * 1.3, S.color, S.realm); label(S.name + ' (you)', hx, hy + s * .58, '#1c5a8ae6', 12);
+  // battle flashes where a march just struck or a chest was opened
+  for (let i = mapFx.length - 1; i >= 0; i--) { const f = mapFx[i], p = (t - f.t) / 1400; if (p >= 1) { mapFx.splice(i, 1); continue; } const px = (f.x + .5) * s - cam.x, py = (f.y + .5) * s - cam.y; ctx.strokeStyle = f.win ? `rgba(255,211,107,${1 - p})` : `rgba(255,94,58,${1 - p})`; ctx.lineWidth = 6 * (1 - p) + 1; ctx.beginPath(); ctx.arc(px, py, s * (.3 + p * 1.6), 0, 7); ctx.stroke(); for (let k = 0; k < 10; k++) { const a = k * .628 + f.t % 6, r = s * p * 1.5; ctx.fillStyle = f.win ? `rgba(255,240,180,${1 - p})` : `rgba(255,140,90,${1 - p})`; ctx.beginPath(); ctx.arc(px + Math.cos(a) * r, py + Math.sin(a) * r - Math.sin(p * 3.14) * s * .5, 3 * (1 - p) + 1, 0, 7); ctx.fill(); } }
+  // drifting clouds give the map depth
+  for (let i = 0; i < 7; i++) { const span = W * s + 600, cx = ((i * 977 + t * (.008 + i * .0015) * cam.z * 4) % span) - 300 - cam.x, cy = ((i * 613) % (H * s)) - cam.y, r = s * (2.2 + (i % 3)); if (cx < -r || cx > w + r || cy < -r || cy > h + r) continue; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, 'rgba(255,255,255,.2)'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, r, r * .55, 0, 0, 7); ctx.fill(); }
   // fog of war
   ctx.save(); ctx.translate(-cam.x, -cam.y); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogCanvas(), -s, -s, (W + 2) * s, (H + 2) * s); ctx.restore();
   // realm names
@@ -1311,6 +1340,8 @@ function explore(x, y) {
 }
 function openTile(o) {
   if (o.kind === 'boss') return openSheet('World Boss · Ashen Colossus', LIVE.bossHTML(o));
+  if (o.kind === 'chest') return openSheet('Lost treasure', `<p class="muted">Coordinates (${o.x}, ${o.y}) · ${dist(S.home, o).toFixed(1)} leagues · ride ≈ ${fmtT(travelMs(o, {}) * .5 / 1000)}</p><div class="bhead">${ART.icon('chest', 60)}<div><p><b>An unopened chest</b></p><p class="muted">Send riders to bring it home: Gold, resources and sometimes gems, hourglasses or hero shards. Farther chests hold more. No troops needed.</p></div></div><button class="btn gold" data-act="collect" data-id="${o.id}">Send riders</button>`);
+  if (o.kind === 'merchant') return openSheet('Wandering merchant', `<p class="muted">Coordinates (${o.x}, ${o.y})</p><div class="bhead"><img src="${ART.asset('landmark', 'bazaar')}" alt="" style="width:92px;height:auto"><div><p><b>A caravan of the Grand Bazaar</b></p><p class="muted">Trade Gold for grain, timber, stone, iron and supplies, and take your free daily spin of the Wheel of Fortune.</p></div></div><button class="btn gold" data-act="sub" data-s="market">Visit the Market</button>`);
   const d = dist(S.home, o), eta = fmtT(travelMs(o, {}) / 1000);
   let html = `<p class="muted">Coordinates (${o.x}, ${o.y}) · ${d.toFixed(1)} leagues · march ≈ ${eta}</p>`;
   if (o.kind === 'node') {
@@ -1333,7 +1364,7 @@ function scout(id) {
   if (S.marches.length >= maxMarches()) return toast('All march slots are busy', 'bad');
   pay(c); sendMarch(o, 'scout', {});
 }
-let sendSel = {};
+let sendSel = {}; const mapFind = {};
 function openSend(id, kind) {
   const o = S.world.find(w => w.id === id); if (!o) return;
   const home = Object.entries(S.troops).filter(([, n]) => n > 0);
@@ -1353,7 +1384,7 @@ function sendInfo(o, kind) {
 }
 function openMarch(id) {
   const m = S.marches.find(x => x.id === id); if (!m) return;
-  openSheet('March', `<p>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout', explore: 'Exploring' }[m.kind]} at (${m.tx}, ${m.ty}) · ${m.state}</p>${troopsHTML(m.troops)}${Object.keys(m.loot).length ? `<p>Carrying: ${Object.entries(m.loot).map(([k, v]) => ART.icon(k, 14) + fmt(v)).join(' ')}</p>` : ''}
+  openSheet('March', `<p>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout', explore: 'Exploring', collect: 'Treasure run' }[m.kind]} at (${m.tx}, ${m.ty}) · ${m.state}</p>${troopsHTML(m.troops)}${Object.keys(m.loot).length ? `<p>Carrying: ${Object.entries(m.loot).map(([k, v]) => ART.icon(k, 14) + fmt(v)).join(' ')}</p>` : ''}
   ${m.state !== 'back' ? `<button class="btn" data-act="recall" data-id="${m.id}">Recall</button>` : ''}<button class="btn" data-act="goto" data-x="${m.tx}" data-y="${m.ty}">Show on map</button>`);
 }
 
@@ -1370,7 +1401,7 @@ function openTab(t) {
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   FX.setMood(t === 'world' ? 'world' : 'city'); $('#cityUi').hidden = t !== 'city';
   $('#cityView').hidden = t !== 'city' || use3D(); $('#city3d').hidden = t !== 'city' || !use3D(); if (window.CITY3D && CITY3D.ok) CITY3D.setActive(t === 'city' && use3D()); $('#worldView').hidden = t !== 'world'; $('#panel').hidden = t === 'city' || t === 'world'; $('#main').classList.toggle('panel-open', t !== 'city' && t !== 'world');
-  if (t === 'world') { if (!openTab.centered) { centerOn(S.home.x, S.home.y); openTab.centered = true; } requestAnimationFrame(mapLoop); }
+  if (t === 'world') { ensureExtras(); if (!openTab.centered) { centerOn(S.home.x, S.home.y); openTab.centered = true; } requestAnimationFrame(mapLoop); }
   render();
 }
 function render(auto) {
@@ -1451,6 +1482,9 @@ function onAct(e) {
     case 'sendform': openSend(+d.id, d.kind); break;
     case 'go': { const o = S.world.find(w => w.id === +d.id); const tr = Object.fromEntries(Object.entries(sendSel).filter(([, n]) => n > 0)); if (troopCount(tr) > marchCap()) { toast('Too many troops for one march', 'bad'); break; } sendMarch(o, d.kind, tr); break; }
     case 'scout': scout(+d.id); break;
+    case 'collect': { const o = S.world.find(w => w.id === +d.id); if (o && !o.dead) { if (S.marches.some(m => m.kind === 'collect' && m.target === o.id)) { toast('Riders are already on their way there'); break; } sendMarch(o, 'collect', {}); } break; }
+    case 'mapzoom': { const c = $('#map').getBoundingClientRect(); zoomAt(cam.z * (+d.d > 0 ? 1.35 : .74), c.left + c.width / 2, c.top + c.height / 2); break; }
+    case 'mapfind': { const k = d.k, cand = S.world.filter(o => !o.dead && seen(o.x, o.y) && (k === 'res' ? o.kind === 'node' : o.kind === k)).sort((a, b) => dist(S.home, a) - dist(S.home, b)); if (!cand.length) { toast('None charted yet: explore the mist to find more'); break; } mapFind[k] = ((mapFind[k] ?? -1) + 1) % Math.min(cand.length, 6); const o = cand[mapFind[k]]; if (cam.z < .8) cam.z = 1; centerOn(o.x, o.y); clampCam(); mapSel = { x: o.x, y: o.y }; sfx('click'); break; }
     case 'explore': explore(+d.x, +d.y); break;
     case 'march': openMarch(+d.id); break;
     case 'recall': recall(+d.id); closeSheet(); break;

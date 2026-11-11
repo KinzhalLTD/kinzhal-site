@@ -559,3 +559,9 @@ body.painted-ui .res,.res{display:grid;grid-template-columns:auto minmax(0,1fr);
 .whub{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(#fff0b0,#eda83a 60%,#7a4a12);display:grid;place-items:center;color:#2c1604;font-size:20px;box-shadow:0 3px 8px #000a}
 .deal small{display:block;margin-top:3px;font-size:11px}
 .streak{margin:6px auto;display:inline-block;background:linear-gradient(#ff7a2a,#c0392b);color:#fff;font-weight:900;border-radius:999px;padding:4px 14px;box-shadow:0 0 16px #ff7a2a88;animation:bob .8s ease-in-out infinite alternate}
+
+/* ---- world map controls ---- */
+.mapbtns{left:8px;right:60px;bottom:10px;align-items:center;flex-wrap:wrap}.mapbtns .btn{margin:0}
+.mfind{width:42px;height:42px;border-radius:50%;background:linear-gradient(#3b2e66,#1d1530);border:1px solid #e8a33d;color:#ffe08a;font-size:18px;font-weight:900;line-height:1;box-shadow:0 4px 12px #0009,inset 0 1px #ffffff2e;display:grid;place-items:center}
+.mfind:active{transform:translateY(2px)}
+.mapzoom{position:absolute;right:8px;bottom:10px;display:flex;flex-direction:column;gap:6px}
