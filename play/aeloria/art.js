@@ -59,7 +59,7 @@ const ART = (() => {
   };
 
   /* ---------- hero portraits ---------- */
-  const FEM = new Set(['astrid', 'sigrun', 'elowen', 'rania', 'layla', 'saqr', 'lian', 'kaimana', 'amara']);
+  const FEM = new Set(['astrid', 'sigrun', 'elowen', 'rania', 'layla', 'saqr', 'lian', 'kaimana', 'amara', 'zarqa']);
   const MOTIF = {
     frostmark: c => `<g fill="none" stroke="${c}" stroke-width="2" opacity=".35">${[0, 60, 120].map(a => `<path d="M50 6v56M38 14l12 8 12-8M38 54l12-8 12 8" transform="rotate(${a} 50 34)"/>`).join('')}</g>`,
     greenhold: c => `<g fill="${c}" opacity=".3"><path d="M18 40c-8-14 2-30 18-30-2 14-8 24-18 30z"/><path d="M82 30c8-14-2-28-18-26 2 12 8 22 18 26z"/><path d="M78 70c10-6 14-18 8-28-8 6-12 16-8 28z"/></g>`,

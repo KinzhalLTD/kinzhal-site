@@ -286,7 +286,7 @@ function startUpgrade(key, typeForEmpty) {
 function finishBuild(q) {
   if (q.key[0] === 'f' && q.key !== 'farm') S.fields[+q.key.slice(1)].l = q.to; else S.b[q.key] = q.to;
   S.queue = S.queue.filter(x => x !== q);
-  S.stats.builds = (S.stats.builds || 0) + 1; LIVE.on('build', 1); META.xp(q.id === 'citadel' ? 60 : 20); buildFx(q);
+  S.stats.builds = (S.stats.builds || 0) + 1; LIVE.on('build', 1); META.xp(q.id === 'citadel' ? 60 : 20); buildFx(q); if (tab === 'city' && window.CITY3D && CITY3D.ok && CITY3D.celebrate) CITY3D.celebrate(q.key);
   toast(`${BLD[q.id].name} reached level ${q.to}`, 'good'); sfx('done');
   if (q.id === 'citadel') { log(`Your Citadel rose to level ${q.to}.`); citadelBanner(q.to); }
 }
@@ -756,7 +756,7 @@ function openHero(id) {
   const s = own ? heroStats(id) : { hp: h.hp, atk: h.atk, def: h.def, spd: h.spd };
   const need = STAR_SHARDS[st.stars + 1], xpNeed = xpFor(st.lvl);
   const tutor = Math.floor(150 * st.lvl * st.lvl);
-  openSheet(`${h.name}`, `<div class="hhead r-${h.rarity}"><div class="hport">${ART.portrait(h, 150)}</div><div><span class="rtag">${h.rarity}</span><p class="realmtag" style="--rc:${REALMS[h.realm].color}">${REALMS[h.realm].name}</p><p><b>${h.title}</b> · ${h.role}</p><p class="stars big">${own ? '★'.repeat(st.stars) + '☆'.repeat(5 - st.stars) : 'Not recruited'}</p>${own ? `<p>Level ${st.lvl} / ${heroCap()}</p>${bar(st.xp / xpNeed, 'teal')}<small>${fmt(st.xp)} / ${fmt(xpNeed)} XP</small>` : ''}</div></div>
+  openSheet(`${h.name}`, `<div class="hhead r-${h.rarity}"><div class="hport">${ART.portrait(h, 150)}</div><div><span class="rtag">${h.rarity}</span><p class="realmtag" style="--rc:${REALMS[h.realm].color}">${REALMS[h.realm].name}</p><p><b>${h.title}</b> · ${h.role}</p>${h.origin ? `<p class="origin">✦ ${h.origin}</p>` : ''}<p class="stars big">${own ? '★'.repeat(st.stars) + '☆'.repeat(5 - st.stars) : 'Not recruited'}</p>${own ? `<p>Level ${st.lvl} / ${heroCap()}</p>${bar(st.xp / xpNeed, 'teal')}<small>${fmt(st.xp)} / ${fmt(xpNeed)} XP</small>` : ''}</div></div>
   <p class="bio">“${h.bio}”</p>
   <div class="stats"><span>HP ${fmt(s.hp)}</span><span>ATK ${fmt(s.atk)}</span><span>DEF ${fmt(s.def)}</span><span>SPD ${s.spd}</span></div>
   <div class="card"><h4>${ART.icon('vigor', 14)} ${h.skill.name}</h4><p>${h.skill.desc}</p></div>
@@ -857,7 +857,7 @@ function startStage(key, skipStory) {
   const heroes = LIVE.squadUnits(squad);
   fight = { key, ch, n, heroes, foes: stageFoes(ch, n), turn: 0, buff: 0, shield: 0, auto: !!S.autoSkill, speed: S.fightSpeed || 1, over: false, q: [], next: now() + 1500, pauseUntil: 0 };
   closeSheet(); const b = $('#battle'); b.hidden = false; buildFight(); FX.setMood(n === 6 ? 'boss' : 'battle'); FX.sound('horn');
-  if (n === 6) setTimeout(() => FX.banner(`<span class="bossword">BOSS</span>${esc(CHAPTERS[ch - 1].boss.name)}`, `Chapter ${ch} · ${CHAPTERS[ch - 1].name}`, { cls: 'boss', ms: 1700, sound: 'alarm', art: ART.enemy(CHAPTERS[ch - 1].boss.kind, 110) }), 200);
+  if (n === 6) setTimeout(() => FX.banner(`<span class="bossword">BOSS</span>${esc(CHAPTERS[ch - 1].boss.name)}`, `Chapter ${ch} · ${CHAPTERS[ch - 1].name}`, { cls: 'boss', ms: 1700, sound: 'alarm', art: ART.enemy(CHAPTERS[ch - 1].boss.kind, 110) }), 1900);
   fight.timer = setInterval(fightLoop, 50);
 }
 function buildFight() {
@@ -871,7 +871,37 @@ function buildFight() {
     <div class="vs"><span>Turn <b id="bturn">1</b></span></div>
     <div class="row mine">${f.heroes.map(u => unit(u, 'h')).join('')}</div>
     <p class="hint">${f.auto ? 'Auto skills on' : 'Tap a glowing hero to unleash their skill'}</p></div><div class="stage-intro"><small>Hero Trials</small><b>Stage ${f.key}</b><span>Fight!</span></div>`;
-  updFight();
+  updFight(); clashIntro(f);
+}
+// Cinematic opener: both sides slide in over painted siege art, then collide.
+function clashIntro(f) {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  const bg = ART.keyUrl(f.n === 6 ? 'epic' : 'siege') || ART.keyUrl('epic'), b = $('#battle'), d = document.createElement('div'); d.className = 'clash' + (f.n === 6 ? ' boss' : '');
+  if (bg) d.style.backgroundImage = `linear-gradient(#05030d99,#05030dd9),url(${bg})`;
+  const P = (u, s) => `<span style="--i:${s}">${u.hero ? ART.portrait(u.hero, 84) : ART.enemy(u.kind, 84)}</span>`;
+  d.innerHTML = `<i class="lb top"></i><i class="lb bot"></i><div class="cl-side l">${f.heroes.slice(0, 5).map(P).join('')}</div><b class="cl-vs">VS</b><div class="cl-side r">${f.foes.slice(0, 5).map(P).join('')}</div><i class="cl-flash"></i>`;
+  b.appendChild(d); f.next = Math.max(f.next || 0, now() + 2500); const si = b.querySelector('.stage-intro'); if (si) si.style.animationDelay = '1.5s';
+  setTimeout(() => { if (fight === f) { FX.sound('crit'); FX.shake(b, 12, 380); } }, 950);
+  setTimeout(() => d.remove(), 1750);
+}
+/* ---- breathtaking moments: finishing blow, boss enrage, last stand ---- */
+function finisher(target, delay) {
+  const f = fight; f.pauseUntil = Math.max(f.pauseUntil, now() + delay + 1350); const boss = f.n === 6 && f.mode !== 'arena';
+  setTimeout(() => {
+    if (fight !== f) return; const b = $('#battle'), el = document.getElementById('u-f-' + target.id), bf = b.querySelector('.bfield'), c = el ? FX.centerOf(el) : { x: innerWidth / 2, y: innerHeight / 3 };
+    if (bf) bf.style.transformOrigin = `${c.x}px ${c.y}px`; b.classList.add('finish');
+    const w = document.createElement('div'); w.className = 'fin-word' + (boss ? ' boss' : ''); w.innerHTML = `<i></i><b>${boss ? 'BOSS SLAIN' : 'FINISHING BLOW'}</b>`; b.appendChild(w);
+    FX.sound('crit'); FX.shake(b, 16, 520); FX.burst(c.x, c.y, { n: 80, shape: 'star', size: 6, speed: 11, colors: ['#fff', '#ffd36b', '#ff7a59'], ring: '#fff', life: 1.2 });
+    setTimeout(() => { b.classList.remove('finish'); w.remove(); }, 1300);
+  }, delay);
+}
+function enrage(boss, delay) {
+  const f = fight; f.enraged = true; boss.atk = Math.round(boss.atk * 1.2); f.pauseUntil = Math.max(f.pauseUntil, now() + delay + 1500);
+  setTimeout(() => { if (fight !== f) return; const b = $('#battle'); b.classList.add('enraged'); document.getElementById('u-f-' + boss.id)?.classList.add('enr'); FX.shake(b, 18, 600); FX.banner(`<span class="bossword">ENRAGED</span>${esc(boss.name)}`, 'The ash burns hotter: its attack rises', { cls: 'boss', ms: 1300, sound: 'alarm', art: ART.enemy(boss.kind, 110) }); }, delay + 150);
+}
+function lastStand(u, delay) {
+  const f = fight; f.lastStand = true; u.en = 100; u.atk = Math.round(u.atk * 1.25); f.pauseUntil = Math.max(f.pauseUntil, now() + delay + 1500);
+  setTimeout(() => { if (fight !== f) return; $('#battle').classList.add('laststand'); document.getElementById('u-h-' + u.id)?.classList.add('stand'); FX.banner('LAST STAND', `${esc(u.name)} fights on alone: skill ready, attack up`, { ms: 1300, sound: 'horn', art: ART.portrait(u.hero, 110) }); updFight(); }, delay + 150);
 }
 function updUnit(u, side) {
   const el = document.getElementById(`u-${side}-${u.id}`); if (!el) return;
@@ -903,6 +933,10 @@ function dealTo(target, raw, side, delay = 0, critChance = .1) {
   if (side === 'h' && fight.shield) d = Math.round(d * .5);
   target.hp = Math.max(0, target.hp - d); if (side === 'h') target.en = Math.min(100, target.en + 8);
   hitFx(side, target.id, (crit ? 'CRIT ' : '') + fmt(d), crit ? 'crit' : '', delay);
+  if (side === 'f') {
+    if (target.hp <= 0 && !alive(fight.foes).length) finisher(target, delay);
+    else if (fight.n === 6 && fight.mode !== 'arena' && !fight.enraged && target.hp > 0 && target.hp < target.max * .5 && target.max === Math.max(...fight.foes.map(u => u.max))) enrage(target, delay);
+  } else if (target.hp <= 0 && !fight.lastStand && fight.heroes.length > 1) { const a = alive(fight.heroes); if (a.length === 1) lastStand(a[0], delay); }
   if (delay < 400) setTimeout(() => FX.sound(crit ? 'crit' : 'hit'), delay);
   if (crit) setTimeout(() => FX.shake($('#battle .bfield'), 6, 200), delay);
   return d;
@@ -1003,7 +1037,9 @@ function endFight(win) {
     FX.sound('loss');
   }
   const box = document.createElement('div'); box.className = 'result ' + (win ? 'won' : 'lost'); box.innerHTML = html;
+  { const kb = ART.keyUrl(win ? 'victory' : 'siege'); if (kb) { box.style.background = `linear-gradient(${win ? '#140f22b3,#05030aeb' : '#05030ad9,#05030af5'}),url(${kb}) center/cover`; box.classList.add('painted'); } }
   setTimeout(() => $('#battle .bfield')?.appendChild(box), win ? 600 : 300);
+  if (win && f.joined && STORY.legend && STORY.legend[f.joined]) setTimeout(() => { if (fight === f) playStory(STORY.legend[f.joined], HERO[f.joined].origin || 'A Legend Answers', null); }, 1500);
   save();
 }
 function leaveFight() { if (fight) { clearInterval(fight.timer); fight.over = true; } $('#battle').hidden = true; $('#battle').innerHTML = ''; fight = null; FX.setMood(tab === 'world' ? 'world' : 'city'); }

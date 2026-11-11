@@ -12,7 +12,15 @@
     "kaimana": "heroes/kaimana.png",
     "tama": "heroes/tama.png",
     "amara": "heroes/amara.png",
-    "kofi": "heroes/kofi.png"
+    "kofi": "heroes/kofi.png",
+    "antarah": "heroes/antarah.png",
+    "zarqa": "heroes/zarqa.png",
+    "suntzu": "heroes/suntzu.png",
+    "peter": "heroes/peter.png",
+    "elcid": "heroes/elcid.png",
+    "leonardo": "heroes/leonardo.png",
+    "bismarck": "heroes/bismarck.png",
+    "arthur": "heroes/arthur.png"
   },
   "foes": {
     "hollow": "foes/hollow.png",
@@ -39,7 +47,9 @@
     "chapter5": "key/chapter5.png",
     "chapter6": "key/chapter6.png",
     "title": "key/title.png",
-    "epic": "key/epic.png"
+    "epic": "key/epic.png",
+    "victory": "key/victory.png",
+    "siege": "key/siege.png"
   },
   "music": {},
   "sfx": {},

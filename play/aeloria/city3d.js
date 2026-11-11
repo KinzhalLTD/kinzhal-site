@@ -143,6 +143,24 @@ const TREE_DEF = {
   cherry: { trunk: [.25, .4, 2.2, '#5a3a2a'], crown: () => new THREE.IcosahedronGeometry(1.9, 1), cy: 3.3, cc: '#f5b0c8' }
 };
 function treeInto(g, kind, x, z, s = 1) { const d = TREE_DEF[kind] || TREE_DEF.oak; const [rt, rb, h, c] = d.trunk; cyl(rt * s, rb * s, h * s, mat(c), x, 0, z, g, 7); mesh(d.crown(), mat(d.cc, { flat: true }), x, d.cy * s, z, g).scale.setScalar(s); }
+/* ---------------- village outside the walls: grows with the Citadel ---------------- */
+let villageSites = [];
+function planVillage(avoid) {
+  const r = (seed => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; })(424242), out = [];
+  const ok = (x, z) => Math.max(Math.abs(x), Math.abs(z)) > 33 && Math.max(Math.abs(x), Math.abs(z)) < 78 && Math.hypot(x - 3, z + 51) > 18 && avoid.every(([ax, az]) => Math.hypot(x - ax, z - az) > 9) && !(x > 20 && z > 20 && Math.abs(x - z) < 9) && out.every(([px, pz]) => Math.hypot(x - px, z - pz) > 6.5);
+  for (let t = 32; t <= 62; t += 7.5) for (const s of [1, -1]) { const x = t + 8.5 * s, z = t - 8.5 * s; if (ok(x, z)) out.push([x, z, Math.PI / 4 + (s > 0 ? 0 : Math.PI)]); }
+  const hubs = [[-46, 6], [6, 46], [-40, -40], [46, -8], [-44, 44]];
+  for (let i = 0; i < 900 && out.length < 30; i++) { const h = hubs[i % hubs.length], x = h[0] + (r() - .5) * 26, z = h[1] + (r() - .5) * 26; if (ok(x, z)) out.push([x, z, r() * 6.28]); }
+  return out;
+}
+function house(P, s, k) {
+  const g = new THREE.Group(), w = 3.2 * s, h = 2.3 * s, d = 3.9 * s;
+  rbox(w, h, d, mat(k % 3 ? P.wall : P.wall2), 0, 0, 0, g, .15); windows(g, w, d, h * .55, 1, .7);
+  cap(g, P.cap, Math.max(w, d) * .62, h, k % 4 === 1 ? P.wall3 : P.roof);
+  box(.5 * s, 1.5 * s, .5 * s, mat(P.wall3), w * .28, h + .4 * s, d * .2, g);
+  box(.9 * s, 1.4 * s, .12, mat('#3a2414'), 0, 0, d / 2 + .02, g);
+  return g;
+}
 function forest(P, avoid) {
   const grp = new THREE.Group(), pts = [];
   const free = (x, z) => Math.max(Math.abs(x), Math.abs(z)) > 31 && Math.hypot(x - 3, z + 51) > 14 && avoid.every(([ax, az]) => Math.hypot(x - ax, z - az) > 6.5) && !(x > 20 && z > 20 && Math.abs(x - z) < 9) && pts.every(([px, pz]) => Math.hypot(x - px, z - pz) > 3.2);
@@ -276,7 +294,8 @@ function rebuildWorld() {
   wallsGroup = makeWalls(P); root.add(wallsGroup);
   water = makeWater(P); root.add(water);
   const avoid = FIELD_POS.map(([x, y]) => { const v = toWorld(x, y); return [v.x, v.z]; });
-  treesGroup = forest(P, avoid); root.add(treesGroup);
+  villageSites = planVillage(avoid);
+  treesGroup = forest(P, [...avoid, ...villageSites]); root.add(treesGroup);
   const road = new THREE.Mesh(new THREE.PlaneGeometry(6, 90), mat(new THREE.Color(P.ground[2]).multiplyScalar(.85).getStyle(), { r: 1 })); road.rotation.x = -Math.PI / 2; road.rotation.z = Math.PI / 4; road.position.set(24 + 32, .06, 24 + 32); road.receiveShadow = true; root.add(road);
   fx = makeFx(); root.add(fx);
   root.userData.bld = new THREE.Group(); root.add(root.userData.bld);
@@ -290,6 +309,7 @@ function sync() {
   if (!built || realmKey !== ART.P.realm + (S.skin || '')) rebuildWorld();
   const ns = stateSig(); if (ns !== sig) { sig = ns; rebuildBuildings(); }
   drawUI();
+  if (active && !flown) flyIn();
 }
 function rebuildBuildings() {
   const grp = root.userData.bld; while (grp.children.length) { const c = grp.children.pop(); c.traverse(o => o.geometry && o.geometry.dispose()); }
@@ -315,7 +335,44 @@ function rebuildBuildings() {
   });
   // army tents
   if (troopCount(s.troops)) { const tp = toWorld(590, 545); for (let k = 0; k < Math.min(6, Math.ceil(troopCount(s.troops) / 150)); k++) { const t = mesh(new THREE.ConeGeometry(1.4, 2.2, 6), mat('#f2ede4', { flat: true }), tp.x + (k % 3) * 3.2, 1.1, tp.z + Math.floor(k / 3) * 3.2, grp); t.userData = {}; } }
+  // village houses: the town outside the walls grows as the Citadel rises
+  const nh = Math.min(villageSites.length, 5 + (s.b.citadel || 1) * 2);
+  for (let k = 0; k < nh; k++) { const [x, z, ry] = villageSites[k], hg = house(P, .85 + ((k * 37) % 10) / 22, k); hg.position.set(x, heightAt(x, z), z); hg.rotation.y = ry; hg.userData = {}; grp.add(hg); }
   buildUI();
+}
+
+/* ---------------- cinematic camera: establishing fly-in and upgrade celebration ---------------- */
+let cine = null, flown = false, cineEl = null; const beams = [];
+const calm = () => window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches;
+function bars(on, small = '', big = '') {
+  if (!host) return;
+  if (!cineEl) { cineEl = document.createElement('div'); cineEl.className = 'c3cine'; cineEl.innerHTML = '<i class="lb top"></i><i class="lb bot"></i><div class="c3cap"><small></small><b></b></div>'; host.appendChild(cineEl); }
+  cineEl.querySelector('small').textContent = small; cineEl.querySelector('b').textContent = big; cineEl.classList.toggle('on', on); cineEl.classList.toggle('cap', on && !!big);
+}
+function shot(from, to, dur, done) { cine = { t0: performance.now(), dur, from, to, done }; }
+function stopCine() { if (!cine) return; Object.assign(cam, cine.final || cine.to); cine = null; bars(false); }
+function flyIn() {
+  if (flown || cine || calm()) { flown = true; return; } flown = true;
+  const to = { tx: cam.tx, tz: cam.tz, dist: cam.dist, yaw: cam.yaw, pitch: cam.pitch };
+  const R = (typeof REALMS !== 'undefined' && REALMS[S.realm]) || { name: 'Aeloria' };
+  bars(true, R.name, S.name || 'Your Citadel');
+  shot({ tx: 26, tz: 26, dist: 330, yaw: cam.yaw - 2.1, pitch: .26 }, to, 4200, () => bars(false));
+}
+function celebrate(key) {
+  if (!active || !renderer || failed) return;
+  const a = anchors.find(q => q.key === key || (q.field && 'f' + q.i === key)); if (!a) return;
+  const p = a.g.position, m = new THREE.MeshBasicMaterial({ color: '#ffd98a', transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.6, 90, 20, 1, true), m); beam.position.set(p.x, 45, p.z);
+  const rg = new THREE.RingGeometry(1, 1.5, 56); rg.rotateX(-Math.PI / 2); const ring = new THREE.Mesh(rg, m.clone()); ring.position.set(p.x, .4, p.z);
+  scene.add(beam, ring); beams.push({ beam, ring, t0: performance.now() });
+  if (cine || calm()) return;
+  const home = { tx: cam.tx, tz: cam.tz, dist: cam.dist, yaw: cam.yaw, pitch: cam.pitch }, near = { tx: p.x, tz: p.z, dist: Math.max(58, cam.dist * .55), yaw: cam.yaw + .35, pitch: .6 };
+  bars(true);
+  shot(home, near, 1100, () => { shot(near, { ...near, yaw: near.yaw + .12 }, 900, () => shot({ ...near, yaw: near.yaw + .12 }, home, 1200, () => bars(false))); cine.final = home; }); cine.final = home;
+}
+function stepCine(now) {
+  if (cine) { const k = Math.min(1, (now - cine.t0) / cine.dur), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; for (const q in cine.to) cam[q] = cine.from[q] + (cine.to[q] - cine.from[q]) * e; cam.vx = cam.vz = 0; if (k >= 1) { const c = cine; cine = null; c.done && c.done(); } }
+  for (let i = beams.length - 1; i >= 0; i--) { const b = beams[i], k = (now - b.t0) / 2400; if (k >= 1) { scene.remove(b.beam, b.ring); b.beam.geometry.dispose(); b.ring.geometry.dispose(); beams.splice(i, 1); continue; } const up = Math.min(1, k * 5); b.beam.scale.set(1 + k * .5, up, 1 + k * .5); b.beam.material.opacity = .6 * (1 - k) * up; b.ring.scale.setScalar(1 + k * 16); b.ring.material.opacity = .7 * (1 - k); }
 }
 
 /* ---------------- HTML overlay: labels, bubbles, hammers ---------------- */
@@ -351,7 +408,7 @@ function placeUI() {
 /* ---------------- camera input ---------------- */
 function input() {
   const c = renderer.domElement, pts = new Map(); let drag = null, moved = false, pinch = null;
-  c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); if (pts.size === 1) { drag = { x: e.clientX, y: e.clientY }; moved = false; cam.vx = cam.vz = 0; } else if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), dist: cam.dist }; } });
+  c.addEventListener('pointerdown', e => { stopCine(); c.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); if (pts.size === 1) { drag = { x: e.clientX, y: e.clientY }; moved = false; cam.vx = cam.vz = 0; } else if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), dist: cam.dist }; } });
   c.addEventListener('pointermove', e => {
     if (!pts.has(e.pointerId)) { hoverPick(e); return; } pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()]; cam.dist = THREE.MathUtils.clamp(pinch.dist * pinch.d / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1])), 55, 190); moved = true; return; }
@@ -385,6 +442,7 @@ function loop(now) {
   requestAnimationFrame(loop);
   if (!active || failed || document.hidden || !built) return;
   const dt = Math.min(.05, (now - last) / 1000); last = now; const t = now / 1000;
+  stepCine(now);
   if (!drag0()) { cam.tx += cam.vx; cam.tz += cam.vz; cam.vx *= .9; cam.vz *= .9; }
   const ce = Math.cos(cam.pitch), se = Math.sin(cam.pitch);
   camera.position.set(cam.tx + Math.cos(cam.yaw) * ce * cam.dist, se * cam.dist, cam.tz + Math.sin(cam.yaw) * ce * cam.dist); camera.lookAt(cam.tx, 0, cam.tz);
@@ -407,7 +465,7 @@ function loop(now) {
 }
 let dragging = false; const drag0 = () => dragging;
 
-window.CITY3D = { retex,
+window.CITY3D = { retex, celebrate, flyIn() { flown = false; flyIn(); },
   init(container) { if (failed) return false; if (renderer) return true; const ok = init(container); if (!ok) failed = true; return ok; },
   sync, setActive(v) { active = v && !failed; if (active) { last = performance.now(); resize(); } }, get ok() { return !!renderer && !failed; }, rebuild() { built = false; sig = ''; }, tier
 };
