@@ -1,6 +1,6 @@
 # Aeloria: Age of Crowns — Soundtrack and Sound Brief
 
-The game currently plays music and sound effects synthesised in code. Recorded files replace them **without code changes**:
+Recorded files replace the built-in music and effects **without code changes**:
 
 1. Produce a track or effect from the brief below.
 2. Export as described under *Delivery*, named exactly as listed.
@@ -13,6 +13,27 @@ The game currently plays music and sound effects synthesised in code. Recorded f
 }
 ```
 Music crossfades in automatically when the player changes screen. Anything not listed keeps the built-in sound.
+
+## What ships now
+The game includes a recorded score, composed for it and rendered from sampled instruments:
+
+| File | Plays | Length | Key and tempo | Lead instruments |
+|---|---|---|---|---|
+| `music/cine.mp3` | title, intro, story | 1:43 | D major, 70 BPM | French horn, koto and guitar duet, full strings and choir |
+| `music/city.mp3` | city | 1:37 | G major, 84 BPM | ocarina, clarinet, pizzicato strings, hand drums |
+| `music/world.mp3` | world map | 1:28 | A Dorian, 76 BPM | fiddle, pan flute, horn, frame drum |
+| `music/battle.mp3` | battles | 1:12 | D minor, 120 BPM | brass, string ostinato, taiko, choir hits |
+| `music/boss.mp3` | boss stages | 1:08 | C minor, 128 BPM | low piano riff, trombones and tuba, trumpets |
+
+Every track is built on the same eight-bar theme (the five-note rising motif below), so the score sounds like one world: the horn states it in the intro, the ocarina plays it in the city, the fiddle turns it modal on the map, brass drive it in battle, and in the boss track it fights its way through the enemy riff.
+
+Stingers `sfx/win`, `loss`, `fanfare`, `legend`, `horn`, `done` and `alarm` use the same theme and instruments. The remaining effects (clicks, coins, hits) are still synthesised.
+
+Loops are sample-exact: `manifest.json` lists each loop's length under `loops`, and the game plays them through Web Audio so they repeat without a gap.
+
+**To re-render or edit the score:** `python3 tools/compose_music.py <output folder>` (needs `numpy`, `tinysoundfont`, `pretty_midi` and `ffmpeg`). The notes, arrangements and mix are all in that one script.
+
+**Licence note:** the instrument samples come from the TimGM6mb General MIDI soundfont bundled with `pretty_midi` (GPL-2.0). The compositions are original. Before a commercial release, either confirm you are comfortable shipping audio rendered from that soundfont, or re-render with a permissively licensed one by changing the `SF` path at the top of the script. Replacing any track with a studio or AI-generated recording only needs the file swapped in.
 
 ## Musical identity
 Aeloria is six realms united against one enemy, so the score is **one cinematic orchestra plus a featured soloist from each realm**:

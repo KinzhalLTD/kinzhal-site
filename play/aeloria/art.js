@@ -328,5 +328,5 @@ const ART = (() => {
 
   const asset = (kind, id) => MAN[kind] && MAN[kind][id] ? 'art/' + MAN[kind][id] : null;
   const keyUrl = id => MAN.key && MAN.key[id] ? 'art/' + MAN.key[id] : null;
-  return { iconSvg, asset, keyUrl, svg, shade, emblem, crownPath, icon, troop, portrait, enemy, building, cityBg, tree, mapPaint, setRealm, RARITY, painted, get P() { return P; } };
+  return { loopLen: k => (MAN.loops && MAN.loops[k]) || 0, iconSvg, asset, keyUrl, svg, shade, emblem, crownPath, icon, troop, portrait, enemy, building, cityBg, tree, mapPaint, setRealm, RARITY, painted, get P() { return P; } };
 })();

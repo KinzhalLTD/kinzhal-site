@@ -52,8 +52,22 @@
     "siege": "key/siege.jpg",
     "sunveldt": "key/sunveldt.jpg"
   },
-  "music": {},
-  "sfx": {},
+  "music": {
+    "cine": "music/cine.mp3",
+    "city": "music/city.mp3",
+    "world": "music/world.mp3",
+    "battle": "music/battle.mp3",
+    "boss": "music/boss.mp3"
+  },
+  "sfx": {
+    "win": "sfx/win.mp3",
+    "loss": "sfx/loss.mp3",
+    "fanfare": "sfx/fanfare.mp3",
+    "legend": "sfx/legend.mp3",
+    "horn": "sfx/horn.mp3",
+    "done": "sfx/done.mp3",
+    "alarm": "sfx/alarm.mp3"
+  },
   "buildings": {
     "citadel": "buildings/citadel.webp",
     "barracks": "buildings/barracks.webp",
@@ -132,5 +146,12 @@
     "coral": "city/coral.jpg",
     "sunveldt": "city/sunveldt.jpg",
     "frostmark": "city/frostmark.jpg"
+  },
+  "loops": {
+    "cine": 102.85714285714286,
+    "city": 97.14285714285714,
+    "world": 88.42105263157895,
+    "battle": 72.0,
+    "boss": 67.5
   }
 }

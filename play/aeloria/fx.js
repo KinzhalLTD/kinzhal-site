@@ -139,12 +139,23 @@ const FX = (() => {
   const fileOf = (kind, id) => (typeof ART !== 'undefined' && ART.asset) ? ART.asset(kind, id) : null;
   let track = null, trackUrl = null; const pool = {};
   const fade = (el, to, ms, done) => { const from = el.volume, t0 = performance.now(); const step = () => { const k = Math.min(1, (performance.now() - t0) / ms); el.volume = from + (to - from) * k; if (k < 1) requestAnimationFrame(step); else done && done(); }; requestAnimationFrame(step); };
+  // Recorded loops play through Web Audio so they repeat without a gap; an <audio> element is the fallback.
+  let bufSrc = null, bufGain = null, loadTok = 0;
+  const stopBuf = () => { if (!bufSrc) return; const s2 = bufSrc, g2 = bufGain; bufSrc = bufGain = null; try { g2.gain.setTargetAtTime(0, AC.currentTime, .25); } catch (e) { } setTimeout(() => { try { s2.stop(); s2.disconnect(); g2.disconnect(); } catch (e) { } }, 1300); };
+  const playEl = url => { track = new Audio(url); track.loop = true; track.volume = 0; const tr = track; tr.play().then(() => fade(tr, .55, 1400)).catch(() => { }); };
   function syncFileMusic() {
     const url = musicOn ? (fileOf('music', mood) || (mood === 'boss' ? fileOf('music', 'battle') : null)) : null;
     if (url === trackUrl) return !!url;
-    if (track) { const old = track; fade(old, 0, 900, () => old.pause()); track = null; }
-    trackUrl = url; if (!url) return false;
-    track = new Audio(url); track.loop = mood !== 'victory'; track.volume = 0; track.play().then(() => fade(track, .55, 1400)).catch(() => { });
+    stopBuf(); if (track) { const old = track; fade(old, 0, 900, () => old.pause()); track = null; }
+    trackUrl = url; const tok = ++loadTok; if (!url) return false;
+    if (!ac() || !window.fetch || !AC.decodeAudioData) { playEl(url); return true; }
+    const key = mood, len = (typeof ART !== 'undefined' && ART.asset && ART.loopLen) ? ART.loopLen(key) : 0;
+    fetch(url).then(r => r.arrayBuffer()).then(b => new Promise((res, rej) => { const p = AC.decodeAudioData(b, res, rej); if (p && p.then) p.then(res, rej); })).then(buf => {
+      if (tok !== loadTok) return;
+      const s2 = AC.createBufferSource(), g2 = AC.createGain(); s2.buffer = buf; s2.loop = true;
+      if (len && len < buf.duration) { const d = buf.getChannelData(0); let i = 0; while (i < 4000 && Math.abs(d[i]) < 2e-4) i++; if (i >= 4000) i = 0; s2.loopStart = i / buf.sampleRate; s2.loopEnd = Math.min(buf.duration, s2.loopStart + len); }
+      g2.gain.value = 0; s2.connect(g2).connect(master); s2.start(0, s2.loopStart || 0); g2.gain.setTargetAtTime(.5, AC.currentTime, .5); bufSrc = s2; bufGain = g2;
+    }).catch(() => { if (tok === loadTok) playEl(url); });
     return true;
   }
   function sound(k) {
