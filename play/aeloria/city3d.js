@@ -74,7 +74,21 @@ function flag(p, x, y, z, color, h = 3) {
 const flags = [];
 
 /* ---------------- buildings ---------------- */
+/* ---------------- painted billboard sprites (art/manifest.json buildings + map) ---------------- */
+const SPR_TEX = new Map(), sprMats = [];
+function sprTex(url) { if (!SPR_TEX.has(url)) { const t = texLoader.load(url); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; SPR_TEX.set(url, t); } return SPR_TEX.get(url); }
+const blobTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 4, 32, 32, 31); g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+function painted(url, size, opts = {}) {
+  const g = new THREE.Group(), m = new THREE.SpriteMaterial({ map: sprTex(url), transparent: true, alphaTest: .35, toneMapped: false, fog: true }); sprMats.push(m);
+  if (opts.dim) { m.opacity = .45; m.userData.dim = true; }
+  const s = new THREE.Sprite(m); s.center.set(.5, .2); s.scale.set(size, size, 1); g.add(s);
+  const b = new THREE.Mesh(new THREE.PlaneGeometry(size * .95, size * .7), blobMat); b.rotation.x = -Math.PI / 2; b.position.y = .08; b.renderOrder = -1; g.add(b);
+  g.userData.top = size * .62; g.userData.sprite = true; return g;
+}
+const BLD_SIZE = { citadel: 25, wall: 15, tower: 13, market: 15, embassy: 15, mews: 15, barracks: 15, academy: 15, infirmary: 14, vault: 14, farm: 13, lumber: 13, quarry: 13, mine: 13 };
 function building(id, L, P) {
+  { const url = L ? artUrl('buildings', id) : null; if (url) return painted(url, (BLD_SIZE[id] || 13) * (1 + Math.min(L, 20) * .012)); }
   const g = new THREE.Group(), wall = mat(P.wall), wall2 = mat(P.wall2), wall3 = mat(P.wall3), roofC = L >= 10 && id === 'citadel' ? '#e8a33d' : P.roof, style = P.cap;
   const col = (S && S.color) || '#e8a33d';
   switch (id) {
@@ -165,6 +179,8 @@ function forest(P, avoid) {
   const grp = new THREE.Group(), pts = [];
   const free = (x, z) => Math.max(Math.abs(x), Math.abs(z)) > 31 && Math.hypot(x - 3, z + 51) > 14 && avoid.every(([ax, az]) => Math.hypot(x - ax, z - az) > 6.5) && !(x > 20 && z > 20 && Math.abs(x - z) < 9) && pts.every(([px, pz]) => Math.hypot(x - px, z - pz) > 3.2);
   for (let i = 0; i < 4000 && pts.length < (tier === 'high' ? 260 : 170); i++) { const x = (rnd() - .5) * 190, z = (rnd() - .5) * 190; if (free(x, z)) pts.push([x, z]); }
+  const tUrl = artUrl('map', 'trees');
+  if (tUrl) { const hUrl = artUrl('map', 'herbs'); pts.forEach(([x, z], i) => { if (i % 2) return; const t = painted(i % 9 === 4 && hUrl ? hUrl : tUrl, 8 + rnd() * 5); t.position.set(x, heightAt(x, z), z); grp.add(t); }); return grp; }
   const kinds = P.realm === 'jade' ? [P.tree, 'cherry'] : [P.tree, P.tree, P.realm === 'greenhold' ? 'pine' : P.tree];
   const per = {}; pts.forEach(p => { const k = kinds[Math.floor(rnd() * kinds.length)]; (per[k] = per[k] || []).push(p); });
   const dummy = new THREE.Object3D();
@@ -188,7 +204,7 @@ function paintTex(mesh, id, rep) {
   texLoader.load(url, t => { t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 4; mesh.material.map = t; if (mesh.userData.tint) mesh.material.color.set(mesh.userData.tint); mesh.material.needsUpdate = true; });
 }
 let groundMesh, yardMesh, groundId = 'grass';
-function retex() { if (groundMesh) paintTex(groundMesh, groundId, 56); if (yardMesh) paintTex(yardMesh, 'stone', 7); }
+function retex() { built = false; sig = ''; if (groundMesh) paintTex(groundMesh, groundId, 56); if (yardMesh) paintTex(yardMesh, 'stone', 7); }
 function makeGround(P) {
   const geo = new THREE.PlaneGeometry(320, 320, 160, 160); geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position, cols = new Float32Array(pos.count * 3), c0 = new THREE.Color(P.ground[0]), c1 = new THREE.Color(P.ground[1]), c2 = new THREE.Color(P.ground[2]), c = new THREE.Color();
@@ -287,7 +303,7 @@ function init(container) {
 }
 function rebuildWorld() {
   if (root) { scene.remove(root); root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-  flags.length = 0; MATS.clear(); glowMats.length = 0;
+  flags.length = 0; MATS.clear(); glowMats.length = 0; sprMats.length = 0;
   const P = ART.P; realmKey = P.realm + (S.skin || '');
   root = new THREE.Group(); scene.add(root);
   root.add(makeGround(P), makeCourtyard(P));
@@ -318,10 +334,10 @@ function rebuildBuildings() {
   for (const [id, [x, y]] of Object.entries(INNER)) {
     const L = s.b[id] || 0, d = BLD[id], locked = d.unlock > s.b.citadel, q = inQueue(id), p = toWorld(x, y);
     const g = L ? building(id, L, P) : building('empty', 0, P); if (q) scaffold(g, id === 'citadel' ? 12 : 6);
-    if (locked) g.traverse(o => { if (o.material && o.material.opacity !== undefined && !L) o.material = new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: .25 }); });
+    if (locked && !g.userData.sprite) g.traverse(o => { if (o.material && o.material.opacity !== undefined && !L) o.material = new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: .25 }); });
     g.position.copy(p); g.rotation.y = 0; grp.add(g);
-    const top = new THREE.Box3().setFromObject(g).max.y;
-    g.userData = { act: 'bld', key: id }; pickables.push(g);
+    const top = g.userData.top ?? new THREE.Box3().setFromObject(g).max.y;
+    g.userData = { ...g.userData, act: 'bld', key: id }; pickables.push(g);
     anchors.push({ g, pos: new THREE.Vector3(p.x, Math.max(2, top) + 1.2, p.z), act: 'bld', key: id, label: `${locked ? '🔒 ' : ''}${d.name.replace('Royal Academy', 'Academy').replace('Alliance ', '')}${L ? ' ' + L : ''}`, q, can: !locked && !q && L && upgradeCheck(id).ok });
   }
   const open = openPlots();
@@ -330,14 +346,15 @@ function rebuildBuildings() {
     const g = f ? building(f.t, f.l, P) : building('empty', 0, P); if (q) scaffold(g, 4);
     if (locked) g.visible = false;
     g.position.set(p.x, heightAt(p.x, p.z) * .3, p.z); grp.add(g);
-    if (!locked) { g.userData = { act: 'field', i }; pickables.push(g); }
+    if (!locked) { g.userData = { ...g.userData, act: 'field', i }; pickables.push(g); }
     anchors.push({ g, pos: new THREE.Vector3(p.x, 3.4, p.z), act: locked ? 'lockedfield' : 'field', i, label: locked ? '🔒' : f && f.l ? String(f.l) : '+', small: true, q, field: true });
   });
   // army tents
   if (troopCount(s.troops)) { const tp = toWorld(590, 545); for (let k = 0; k < Math.min(6, Math.ceil(troopCount(s.troops) / 150)); k++) { const t = mesh(new THREE.ConeGeometry(1.4, 2.2, 6), mat('#f2ede4', { flat: true }), tp.x + (k % 3) * 3.2, 1.1, tp.z + Math.floor(k / 3) * 3.2, grp); t.userData = {}; } }
   // village houses: the town outside the walls grows as the Citadel rises
   const nh = Math.min(villageSites.length, 5 + (s.b.citadel || 1) * 2);
-  for (let k = 0; k < nh; k++) { const [x, z, ry] = villageSites[k], hg = house(P, .85 + ((k * 37) % 10) / 22, k); hg.position.set(x, heightAt(x, z), z); hg.rotation.y = ry; hg.userData = {}; grp.add(hg); }
+  const vUrl = artUrl('map', 'village');
+  for (let k = 0; k < nh; k++) { const [x, z, ry] = villageSites[k], hg = vUrl ? painted(vUrl, 9 + (k * 37) % 4) : house(P, .85 + ((k * 37) % 10) / 22, k); if (vUrl && k % 2) continue; hg.position.set(x, heightAt(x, z), z); if (!vUrl) hg.rotation.y = ry; hg.userData = {}; grp.add(hg); }
   buildUI();
 }
 
@@ -455,6 +472,7 @@ function loop(now) {
   const skyTop = lerpC(lerpC(cSky.day[0], cSky.dusk[0], w), cSky.night[0], n), skyHor = lerpC(lerpC(cSky.day[1], cSky.dusk[1], w), cSky.night[1], n);
   sky.userData.mat.uniforms.top.value.copy(skyTop); sky.userData.mat.uniforms.hor.value.copy(skyHor); sky.userData.mat.uniforms.sunDir.value.set(sx, sy, 80).normalize(); sky.position.copy(camera.position);
   scene.fog.color.copy(skyHor); renderer.toneMappingExposure = .85 - n * .38;
+  { const k = 1 - n * .5; for (const m of sprMats) m.color.setRGB(k * (1 - n * .08), k, k * (1 + n * .1)); }
   winMat.emissiveIntensity = n * 5; for (const m of glowMats) m.emissiveIntensity = m.userData.base * (1 + n * 2.5);
   bloom.strength = .22 + n * .45; bloom.threshold = .92;
   const wm = water.userData.mat.uniforms; wm.t.value = t; wm.night.value = n; wm.sunDir.value.set(sx, sy, 80).normalize(); wm.sky.value.copy(skyTop).lerp(skyHor, .5);

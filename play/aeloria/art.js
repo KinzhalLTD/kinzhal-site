@@ -43,7 +43,7 @@ const ART = (() => {
     scroll: '<g><rect x="5" y="4" width="14" height="16" rx="2" fill="#f2e6cf"/><path d="M8 9h8M8 12h8M8 15h5" stroke="#9c5f2e" stroke-width="1.5"/></g>',
     chest: '<g><rect x="3" y="9" width="18" height="11" rx="2" fill="#9c5f2e"/><path d="M3 11c0-5 4-7 9-7s9 2 9 7z" fill="#c07a3a"/><rect x="10" y="10" width="4" height="5" rx="1" fill="#ffd36b"/></g>'
   };
-  const icon = (k, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" class="ic" aria-hidden="true">${IC[k] || IC.scroll}</svg>`;
+  const icon = (k, s = 18) => MAN.icons && MAN.icons[k] ? `<img class="ic pic" src="art/${MAN.icons[k]}" width="${Math.round(s * 1.25)}" height="${Math.round(s * 1.25)}" alt="">` : `<svg width="${s}" height="${s}" viewBox="0 0 24 24" class="ic" aria-hidden="true">${IC[k] || IC.scroll}</svg>`;
 
   /* ---------- troops ---------- */
   const TROOP_ART = {
