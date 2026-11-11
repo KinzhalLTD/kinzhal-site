@@ -14,13 +14,16 @@
     "amara": "heroes/amara.png",
     "kofi": "heroes/kofi.png"
   },
-  "foes": {},
+  "foes": {
+    "hollow": "foes/hollow.png"
+  },
   "key": {
     "chapter1": "key/chapter1.png",
     "chapter2": "key/chapter2.png",
     "chapter3": "key/chapter3.png",
     "chapter4": "key/chapter4.png",
-    "chapter5": "key/chapter5.png"
+    "chapter5": "key/chapter5.png",
+    "chapter6": "key/chapter6.png"
   },
   "music": {},
   "sfx": {}
