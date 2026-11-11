@@ -4,10 +4,15 @@
     "sigrun": "heroes/sigrun.png",
     "aldric": "heroes/aldric.png",
     "elowen": "heroes/elowen.png",
-    "rania": "heroes/rania.png"
+    "rania": "heroes/rania.png",
+    "layla": "heroes/layla.png",
+    "saqr": "heroes/saqr.png",
+    "lian": "heroes/lian.png"
   },
   "foes": {},
-  "key": {},
+  "key": {
+    "chapter1": "key/chapter1.png"
+  },
   "music": {},
   "sfx": {}
 }
