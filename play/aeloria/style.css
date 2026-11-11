@@ -1,14 +1,14 @@
 /* Aeloria: Age of Crowns — interface styles */
 :root{--bg:#120c1f;--panel:#1d1530;--panel2:#2a1f44;--line:#3d2f5e;--ink:#f8eedb;--ink2:#cbbfa6;--gold:#e8a33d;--gold2:#ffd36b;--gold3:#fff1c4;--teal:#3fd7c8;--red:#ff5e3a;--good:#6fe39a;--epic:#b48cff;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);
 --display:"Cinzel","Trajan Pro",Georgia,serif;--body:"Cairo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
---frame:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(160deg,#ffd36b,#7e4a22 40%,#3d2f5e 60%,#e8a33d) border-box}
+color-scheme:dark;--frame:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(160deg,#ffd36b,#7e4a22 40%,#3d2f5e 60%,#e8a33d) border-box}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font:15px/1.45 var(--body);user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit;cursor:pointer}input{font:inherit}
 .ic{vertical-align:-3px;flex:none}
 h1,h2,h3,h4{font-family:var(--display);letter-spacing:.03em}
-#app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;height:100%;height:100dvh}
+#app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;height:100%}
 #fxLayer{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:120}
 
 /* ---------- HUD ---------- */

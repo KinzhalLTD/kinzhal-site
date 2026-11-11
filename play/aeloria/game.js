@@ -1236,7 +1236,7 @@ function onAct(e) {
     case 'auto': break;
     case 'closefight': { const oc = fight && fight.outro; leaveFight(); render(); if (oc) chapterStory(oc, 'outro', () => { if (oc === CHAPTERS.length) FX.banner('Aeloria Restored', 'The Hollow King is defeated. Now claim the Sunspire Throne on the World map.', { art: ART.emblem(120) }); openStages(); }); else openStages(); break; }
     case 'story': closeSheet(); { const c = +d.ch; chapterStory(c, 'intro', () => { if (S.stages[c + '-6']) chapterStory(c, 'outro', openStages); else openStages(); }); } break;
-    case 'retreat': if (fight && !fight.over && !confirm('Retreat from this battle? The Vigor is spent.')) break; leaveFight(); render(); break;
+    case 'retreat': if (fight && !fight.over && !el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Retreat?'; setTimeout(() => { if (el.isConnected) { delete el.dataset.sure; el.textContent = '✕'; } }, 2500); break; } leaveFight(); render(); break;
     case 'retry': { const k = fight.key; leaveFight(); startStage(k); break; }
     case 'nextstage': { const oc = fight && fight.outro; leaveFight(); if (oc) chapterStory(oc, 'outro', () => startStage(d.key)); else startStage(d.key); break; }
     case 'bspeed': if (fight) { fight.speed = fight.speed === 1 ? 2 : 1; S.fightSpeed = fight.speed; el.textContent = fight.speed + '×'; } break;
@@ -1260,7 +1260,7 @@ function onAct(e) {
     case 'incoming': openSheet('Incoming attack!', `<p><b>${esc(S.incoming.name)}</b> marches with about ${fmt(troopCount(S.incoming.troops) * (S.b.tower >= 3 ? 1 : 1.1))} troops. Arrives in ${fmtT((S.incoming.arrive - now()) / 1000)}.</p><p>Your defenders: ${fmt(troopCount(S.troops))} troops, Ramparts ${S.b.wall}.</p>${S.items.shield ? '<button class="btn gold" data-act="use" data-i="shield">Raise Aegis Ward</button>' : `<button class="btn gold" data-act="buy" data-i="shield">${ART.icon('gem', 12)} ${ITEMS.shield.gems} Buy Aegis Ward</button>`}`); break;
     case 'mute': { const on = !(S.settings.music || S.settings.sfx); S.settings.music = on; S.settings.sfx = on; FX.music(on); FX.setSfx(on); el.textContent = on ? '🔊' : '🔇'; break; }
     case 'menu': openMenu(); break;
-    case 'reset': if (confirm('Erase this realm and start over?')) { try { localStorage.removeItem(SAVE_KEY); } catch (x) { } location.reload(); } break;
+    case 'reset': if (!el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Tap again to erase this realm'; el.classList.add('gold'); break; } try { localStorage.removeItem(SAVE_KEY); } catch (x) { } location.reload(); break;
     case 'close': closeSheet(); break;
     case 'music': S.settings.music = !S.settings.music; FX.music(S.settings.music); openMenu(); break;
     case 'sfxt': S.settings.sfx = !S.settings.sfx; FX.setSfx(S.settings.sfx); openMenu(); break;
