@@ -63,13 +63,13 @@
     "vault": "buildings/vault.webp",
     "tower": "buildings/tower.webp",
     "wall": "buildings/wall.webp",
-    "market": "buildings/market.webp",
-    "embassy": "buildings/embassy.webp",
     "farm": "buildings/farm.webp",
     "lumber": "buildings/lumber.webp",
     "quarry": "buildings/quarry.webp",
     "mine": "buildings/mine.webp",
-    "empty": "buildings/empty.webp"
+    "empty": "buildings/empty.webp",
+    "market": "buildings/market.webp",
+    "embassy": "buildings/embassy.webp"
   },
   "map": {
     "camp": "map/camp.jpg",
@@ -124,5 +124,13 @@
     "chest": "icons/chest.png",
     "scroll": "icons/scroll.png",
     "clock": "icons/clock.png"
+  },
+  "city": {
+    "greenhold": "city/greenhold.jpg",
+    "amber": "city/amber.jpg",
+    "jade": "city/jade.jpg",
+    "coral": "city/coral.jpg",
+    "sunveldt": "city/sunveldt.jpg",
+    "frostmark": "city/frostmark.jpg"
   }
 }

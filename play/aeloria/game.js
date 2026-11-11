@@ -613,7 +613,9 @@ function cityLanterns() {
   const pts = [...Object.values(INNER), ...FIELD_POS.slice(0, 6)].map(([x, y]) => [x + 26, y - 6]);
   return pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="17" fill="url(#lglow)"/><circle cx="${x}" cy="${y}" r="3" fill="#ffe7a8"/>`).join('');
 }
-const use3D = () => !!(window.CITY3D && CITY3D.ok !== undefined && S.settings.gfx3d !== false && !window.CITY3D_FAIL);
+// The painted city is the default; the 3D city is an opt-in setting.
+const use3D = () => !!(window.CITY3D && CITY3D.ok !== undefined && S.settings.gfx3d === true && !window.CITY3D_FAIL);
+const paintedCity = () => !!ART.asset('city', S.realm);
 window.CITY3D_PICK = d => { if (d.act === 'bld') openBuilding(d.key); else if (d.act === 'field') openField(+d.i); };
 window.addEventListener('city3dready', () => { if (S && tab === 'city') { $('#cityView').innerHTML = ''; render(); } });
 window.addEventListener('city3dlost', () => { window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = false; if (S && tab === 'city') renderCity(); });
@@ -622,8 +624,8 @@ function renderCity() {
   if (use3D()) { const h = $('#city3d'); if (CITY3D.init(h)) { $('#cityView').hidden = true; h.hidden = tab !== 'city'; CITY3D.setActive(tab === 'city'); CITY3D.sync(); cityUiRender(); return; } window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = tab !== 'city'; }
   const cv = $('#cityView');
   if (!$('#cityDyn')) {
-    cv.innerHTML = `<svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" width="1000" height="700" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" width="1000" height="700" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
-    cv.style.background = ART.P.ground[2]; requestAnimationFrame(() => { cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2; });
+    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" width="1000" height="700" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" width="1000" height="700" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
+    cv.style.background = ART.P.ground[2]; requestAnimationFrame(() => { cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2; cv.scrollTop = Math.max(0, (cv.scrollHeight - cv.clientHeight) * .42); });
   }
   const items = [];
   for (const [id, [x, y]] of Object.entries(INNER)) {
@@ -637,7 +639,7 @@ function renderCity() {
     items.push({ y, html: `<g class="bld" data-act="field" data-i="${i}" transform="translate(${x} ${y})">${f ? ART.building(f.t, f.l) : ART.building('empty')}${q ? scaffold(30) : ''}${f && f.l ? `<g transform="translate(0 20)"><circle r="10" fill="#140f22d9" stroke="#e8a33d88"/><text y="4" text-anchor="middle">${f.l}</text></g>` : ''}</g>` });
   });
   items.sort((a, b) => a.y - b.y);
-  const banner = `<g transform="translate(500 92)"><path d="M0 0v-40" stroke="#5a3418" stroke-width="3"/><path class="wave" d="M0-40h40l-8 9 8 9H0z" fill="${S.color}"/></g>`;
+  const banner = paintedCity() ? '' : `<g transform="translate(500 92)"><path d="M0 0v-40" stroke="#5a3418" stroke-width="3"/><path class="wave" d="M0-40h40l-8 9 8 9H0z" fill="${S.color}"/></g>`;
   const troopsN = troopCount(S.troops);
   const camp = troopsN ? `<g transform="translate(560 540)" class="bld" data-act="tab" data-tab="army">${Array.from({ length: Math.min(6, Math.ceil(troopsN / 150)) }, (_, i) => `<g transform="translate(${(i % 3) * 30} ${Math.floor(i / 3) * 22})"><path d="M-10 10l10-18 10 18z" fill="#f2ede4"/><path d="M0-8v-6" stroke="#5a3418"/><path class="wave" d="M0-14l6 2-6 2z" fill="${S.color}"/></g>`).join('')}<text x="30" y="56" text-anchor="middle" class="lbl">${fmt(troopsN)} troops</text></g>` : '';
   $('#cityDyn').innerHTML = banner + items.map(i => i.html).join('') + camp;
@@ -663,7 +665,7 @@ function citadelBanner(to) {
   const unl = Object.values(BLD).filter(b => b.unlock === to).map(b => b.name);
   const plots = Math.min(16, 4 + to * 2) - Math.min(16, 4 + (to - 1) * 2);
   const sub = [unl.length ? 'Unlocked: ' + unl.join(', ') : '', plots ? `+${plots} field plots` : '', `Storage ${fmt(cap())}`].filter(Boolean).join(' · ');
-  FX.banner(`Citadel Level ${to}`, sub, { art: `<svg viewBox="-80 -140 160 160" width="150" height="150">${ART.building('citadel', to)}</svg>` });
+  FX.banner(`Citadel Level ${to}`, sub, { art: ART.asset('buildings', 'citadel') ? `<img src="${ART.asset('buildings', 'citadel')}" width="190" height="190" alt="">` : `<svg viewBox="-80 -140 160 160" width="150" height="150">${ART.building('citadel', to)}</svg>` });
 }
 function openField(i) {
   const f = S.fields[i], key = 'f' + i;
@@ -1368,7 +1370,7 @@ function onAct(e) {
     case 'incoming': openSheet('Incoming attack!', `<p><b>${esc(S.incoming.name)}</b> marches with about ${fmt(troopCount(S.incoming.troops) * (S.b.tower >= 3 ? 1 : 1.1))} troops. Arrives in ${fmtT((S.incoming.arrive - now()) / 1000)}.</p><p>Your defenders: ${fmt(troopCount(S.troops))} troops, Ramparts ${S.b.wall}.</p>${S.items.shield ? '<button class="btn gold" data-act="use" data-i="shield">Raise Aegis Ward</button>' : `<button class="btn gold" data-act="buy" data-i="shield">${ART.icon('gem', 12)} ${ITEMS.shield.gems} Buy Aegis Ward</button>`}`); break;
     case 'mute': { const on = !(S.settings.music || S.settings.sfx); S.settings.music = on; S.settings.sfx = on; FX.music(on); FX.setSfx(on); el.textContent = on ? '🔊' : '🔇'; break; }
     case 'menu': openMenu(); break;
-    case 'gfx3d': S.settings.gfx3d = S.settings.gfx3d === false; $('#cityView').innerHTML = ''; if (!use3D() && window.CITY3D && CITY3D.ok) CITY3D.setActive(false); openTab('city'); break;
+    case 'gfx3d': S.settings.gfx3d = S.settings.gfx3d !== true; $('#cityView').innerHTML = ''; if (!use3D() && window.CITY3D && CITY3D.ok) CITY3D.setActive(false); openTab('city'); break;
     case 'reset': if (!el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Tap again to erase this realm'; el.classList.add('gold'); break; } try { localStorage.removeItem(SAVE_KEY); } catch (x) { } location.reload(); break;
     case 'close': closeSheet(); break;
     case 'music': S.settings.music = !S.settings.music; FX.music(S.settings.music); openMenu(); break;
@@ -1386,7 +1388,7 @@ function onInput(e) {
 function openMenu() {
   openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">${REALMS[S.realm].name} · ${REALMS[S.realm].bonusText} · Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
   <div class="card"><h4>How to play</h4><ul class="howto"><li>Upgrade fields to grow Grain, Timber, Stone and Iron. The Citadel caps everything else.</li><li>Train troops in the Barracks. Spearmen › Cavalry › Archers › Spearmen.</li><li>On the World map, explore the fog, gather resources, destroy Ashen outposts and scout Ash-sworn lords.</li><li>Lead heroes through the Story Campaign across six realms to earn XP, shards and new heroes. Your squad boosts every army.</li><li>From Citadel 4 rivals may raid you. Watch the warning, raise an Aegis Ward, or fight back.</li><li>Final goal: break the garrison of the Sunspire Throne at the heart of Aeloria.</li></ul></div>
-  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="notify">🔔 Enable notifications</button><button class="btn" data-act="gfx3d">🏰 3D city: ${S.settings.gfx3d === false ? 'Off' : 'On'}</button><button class="btn" data-act="logincal">📅 Royal Courier</button></div></div>
+  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="notify">🔔 Enable notifications</button><button class="btn" data-act="gfx3d">🏰 3D city (experimental): ${S.settings.gfx3d === true ? 'On' : 'Off'}</button><button class="btn" data-act="logincal">📅 Royal Courier</button></div></div>
   <p class="muted">Progress is saved in this browser.</p><button class="btn" data-act="reset">Start a new realm</button>`);
 }
 

@@ -68,8 +68,8 @@ const META = (() => {
   const taxReady = () => { if (S.harvest.tax == null) S.harvest.tax = now() - HARVEST_MS; return now() - S.harvest.tax >= HARVEST_MS; };
   function bubbles() {
     let h = '';
-    FIELD_POS.forEach(([x, y], i) => { if (ready(i)) { const k = BLD[S.fields[i].t].field; h += `<g class="bubble" data-act="harvest" data-i="${i}" transform="translate(${x} ${y - 46})"><circle r="17" fill="#fff8e6" stroke="#e8a33d" stroke-width="3"/><g transform="translate(-11 -11)">${ART.icon(k, 22).replace(/<svg[^>]*>/, '<svg width="22" height="22" viewBox="0 0 24 24">')}</g><path d="M-5 16l5 7 5-7z" fill="#e8a33d"/></g>`; } });
-    if (taxReady()) { const [x, y] = INNER.citadel; h += `<g class="bubble" data-act="harvest" data-i="tax" transform="translate(${x + 72} ${y - 120})"><circle r="19" fill="#fff8e6" stroke="#e8a33d" stroke-width="3"/><g transform="translate(-12 -12)">${ART.icon('gold', 24).replace(/<svg[^>]*>/, '<svg width="24" height="24" viewBox="0 0 24 24">')}</g><path d="M-5 18l5 7 5-7z" fill="#e8a33d"/></g>`; }
+    FIELD_POS.forEach(([x, y], i) => { if (ready(i)) { const k = BLD[S.fields[i].t].field; h += `<g class="bubble" data-act="harvest" data-i="${i}" transform="translate(${x} ${y - 46})"><circle r="17" fill="#fff8e6" stroke="#e8a33d" stroke-width="3"/><g transform="translate(-11 -11)">${ART.iconSvg(k, 22)}</g><path d="M-5 16l5 7 5-7z" fill="#e8a33d"/></g>`; } });
+    if (taxReady()) { const [x, y] = INNER.citadel; h += `<g class="bubble" data-act="harvest" data-i="tax" transform="translate(${x + 72} ${y - 120})"><circle r="19" fill="#fff8e6" stroke="#e8a33d" stroke-width="3"/><g transform="translate(-12 -12)">${ART.iconSvg('gold', 24)}</g><path d="M-5 18l5 7 5-7z" fill="#e8a33d"/></g>`; }
     return h;
   }
   const readyCount = () => FIELD_POS.filter((_, i) => ready(i)).length + (taxReady() ? 1 : 0);

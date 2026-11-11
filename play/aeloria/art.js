@@ -45,6 +45,8 @@ const ART = (() => {
   };
   const icon = (k, s = 18) => MAN.icons && MAN.icons[k] ? `<img class="ic pic" src="art/${MAN.icons[k]}" width="${Math.round(s * 1.25)}" height="${Math.round(s * 1.25)}" alt="">` : `<svg width="${s}" height="${s}" viewBox="0 0 24 24" class="ic" aria-hidden="true">${IC[k] || IC.scroll}</svg>`;
 
+  const iconSvg = (k, s = 22) => MAN.icons && MAN.icons[k] ? `<image href="art/${MAN.icons[k]}" x="${-s * .1}" y="${-s * .1}" width="${s * 1.2}" height="${s * 1.2}"/>` : icon(k, s).replace(/<svg[^>]*>/, `<svg width="${s}" height="${s}" viewBox="0 0 24 24">`);
+
   /* ---------- troops ---------- */
   const TROOP_ART = {
     inf: c => `<path d="M34 6l2 52" stroke="#8a6a3c" stroke-width="3"/><path d="M31 2l4-4 4 4-4 9z" fill="#cfd8e2"/><path d="M14 26c0-8 4-12 9-12s9 4 9 12" fill="#9aa6b2"/><circle cx="23" cy="25" r="6" fill="#e0b08a"/><path d="M15 23h16l-2-6H17z" fill="#9aa6b2"/><path d="M14 32h18l2 22H12z" fill="${c}"/><path d="M6 30c0 12 4 18 10 22V30z" fill="${c}"/><path d="M6 30h10v22c-6-4-10-10-10-22z" fill="none" stroke="#e8c35a" stroke-width="2"/>`,
@@ -238,15 +240,16 @@ const ART = (() => {
     mine: () => `${shadow(30)}<path d="M-32 4c0-24 14-38 32-38s32 14 32 38z" fill="#857f77"/><path d="M-12 4v-16a12 12 0 0 1 24 0v16z" fill="#1b1430"/><path d="M-14-12h28M-14-12v16M14-12v16" stroke="#9c5f2e" stroke-width="3"/><path d="M18-22l6-6 4 4-6 4z" fill="#c9d6e3"/>`,
     empty: () => `<path d="M-30 0l30-12 30 12-30 12z" fill="#000" opacity=".12" stroke="#fff" stroke-dasharray="4 4" stroke-opacity=".55"/><text x="0" y="5" text-anchor="middle" font-size="16" fill="#fff" opacity=".8">+</text>`
   };
-  const BSIZE = { citadel: 230, empty: 96, farm: 118, lumber: 118, quarry: 118, mine: 118 };
+  const BSIZE = { citadel: 218, empty: 96, farm: 128, lumber: 128, quarry: 128, mine: 128, tower: 118, wall: 128 };
   const building = (id, L) => {
     const a = MAN.buildings && MAN.buildings[B[id] ? id : 'empty']; if (!a) return (B[id] || B.empty)(L || 1);
-    const z = (BSIZE[id] || 150) * (id === 'empty' ? 1 : 1 + Math.min(L || 1, 20) * .01);
-    return `<ellipse cy="8" rx="${z * .38}" ry="${z * .13}" fill="#000" opacity=".28"/><image href="art/${a}" x="${-z / 2}" y="${-z * .78}" width="${z}" height="${z}"/>${id === 'empty' || !B[id] ? '<text x="0" y="2" text-anchor="middle" font-size="20" font-weight="900" fill="#fff" stroke="#000" stroke-width=".8" opacity=".9">+</text>' : ''}`;
+    const z = (BSIZE[id] || 132) * (id === 'empty' ? 1 : 1 + Math.min(L || 1, 20) * .01);
+    return `<ellipse cy="${z * .04}" rx="${z * .4}" ry="${z * .13}" fill="#000" opacity=".3"/><image href="art/${a}" x="${-z / 2}" y="${-z * .86}" width="${z}" height="${z}"/>${id === 'empty' || !B[id] ? '<text x="0" y="2" text-anchor="middle" font-size="20" font-weight="900" fill="#fff" stroke="#000" stroke-width=".8" opacity=".9">+</text>' : ''}`;
   };
 
   /* ---------- city ground per realm ---------- */
   const cityBg = () => {
+    { const c = MAN.city && MAN.city[P.realm]; if (c) return `<image href="art/${c}" x="-119" y="-55" width="1235" height="823" preserveAspectRatio="none"/>`; }
     const g = P.ground, u = uid('c'), GT = { frostmark: 'snow', amber: 'sand', sunveldt: 'sand' }, gt = MAN.ground && MAN.ground[GT[P.realm] || 'grass'], st = MAN.ground && MAN.ground.stone;
     const texture = {
       amber: `<path d="M0 30c20-12 40-12 80 0" stroke="${g[2]}" stroke-width="2" fill="none" opacity=".4"/>`,
@@ -325,5 +328,5 @@ const ART = (() => {
 
   const asset = (kind, id) => MAN[kind] && MAN[kind][id] ? 'art/' + MAN[kind][id] : null;
   const keyUrl = id => MAN.key && MAN.key[id] ? 'art/' + MAN.key[id] : null;
-  return { asset, keyUrl, svg, shade, emblem, crownPath, icon, troop, portrait, enemy, building, cityBg, tree, mapPaint, setRealm, RARITY, painted, get P() { return P; } };
+  return { iconSvg, asset, keyUrl, svg, shade, emblem, crownPath, icon, troop, portrait, enemy, building, cityBg, tree, mapPaint, setRealm, RARITY, painted, get P() { return P; } };
 })();

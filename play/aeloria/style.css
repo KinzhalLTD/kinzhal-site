@@ -456,3 +456,6 @@ body.painted-ui nav.tabs{padding-left:8px;padding-right:8px}
 body.painted-ui .bpaint{background:radial-gradient(circle at 50% 60%,#2a2350,#0b0818)}
 .realm{min-height:62px;justify-content:center;text-shadow:0 1px 3px #000,0 0 8px #000}.realm.on{box-shadow:0 0 0 2px var(--gold2),0 0 18px #e8a33d88}
 .bld.locked image{filter:grayscale(.8) brightness(.6)}
+#cityView.painted{background:#0b0818}#cityView.painted #citySvg text{font-size:15px}#cityView.painted #citySvg{width:max(100%,740px);min-width:0;height:auto;min-height:0;aspect-ratio:10/7}@media(min-aspect-ratio:1/1){#cityView.painted #citySvg{width:max(100%,calc((100vh - 170px)*1.43))}}#cityView.painted #cityAmb{display:none}
+#cityView.painted .bld.locked{opacity:.8}#cityView.painted .bld.locked image{filter:grayscale(.85) brightness(.55)}
+#cityView.painted .bld image{filter:drop-shadow(0 3px 4px #0007)}
