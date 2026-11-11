@@ -15,7 +15,9 @@
     "kofi": "heroes/kofi.png"
   },
   "foes": {
-    "hollow": "foes/hollow.png"
+    "hollow": "foes/hollow.png",
+    "warlord": "foes/warlord.png",
+    "ghoul": "foes/ghoul.png"
   },
   "key": {
     "chapter1": "key/chapter1.png",
