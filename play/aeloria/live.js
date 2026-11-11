@@ -135,11 +135,23 @@ const LIVE = (() => {
     }
   }
   function on(kind, n = 1) {
-    if (!S || !S.event) return; eventWeek();
+    if (!S) return; deedTrack(kind, n); if (!S.event) return; eventWeek();
     const p = curEvent().pts[kind]; if (!p) return;
     const add = Math.max(1, Math.round(p * n)); S.event.pts += add;
     const el = document.querySelector('[data-res="event"]'); if (el) { const c = FX.centerOf(el); FX.text(c.x, c.y + 16, `+${add} pts`, 'pass'); }
   }
+  /* ---------- Daily Deeds: seven small goals a day, five chests along the bar ---------- */
+  const DEEDS = [{ k: 'stage', n: 3, t: 'Win 3 campaign battles', p: 20 }, { k: 'harvest', n: 10, t: 'Collect 10 harvests', p: 15 }, { k: 'train', n: 100, t: 'Train 100 troops', p: 15 }, { k: 'treasure', n: 2, t: 'Recover 2 treasures on the World map', p: 15 }, { k: 'build', n: 2, t: 'Finish 2 buildings or upgrades', p: 15 }, { k: 'caravan', n: 1, t: 'Catch a treasure caravan', p: 10 }, { k: 'spin', n: 1, t: 'Spin the Wheel of Fortune', p: 10 }];
+  const DEED_CHESTS = [[20, { gems: 10 }], [40, { items: { sp5: 2 } }], [60, { gems: 20, gold: 2000 }], [80, { items: { vigor: 1, crate: 1 } }], [100, { gems: 60, items: { sp60: 1 } }]];
+  const dd = () => { if (!S.deeds || S.deeds.day !== today()) S.deeds = { day: today(), n: {}, claimed: {} }; return S.deeds; };
+  const deedPts = () => { const d = dd(); return DEEDS.reduce((a, x) => a + ((d.n[x.k] || 0) >= x.n ? x.p : 0), 0); };
+  const deedReady = () => { const p = deedPts(), d = dd(); return DEED_CHESTS.some(([t]) => p >= t && !d.claimed[t]); };
+  function deedTrack(kind, n) { const x = DEEDS.find(q => q.k === kind); if (!x) return; const d = dd(), before = d.n[kind] || 0; if (before >= x.n) return; d.n[kind] = Math.min(x.n, before + n); if (d.n[kind] >= x.n) { toast(`✔ Daily deed done: ${x.t} · +${x.p} points`, 'good'); FX.sound('coin'); } }
+  function deedsHTML() {
+    const d = dd(), p = deedPts();
+    return `<div class="card deeds"><div class="phead"><div><h4>☀ Daily Deeds</h4><p class="muted">Seven small goals, new every day. Fill the bar to open all five chests.</p></div><div class="ptier-now"><b>${p}</b>/100</div></div><div class="dbar"><i style="width:${p}%"></i>${DEED_CHESTS.map(([t]) => { const got = d.claimed[t], can = p >= t && !got; return `<button class="dchest ${got ? 'got' : ''} ${can ? 'ready' : ''}" style="left:${t}%" ${can ? `data-act="deed" data-t="${t}"` : ''}>${ART.icon('chest', 26)}<small>${got ? '✓' : t}</small></button>`; }).join('')}</div><div class="dlist">${DEEDS.map(x => { const v = Math.min(x.n, d.n[x.k] || 0), done = v >= x.n; return `<div class="drow ${done ? 'done' : ''}"><span>${done ? '✔' : '○'} ${x.t}</span><b>${fmt(v)}/${fmt(x.n)}</b><em>+${x.p}</em></div>`; }).join('')}</div></div>`;
+  }
+  function deedClaim(t) { t = +t; const d = dd(); if (deedPts() < t || d.claimed[t]) return; d.claimed[t] = 1; give(DEED_CHESTS.find(c => c[0] === t)[1], 'Daily Deeds chest'); FX.confetti(); FX.sound('chest'); render(); }
   function eventHTML() {
     eventWeek(); const E = curEvent(), pts = S.event.pts, board = eventBoard(pts).slice(0, 10);
     return `<div class="card event" style="--ec:${E.color}"><div class="phead"><div><small class="evk">Weekly event · ends in ${fmtT(weekLeft())}</small><h4>${E.name}</h4><p class="muted">${E.desc} Points: ${Object.entries(E.pts).map(([k, v]) => `${k} ${v < 1 ? '' : '+' + v}`).join(' · ')}</p></div><div class="ptier-now"><b>${fmt(pts)}</b> pts</div></div>
@@ -305,6 +317,7 @@ const LIVE = (() => {
       case 'arenaticket': if (S.gems < 50) { toast('Not enough gems', 'bad'); return true; } spendGems(50); S.arena.tickets++; render(); return true;
       case 'glorybuy': { const g = GLORY[+d.i]; if (S.arena.glory < g.cost) { toast('Not enough Glory', 'bad'); return true; } S.arena.glory -= g.cost; META.grant(g.give(), g.name); render(); return true; }
       case 'evclaim': evClaim(+d.i); return true;
+      case 'deed': deedClaim(d.t); return true;
       case 'buyprod': buyProduct(d.id); return true;
       case 'cardclaim': if (S.shop.card > now() && S.shop.cardDay !== today()) { S.shop.cardDay = today(); give({ gems: 100 }, 'Monthly Card'); FX.sound('coin'); render(); } return true;
       case 'royalgems': if (S.gems < PRODUCTS.royal.gems) { toast('Not enough gems', 'bad'); return true; } spendGems(PRODUCTS.royal.gems); S.shop.royalPass = true; FX.confetti(); FX.sound('chest'); render(); return true;
@@ -316,5 +329,5 @@ const LIVE = (() => {
     }
     return false;
   }
-  return { migrate, gearMult, gearMight, gearHTML, synergy, squadUnits, renderArena, endArena, on, eventHTML, ensureBoss, hitBoss, bossHTML, drawBoss, offersTab, skinsTab, skinPal, royalRow, adButton, comeback, tick: tickLive, act, curEvent };
+  return { deedsHTML, deedReady, migrate, gearMult, gearMight, gearHTML, synergy, squadUnits, renderArena, endArena, on, eventHTML, ensureBoss, hitBoss, bossHTML, drawBoss, offersTab, skinsTab, skinPal, royalRow, adButton, comeback, tick: tickLive, act, curEvent };
 })();

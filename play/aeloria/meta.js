@@ -229,7 +229,7 @@ const META = (() => {
     <h3>Market stalls <small class="muted">paid in Gold · restock in about ${hrs}h</small></h3><div class="deals">${MARKET.map(it => { const left = it.max - (m.bought[it.id] || 0), price = it.gold(L); return `<div class="deal ${left ? '' : 'sold'}"><span class="off teal">Gold</span><h4>${it.name}</h4><div class="rws">${rewardHTML(it.r(L))}</div>${left ? `<button class="btn gold" data-act="mbuy" data-id="${it.id}">${ART.icon('gold', 14)} ${fmt(price)}</button><small class="muted">${left} left today</small>` : '<span class="muted">Sold out today</span>'}</div>`; }).join('')}</div>`;
   }
   function spin() {
-    const m = mk(), el = document.getElementById('wheel'); if (spinning || m.spin === today() || !el) return; spinning = true; m.spin = today();
+    const m = mk(), el = document.getElementById('wheel'); if (spinning || m.spin === today() || !el) return; spinning = true; m.spin = today(); LIVE.on('spin', 1);
     const i = Math.floor(Math.random() * WHEEL.length), txt = give(WHEEL[i]); wheelRot = wheelRot - (wheelRot % 360) + 360 * 6 + (360 - (i * 45 + 22.5));
     el.style.transition = 'transform 4.2s cubic-bezier(.12,.75,.1,1)'; el.style.transform = `rotate(${wheelRot}deg)`; let n = 0; const tk = setInterval(() => { FX.sound('tick'); if (++n > 26) clearInterval(tk); }, 150);
     setTimeout(() => { spinning = false; toast(`Wheel of Fortune: ${txt}`, 'good'); FX.confetti(); FX.sound('chest'); render(); }, 4400);

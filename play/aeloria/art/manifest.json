@@ -171,5 +171,18 @@
     "forge": "landmark/forge.webp",
     "altar": "landmark/altar.webp",
     "caravan": "landmark/caravan.webp"
+  },
+  "nav": {
+    "city": "nav/city.webp",
+    "world": "nav/world.webp",
+    "heroes": "nav/heroes.webp",
+    "battle": "nav/battle.webp",
+    "quests": "nav/quests.webp",
+    "store": "nav/store.webp",
+    "more": "nav/more.webp",
+    "army": "nav/army.webp",
+    "research": "nav/research.webp",
+    "house": "nav/house.webp",
+    "arena": "nav/arena.webp"
   }
 }

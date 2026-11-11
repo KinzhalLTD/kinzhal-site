@@ -437,7 +437,7 @@ function arrive(m) {
   if (!o || o.dead || o.x !== m.tx || o.y !== m.ty) { report('March returned', m.kind === 'collect' ? 'Someone reached the treasure before your riders.' : 'The target was gone before your troops arrived.'); return goBack(); }
   if (m.kind === 'collect') {
     const L = 1 + Math.floor(dist(S.home, o) / 8), rw = { gold: 300 * L, [pick(['grain', 'timber', 'stone', 'ore'])]: 2000 * L }; const r = Math.random(); if (r < .3) rw.gems = 5 * L; else if (r < .45) rw.items = { sp5: 1 }; else if (r < .5) rw.shards = { [pick(HEROES).id]: 2 };
-    const txt = give(rw); o.dead = true; o.respawnAt = now() + 3 * 60e3; S.stats.chests = (S.stats.chests || 0) + 1; META.xp(8); mapFx.push({ x: o.x, y: o.y, t: now(), win: true }); report('Treasure recovered', `<p>Your riders opened a lost chest in ${REGION_NAME[regionAt(o.x, o.y)]}.</p><p>Found: ${txt}</p>`, 'win'); sfx('chest'); return goBack();
+    const txt = give(rw); o.dead = true; o.respawnAt = now() + 3 * 60e3; S.stats.chests = (S.stats.chests || 0) + 1; META.xp(8); LIVE.on('treasure', 1); mapFx.push({ x: o.x, y: o.y, t: now(), win: true }); report('Treasure recovered', `<p>Your riders opened a lost chest in ${REGION_NAME[regionAt(o.x, o.y)]}.</p><p>Found: ${txt}</p>`, 'win'); sfx('chest'); return goBack();
   }
   if (m.kind === 'scout') {
     S.stats.scouts++;
@@ -581,8 +581,9 @@ function renderHud() {
   renderHud.m = mt;
   $('#hudRes').innerHTML = RES.map(k => `<div class="res ${S.res[k] >= c ? 'full' : ''}" data-res="${k}" title="${RNAME[k]}: ${fmt(r[k])}/h, storage ${fmt(c)}">${ART.icon(k, 18)}<b>${fmt(S.res[k]).replace(/^(\d{3})\.\d+([KMB])$/, '$1$2')}</b><small class="${r[k] < 0 ? 'neg' : ''}">${r[k] >= 0 ? '+' : ''}${fmt(r[k])}/h</small></div>`).join('') +
     `<div class="res gem" data-res="gems" data-act="sub" data-s="gems">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b><span class="plus">+</span></div>`;
+  { const nv = $('#navVigor'); if (nv) { nv.textContent = '⚡' + S.vigor; nv.parentNode.classList.toggle('go', S.vigor >= 6); } const md = $('#moreDot'); if (md) md.hidden = !(S.house.requests.length || (S.arena && S.arena.tickets > 0 && S.b.citadel >= 3)); }
   $('#mailDot').hidden = !S.unread; $('#mailDot').textContent = S.unread;
-  const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); const passReady = Math.min(30, Math.floor(S.pass.xp / 120)) > Object.keys(S.pass.claimed).length; $('#questDot').hidden = !(qd || now() >= S.chestAt || passReady);
+  const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); const passReady = Math.min(30, Math.floor(S.pass.xp / 120)) > Object.keys(S.pass.claimed).length; $('#questDot').hidden = !(qd || now() >= S.chestAt || passReady || LIVE.deedReady());
   $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0 || (S.market || {}).spin !== today());
   const shield = S.shieldUntil > now();
   $('#status').innerHTML = (S.incoming ? `<button class="alert" data-act="incoming">⚠ ${esc(S.incoming.name)} attacks in ${fmtT((S.incoming.arrive - now()) / 1000)}</button>` : '') +
@@ -1141,7 +1142,7 @@ function renderResearch() {
 function renderQuests() {
   const q = QUESTS[S.quest], ready = q && q.c(S), chest = now() >= S.chestAt;
   const rw = r => Object.entries(r).map(([k, v]) => k === 'items' ? Object.entries(v).map(([i, n]) => `${ART.icon(ITEMS[i].icon, 14)}${n}× ${ITEMS[i].name}`).join(' ') : `${ART.icon(k === 'gems' ? 'gem' : k, 14)}${fmt(v)}`).join(' ');
-  return `<h2>Quests</h2>${LIVE.eventHTML()}${META.passHTML()}
+  return `<h2>Quests</h2>${LIVE.deedsHTML()}${LIVE.eventHTML()}${META.passHTML()}
   <div class="card chest ${chest ? 'ready' : ''}">${ART.icon('chest', 42)}<div><h4>Supply chest</h4><p class="muted">The royal quartermaster sends supplies every 6 hours.</p></div>${chest ? '<button class="btn gold" data-act="chest">Open</button>' : `<span class="muted">${fmtT((S.chestAt - now()) / 1000)}</span>`}</div>
   ${q ? `<div class="card quest ${ready ? 'ready' : ''}"><small>Story quest ${S.quest + 1} / ${QUESTS.length}</small><h4>${q.t}</h4><p>Reward: ${rw(q.r)}</p>${ready ? '<button class="btn gold" data-act="claim">Claim</button>' : '<span class="muted">In progress</span>'}</div>` : '<div class="card"><h4>Every story quest complete. You rule the sands!</h4></div>'}
   <div class="card"><h4>Upcoming</h4>${QUESTS.slice(S.quest + 1, S.quest + 4).map(x => `<p class="muted">· ${x.t}</p>`).join('') || '<p class="muted">—</p>'}</div>
@@ -1398,7 +1399,7 @@ function openMail() {
 let tab = 'city';
 function openTab(t) {
   tab = t; closeSheet();
-  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t || (b.id === 'navMore' && ['army', 'research', 'house', 'arena', 'bag'].includes(t))));
   FX.setMood(t === 'world' ? 'world' : 'city'); $('#cityUi').hidden = t !== 'city';
   $('#cityView').hidden = t !== 'city' || use3D(); $('#city3d').hidden = t !== 'city' || !use3D(); if (window.CITY3D && CITY3D.ok) CITY3D.setActive(t === 'city' && use3D()); $('#worldView').hidden = t !== 'world'; $('#panel').hidden = t === 'city' || t === 'world'; $('#main').classList.toggle('panel-open', t !== 'city' && t !== 'world');
   if (t === 'world') { ensureExtras(); if (!openTab.centered) { centerOn(S.home.x, S.home.y); openTab.centered = true; } requestAnimationFrame(mapLoop); }
@@ -1458,10 +1459,12 @@ function onAct(e) {
     case 'tome': if (S.items.scroll) { S.items.scroll--; heroXP(d.id, 600); sfx('done'); render(); openHero(d.id); } break;
     case 'tutor': { const h = S.heroes[d.id], c = Math.floor(150 * h.lvl * h.lvl); if (h.lvl >= heroCap()) { toast('Raise the Hall of Heroes to lift the level cap', 'bad'); break; } if (S.res.gold < c) { toast('Not enough Gold', 'bad'); break; } S.res.gold -= c; heroXP(d.id, xpFor(h.lvl) * .5); sfx('done'); render(); openHero(d.id); break; }
     case 'stages': openStages(); break;
+    case 'more': { const tile = (act, extra, icon, name, note, dot) => `<button class="mtile" data-act="${act}" ${extra}>${icon}<b>${name}</b><small>${note}</small>${dot ? '<span class="dot">!</span>' : ''}</button>`, im = k => `<img src="art/nav/${k}.webp" alt="">`;
+      openSheet('Realm', `<div class="mgrid">${tile('tab', 'data-tab="army"', im('army'), 'Army', fmt(troopCount(S.troops)) + ' troops')}${tile('tab', 'data-tab="research"', im('research'), 'Research', S.rq ? 'Studying…' : S.b.academy ? 'Idle' : 'Needs Academy', S.b.academy && !S.rq)}${tile('tab', 'data-tab="house"', im('house'), 'Alliance', S.house.requests.length + (S.house.requests.length === 1 ? ' help request' : ' help requests'), S.house.requests.length > 0)}${tile('arena', '', im('arena'), 'Arena', (S.arena ? S.arena.tickets : 0) + ' tickets', S.arena && S.arena.tickets > 0)}${tile('sub', 'data-s="bag"', ART.icon('crate', 54), 'Bag', 'Items and speed-ups')}${tile('mail', '', ART.icon('scroll', 54), 'Reports', S.unread ? S.unread + ' unread' : 'No new reports', S.unread > 0)}${tile('menu', '', im('more'), 'Settings', 'Sound, help, realm')}</div>`); break; }
     case 'stage': startStage(d.key); break;
     case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && !fight.timing && now() >= fight.pauseUntil) timedCast(u); break; }
     case 'landmark': sfx('click'); if (d.id === 'arena') openTab('arena'); else if (d.id === 'bazaar') META.act('sub', { s: 'market' }); else if (d.id === 'altar') META.act('sub', { s: 'summon' }); else { openTab('heroes'); toast('Open a hero to forge their gear with Ember Essence'); } break;
-    case 'caravan': if (caravan) { caravan = null; S.caravanN = (S.caravanN || 0) + 1; S.caravanAt = now() + (80 + Math.random() * 80) * 1000; const L = Math.max(1, S.b.citadel), r = Math.random(), rw = r < .4 ? { gold: 400 * L } : r < .75 ? { [pick(['grain', 'timber', 'stone', 'ore'])]: 2500 * L } : r < .9 ? { gems: 10 } : r < .98 ? { items: { sp5: 1 } } : { gems: 50 }; give(rw, 'Treasure caravan'); FX.confetti(); FX.sound('chest'); META.xp(3); render(); } break;
+    case 'caravan': if (caravan) { caravan = null; S.caravanN = (S.caravanN || 0) + 1; S.caravanAt = now() + (80 + Math.random() * 80) * 1000; const L = Math.max(1, S.b.citadel), r = Math.random(), rw = r < .4 ? { gold: 400 * L } : r < .75 ? { [pick(['grain', 'timber', 'stone', 'ore'])]: 2500 * L } : r < .9 ? { gems: 10 } : r < .98 ? { items: { sp5: 1 } } : { gems: 50 }; give(rw, 'Treasure caravan'); LIVE.on('caravan', 1); FX.confetti(); FX.sound('chest'); META.xp(3); render(); } break;
     case 'czoom': { const cv = $('#cityView'), fx = (cv.scrollLeft + cv.clientWidth / 2) / cv.scrollWidth, fy = (cv.scrollTop + cv.clientHeight / 2) / cv.scrollHeight; fitCity.zi = ((fitCity.zi || 0) + 1) % CITY_Z.length; fitCity.w = cv.clientWidth; fitCity.h = cv.clientHeight; fitCity(); requestAnimationFrame(() => { cv.scrollLeft = fx * cv.scrollWidth - cv.clientWidth / 2; cv.scrollTop = fy * cv.scrollHeight - cv.clientHeight / 2; }); sfx('click'); break; }
     case 'target': if (fight && !fight.over) { const u = fight.foes.find(h => h.id === d.id); if (u && u.hp > 0) { fight.target = u.id; sfx('click'); updFight(); } } break;
     case 'auto': break;
