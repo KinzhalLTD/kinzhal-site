@@ -240,7 +240,7 @@ const ART = (() => {
     mine: () => `${shadow(30)}<path d="M-32 4c0-24 14-38 32-38s32 14 32 38z" fill="#857f77"/><path d="M-12 4v-16a12 12 0 0 1 24 0v16z" fill="#1b1430"/><path d="M-14-12h28M-14-12v16M14-12v16" stroke="#9c5f2e" stroke-width="3"/><path d="M18-22l6-6 4 4-6 4z" fill="#c9d6e3"/>`,
     empty: () => `<path d="M-30 0l30-12 30 12-30 12z" fill="#000" opacity=".12" stroke="#fff" stroke-dasharray="4 4" stroke-opacity=".55"/><text x="0" y="5" text-anchor="middle" font-size="16" fill="#fff" opacity=".8">+</text>`
   };
-  const BSIZE = { citadel: 218, empty: 96, farm: 128, lumber: 128, quarry: 128, mine: 128, tower: 118, wall: 128 };
+  const BSIZE = { citadel: 204, empty: 96, farm: 128, lumber: 128, quarry: 128, mine: 128, tower: 118, wall: 128 };
   const building = (id, L) => {
     const a = MAN.buildings && MAN.buildings[B[id] ? id : 'empty']; if (!a) return (B[id] || B.empty)(L || 1);
     const z = (BSIZE[id] || 132) * (id === 'empty' ? 1 : 1 + Math.min(L || 1, 20) * .01);

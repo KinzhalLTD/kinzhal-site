@@ -625,12 +625,12 @@ function renderCity() {
   const cv = $('#cityView');
   if (!$('#cityDyn')) {
     cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" width="1000" height="700" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" width="1000" height="700" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
-    cv.style.background = ART.P.ground[2]; requestAnimationFrame(() => { cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2; cv.scrollTop = Math.max(0, (cv.scrollHeight - cv.clientHeight) * .42); });
+    cv.style.background = paintedCity() ? '#0b0818' : ART.P.ground[2]; requestAnimationFrame(() => { cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2; cv.scrollTop = Math.max(0, (cv.scrollHeight - cv.clientHeight) * .42); });
   }
   const items = [];
   for (const [id, [x, y]] of Object.entries(INNER)) {
     const L = S.b[id] || 0, d = BLD[id], locked = d.unlock > S.b.citadel, q = inQueue(id), can = !locked && !q && upgradeCheck(id).ok;
-    items.push({ y, html: `<g class="bld ${locked ? 'locked' : ''} ${L ? '' : 'unbuilt'}" data-act="bld" data-key="${id}" transform="translate(${x} ${y})">${L ? ART.building(id, L) : ART.building('empty')}${q ? scaffold(id === 'citadel' ? 70 : 46) : ''}${can && L ? '<g class="upar" transform="translate(40 -40)"><circle r="10" fill="#6fe39a" stroke="#0b3a22" stroke-width="2"/><path d="M0-5l5 6h-3v4h-4v-4h-3z" fill="#0b3a22"/></g>' : ''}<g transform="translate(0 22)"><rect x="-46" y="-9" width="92" height="18" rx="9" fill="#140f22d9" stroke="#e8a33d55"/><text y="4" text-anchor="middle">${locked ? '🔒 ' : ''}${d.name.replace('Royal Academy', 'Academy').replace('Alliance ', '').replace('Sandstone ', '').replace('Treasury ', '').replace('House ', '')}${L ? ' ' + L : ''}</text></g></g>` });
+    items.push({ y, html: `<g class="bld ${locked ? 'locked' : ''} ${L ? '' : 'unbuilt'}" data-act="bld" data-key="${id}" transform="translate(${x} ${y})">${L ? ART.building(id, L) : ART.building('empty')}${q ? scaffold(id === 'citadel' ? 70 : 46) : ''}${can && L ? '<g class="upar" transform="translate(40 -40)"><circle r="10" fill="#6fe39a" stroke="#0b3a22" stroke-width="2"/><path d="M0-5l5 6h-3v4h-4v-4h-3z" fill="#0b3a22"/></g>' : ''}</g>`, lab: (() => { const nm = `${locked ? '🔒 ' : ''}${d.name.replace('Royal Academy', 'Academy').replace('Alliance ', '').replace('Grand ', '')}${L ? ' ' + L : ''}`, w = Math.max(64, nm.length * (paintedCity() ? 8.6 : 7) + 20); return `<g class="bld-lab ${locked ? 'locked' : ''}" data-act="bld" data-key="${id}" transform="translate(${x} ${y + 24})"><rect x="${-w / 2}" y="-11" width="${w}" height="22" rx="11" fill="#140f22e6" stroke="#e8a33d88"/><text y="5" text-anchor="middle">${nm}</text></g>`; })() });
   }
   const open = openPlots();
   FIELD_POS.forEach(([x, y], i) => {
@@ -642,7 +642,7 @@ function renderCity() {
   const banner = paintedCity() ? '' : `<g transform="translate(500 92)"><path d="M0 0v-40" stroke="#5a3418" stroke-width="3"/><path class="wave" d="M0-40h40l-8 9 8 9H0z" fill="${S.color}"/></g>`;
   const troopsN = troopCount(S.troops);
   const camp = troopsN ? `<g transform="translate(560 540)" class="bld" data-act="tab" data-tab="army">${Array.from({ length: Math.min(6, Math.ceil(troopsN / 150)) }, (_, i) => `<g transform="translate(${(i % 3) * 30} ${Math.floor(i / 3) * 22})"><path d="M-10 10l10-18 10 18z" fill="#f2ede4"/><path d="M0-8v-6" stroke="#5a3418"/><path class="wave" d="M0-14l6 2-6 2z" fill="${S.color}"/></g>`).join('')}<text x="30" y="56" text-anchor="middle" class="lbl">${fmt(troopsN)} troops</text></g>` : '';
-  $('#cityDyn').innerHTML = banner + items.map(i => i.html).join('') + camp;
+  $('#cityDyn').innerHTML = banner + items.map(i => i.html).join('') + camp + items.map(i => i.lab || '').join('');
   $('#cityTop').innerHTML = META.bubbles();
   cityLight();
   const n = META.readyCount();

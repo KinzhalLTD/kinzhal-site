@@ -462,3 +462,8 @@ body.painted-ui .bpaint{background:radial-gradient(circle at 50% 60%,#2a2350,#0b
 /* summon reveal must always fit and scroll on small screens */
 .reveal{overflow-y:auto;justify-content:safe center}
 @media(max-width:480px){.reveal{gap:8px;padding:10px}.reveal h2{font-size:24px}.reveal .cards{gap:6px}.reveal .cards.n10 .scard{width:calc((100vw - 44px)/4);height:calc((100vw - 44px)/4*1.52)}.reveal .cards.n10 .scard .portrait{width:52px;height:52px}.reveal .cards.n10 .scard b{font-size:10.5px;line-height:1.1}.reveal .cards.n10 .scard small{font-size:9px}}
+
+/* painted city always covers its viewport (phones, tablets, desktop) */
+#cityView.painted{container-type:size}
+@supports (width:1cqw){#cityView.painted #citySvg{width:max(100cqw,740px,142.9cqh)!important}}
+.bld-lab{cursor:pointer}.bld-lab.locked{opacity:.75}
