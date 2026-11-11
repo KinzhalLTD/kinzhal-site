@@ -1,6 +1,24 @@
-# Aeloria score: five loops and a set of stingers built on one theme, rendered with a GM soundfont.
-import numpy as np, tinysoundfont, pretty_midi, os, random, subprocess, sys
-SF = os.path.join(os.path.dirname(pretty_midi.__file__), 'TimGM6mb.sf2'); SR = 44100
+# Aeloria score: five loops and a set of stingers built on one theme.
+# Rendered with MuseScore General (MIT licence, orchestral GM soundfont), section by section:
+# each section (strings, brass, winds, choir, percussion) gets its own hall send, width and EQ,
+# then the mix is glued with a slow compressor and a look-ahead limiter.
+import numpy as np, tinysoundfont, os, random, subprocess, sys, tarfile, io, urllib.request
+SR = 44100
+SF_DIR = os.path.join(os.path.expanduser('~'), '.cache', 'aeloria-soundfonts')
+SF_URL = 'https://registry.npmjs.org/@librescore/sf3/-/sf3-0.8.0.tgz'  # MuseScore_General_Lite (MIT)
+def soundfont():
+    path = os.path.join(SF_DIR, 'MuseScore_General_Lite.sf3')
+    if not os.path.exists(path):
+        os.makedirs(SF_DIR, exist_ok=True); print('downloading MuseScore General (MIT) from npm ...')
+        with tarfile.open(fileobj=io.BytesIO(urllib.request.urlopen(SF_URL).read())) as t:
+            open(path, 'wb').write(t.extractfile('package/MuseScore_General_Lite.sf3.wasm').read())
+    return path
+SF = soundfont()
+BUS = {'strings': ('strings', 'slow', 'trem', 'pizz', 'cello', 'bass', 'harp'), 'brass': ('horn', 'brass', 'trumpet', 'trombone', 'tuba'),
+       'winds': ('flute', 'piccolo', 'oboe', 'clar', 'ocarina', 'pan', 'fiddle', 'koto', 'guitar', 'kalimba'), 'choir': ('choir', 'piano', 'bells', 'glock'), 'perc': ('timp', 'taiko', 'tom')}
+BUSFX = {'strings': dict(wet=.30, width=1.35, gain=1.0), 'brass': dict(wet=.24, width=1.1, gain=.95), 'winds': dict(wet=.26, width=1.0, gain=1.0),
+         'choir': dict(wet=.36, width=1.4, gain=.95), 'perc': dict(wet=.13, width=1.0, gain=1.05)}
+SWELL = {'strings', 'slow', 'trem', 'choir', 'horn', 'brass', 'cello', 'trombone', 'tuba'}
 MODES = {'maj': [0, 2, 4, 5, 7, 9, 11], 'min': [0, 2, 3, 5, 7, 8, 10], 'dor': [0, 2, 3, 5, 7, 9, 10]}
 GM = dict(piano=0, glock=9, bells=14, guitar=24, cello=42, bass=43, trem=44, pizz=45, harp=46, timp=47, strings=48, slow=49, choir=52,
           trumpet=56, trombone=57, tuba=58, horn=60, brass=61, oboe=68, clar=71, piccolo=72, flute=73, pan=75, ocarina=79, koto=107, kalimba=108, fiddle=110, taiko=116, tom=117)
@@ -64,19 +82,69 @@ class Song:
             ch = s.chord(c); tones = [ch[0] + 12 * octv, ch[2] + 12 * octv, ch[0] + 12 * (octv + 1)]
             for i in range(int(b / step)): s.note(inst, t + i * step, step * .55, tones[pat[i % len(pat)]], vel + (10 if i % 4 == 0 else 0), pan)
             t += b
-    def render(s, tail=3.5):
+    def render(s, tail=3.5, bus=None):
         syn = tinysoundfont.Synth(samplerate=SR); sf = syn.sfload(SF)
-        for inst, (ch, prog, pan) in s.ch.items(): syn.program_select(ch, sf, 0, prog); syn.control_change(ch, 10, pan)
+        chans = {ch: inst for inst, (ch, prog, pan) in s.ch.items()}
+        mine = lambda ch: bus is None or (ch == 9 and bus == 'perc') or (ch != 9 and chans.get(ch) in BUS[bus])
+        for inst, (ch, prog, pan) in s.ch.items(): syn.program_select(ch, sf, 0, prog); syn.control_change(ch, 10, pan); syn.control_change(ch, 11, 104)
         syn.program_select(9, sf, 0, 0, True)
         spb = 60 / s.bpm; acts = []
-        for t, d, ch, p, v in s.ev: acts.append((t * spb, 1, ch, p, v)); acts.append(((t + d) * spb, 0, ch, p, 0))
+        for t, d, ch, p, v in s.ev:
+            if not mine(ch): continue
+            acts.append((t * spb, 2, ch, p, v)); acts.append(((t + d) * spb, 0, ch, p, 0))
+            # expression swell: long sustained notes breathe in and settle, like a bowed or blown phrase
+            if chans.get(ch) in SWELL and d >= 1.5:
+                for k in range(6): u = k / 5; acts.append(((t + d * .55 * u) * spb, 1, ch, 11, int(92 + 30 * np.sin(u * np.pi / 2))))
+                acts.append(((t + d * .8) * spb, 1, ch, 11, 108))
         acts.sort(key=lambda a: (a[0], a[1])); out = []; pos = 0
-        for tm, on, ch, p, v in acts:
+        for tm, kind, ch, p, v in acts:
             n = int(tm * SR) - pos
             if n > 0: out.append(np.frombuffer(syn.generate(n), dtype=np.float32).copy()); pos += n
-            (syn.noteon(ch, p, v) if on else syn.noteoff(ch, p))
-        out.append(np.frombuffer(syn.generate(int(tail * SR)), dtype=np.float32).copy())
+            if kind == 2: syn.noteon(ch, p, v)
+            elif kind == 1: syn.control_change(ch, p, v)
+            else: syn.noteoff(ch, p)
+        total = int((max([a[0] for a in acts] or [0]) + tail) * SR)
+        n = max(int(tail * SR), total - pos); out.append(np.frombuffer(syn.generate(n), dtype=np.float32).copy())
         return np.concatenate(out).reshape(-1, 2)
+    def render_mix(s, tail=3.5):  # section by section, each with its own hall send, width and gain
+        used = {b for b in BUS if any(i in BUS[b] for i in s.ch)} | ({'perc'} if any(e[2] == 9 for e in s.ev) else set())
+        stems = {b: s.render(tail, b) for b in used}; L = max(len(x) for x in stems.values()); mix = np.zeros((L + int(3.2 * SR), 2), np.float32)
+        for b, x in stems.items():
+            fx = BUSFX[b]; x = width(x, fx['width']) * fx['gain']; y = hall(x, wet=fx['wet']); mix[:len(y)] += y
+        return mix
+
+def width(x, w):  # mid/side stereo width
+    m = (x[:, 0] + x[:, 1]) * .5; d = (x[:, 0] - x[:, 1]) * .5 * w; return np.stack([m + d, m - d], 1).astype(np.float32)
+
+def hall(x, secs=2.6, wet=.26, pre=.022, seed=3):
+    # concert hall: decorrelated early reflections, then a late tail whose highs decay faster than its lows
+    rng = np.random.default_rng(seed); n = int(secs * SR); t = np.arange(n) / SR; out = np.zeros((len(x) + n, 2), np.float32)
+    f = np.fft.rfftfreq(n, 1 / SR)
+    for c in range(2):
+        ir = np.zeros(n)
+        for k in range(14):  # early reflections between 8 and 80 ms
+            d = int((.008 + rng.random() * .072) * SR); ir[d] += (rng.random() * .5 + .3) * (1 - d / (.09 * SR)) * (1 if rng.random() > .5 else -1)
+        late = rng.standard_normal(n) * (t > pre + .03)
+        lo = np.fft.irfft(np.fft.rfft(late * np.exp(-t * 6.9 / secs)) * (1 / (1 + (f / 1500) ** 2)), n)
+        hi = np.fft.irfft(np.fft.rfft(late * np.exp(-t * 6.9 / (secs * .45))) * (1 - 1 / (1 + (f / 1500) ** 2)) * (1 / (1 + (f / 9000) ** 2)), n)
+        late = lo + hi * .8; late /= np.sqrt((late ** 2).sum()) + 1e-9; ir = ir / (np.sqrt((ir ** 2).sum()) + 1e-9) * .45 + late
+        ir = np.roll(ir, int(pre * SR)); ir[:int(pre * SR)] = 0
+        k = np.fft.rfft(ir); k *= (f / np.maximum(f, 1)) * (1 / (1 + (160 / np.maximum(f, 1)) ** 2)); ir = np.fft.irfft(k, n)
+        N = 1 << int(np.ceil(np.log2(len(x) + n))); out[:, c] = np.fft.irfft(np.fft.rfft(x[:, c], N) * np.fft.rfft(ir, N), N)[:len(x) + n]
+    out *= wet * .5; out[:len(x)] += x * (1 - wet * .3); return out
+
+def glue(x, thr_db=-16, ratio=2.2, att=.03, rel=.25):  # slow RMS bus compressor
+    lvl = np.sqrt(np.convolve((x ** 2).mean(1), np.ones(int(.05 * SR)) / int(.05 * SR), 'same')) + 1e-9; db = 20 * np.log10(lvl)
+    over = np.maximum(0, db - thr_db); gr = over * (1 - 1 / ratio); g = np.zeros_like(gr); a, r = np.exp(-1 / (att * SR)), np.exp(-1 / (rel * SR)); cur = 0.
+    for i in range(0, len(gr), 64):
+        tgt = gr[i]; cur = (a if tgt > cur else r) ** 64 * (cur - tgt) + tgt; g[i:i + 64] = cur
+    return x * (10 ** (-g / 20))[:, None]
+
+def limit(x, ceil=.89, look=.004):  # look-ahead peak limiter: no clipping, no saturation
+    pk = np.abs(x).max(1); w = int(look * SR); from numpy.lib.stride_tricks import sliding_window_view as sw
+    pkw = np.concatenate([pk, np.zeros(w)]); pkw = sw(pkw, w + 1).max(1)[:len(pk)]
+    g = np.minimum(1, ceil / np.maximum(pkw, 1e-9)); g = np.convolve(g, np.ones(w) / w, 'same'); g = np.minimum(g, ceil / np.maximum(pk, 1e-9))
+    return (x * g[:, None]).astype(np.float32)
 
 def reverb(x, secs=2.4, wet=.24, seed=3):
     rng = np.random.default_rng(seed); n = int(secs * SR); t = np.arange(n) / SR
@@ -88,20 +156,20 @@ def reverb(x, secs=2.4, wet=.24, seed=3):
         out[:, c] = y
     out *= wet * .5; out[:len(x)] += x * (1 - wet * .35); return out
 
-def eq(x):  # phone-friendly balance: trim sub and low-mid mud, lift presence and air
+def eq(x):  # gentle: trim sub and low-mid mud, a little presence, soften the very top
     N = len(x); f = np.fft.rfftfreq(N, 1 / SR); sh = lambda fc, db, up: 10 ** (db / 20 * (1 / (1 + (fc / np.maximum(f, 1)) ** 2) if up else 1 / (1 + (np.maximum(f, 1) / fc) ** 2)))
-    g = (f ** 4 / (f ** 4 + 42.0 ** 4)) * sh(130, -7, False) * sh(2400, 7.5, True) * sh(7000, 3, True) * 10 ** (-2.5 / 20 * np.exp(-(np.log2(np.maximum(f, 1) / 320)) ** 2 / .5))
+    g = (f ** 4 / (f ** 4 + 38.0 ** 4)) * sh(130, -3, False) * sh(2600, 3.5, True) * 10 ** (-2 / 20 * np.exp(-(np.log2(np.maximum(f, 1) / 320)) ** 2 / .5)) * (1 / np.sqrt(1 + (f / 11000) ** 4))
     return np.stack([np.fft.irfft(np.fft.rfft(x[:, c]) * g, N) for c in range(2)], 1).astype(np.float32)
 
 def master(x, loop_beats=None, bpm=None, name='x', peak=.89, fade_tail=True):
-    x = eq(reverb(x))
+    x = eq(x)
     if loop_beats:  # fold the reverb tail back onto the start so the loop joins without a bump
         L = int(loop_beats * 60 / bpm * SR); tail = x[L:]; x = x[:L].copy(); m = min(len(tail), L); x[:m] += tail[:m]
     else:  # stinger: cut once the tail has died away, then fade
         env = np.abs(x).max(axis=1); pk = env.max(); idx = np.nonzero(env > pk * 10 ** (-38 / 20))[0]; end = min(len(x), idx[-1] + int(.25 * SR)); x = x[:end].copy()
         f = int(.35 * SR); x[-f:] *= np.linspace(1, 0, f)[:, None] ** 2
-    x = np.tanh(x * 1.9 / max(1e-6, np.abs(x).max())); x *= peak / np.abs(x).max()
-    return x
+    x = x / max(1e-6, np.abs(x).max()); x = glue(x); rms = np.sqrt((x ** 2).mean()); x *= 10 ** (-15.5 / 20) / max(rms, 1e-6)  # about -15.5 dB RMS
+    return limit(x, peak)
 
 def save(x, path, kbps='112k'):
     raw = (x * 32767).astype('<i2').tobytes()
@@ -244,6 +312,6 @@ def stinger(kind):
 if __name__ == '__main__':
     out = sys.argv[1]; os.makedirs(out + '/music', exist_ok=True); os.makedirs(out + '/sfx', exist_ok=True)
     for name, fn in (('cine', cine), ('city', city), ('world', world), ('battle', battle), ('boss', boss)):
-        s, beats = fn(); x = master(s.render(), beats, s.bpm, name); save(x, f'{out}/music/{name}.mp3')
+        s, beats = fn(); x = master(s.render_mix(), beats, s.bpm, name); save(x, f'{out}/music/{name}.mp3')
     for k in ('win', 'loss', 'fanfare', 'legend', 'horn', 'done', 'alarm'):
-        s = stinger(k); x = master(s.render(tail=2.2), None, None, k); save(x, f'{out}/sfx/{k}.mp3', '96k')
+        s = stinger(k); x = master(s.render_mix(tail=2.2), None, None, k); save(x, f'{out}/sfx/{k}.mp3', '96k')

@@ -33,7 +33,7 @@ Loops are sample-exact: `manifest.json` lists each loop's length under `loops`, 
 
 **To re-render or edit the score:** `python3 tools/compose_music.py <output folder>` (needs `numpy`, `tinysoundfont`, `pretty_midi` and `ffmpeg`). The notes, arrangements and mix are all in that one script.
 
-**Licence note:** the instrument samples come from the TimGM6mb General MIDI soundfont bundled with `pretty_midi` (GPL-2.0). The compositions are original. Before a commercial release, either confirm you are comfortable shipping audio rendered from that soundfont, or re-render with a permissively licensed one by changing the `SF` path at the top of the script. Replacing any track with a studio or AI-generated recording only needs the file swapped in.
+**Licence note:** the instrument samples now come from MuseScore General Lite (MIT licence; parts public domain or CC0), downloaded from npm by `tools/compose_music.py` on first run and not committed. The compositions are original. The earlier GPL-2.0 concern (TimGM6mb) no longer applies to the shipped audio. Mix chain: each section (strings, brass, winds, choir, percussion) is rendered separately with its own hall reverb send and stereo width, then glued with a slow compressor and a look-ahead limiter (no saturation).
 
 ## Musical identity
 Aeloria is six realms united against one enemy, so the score is **one cinematic orchestra plus a featured soloist from each realm**:

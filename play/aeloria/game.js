@@ -803,7 +803,7 @@ function openHero(id) {
   const s = own ? heroStats(id) : { hp: h.hp, atk: h.atk, def: h.def, spd: h.spd };
   const need = STAR_SHARDS[st.stars + 1], xpNeed = xpFor(st.lvl);
   const tutor = Math.floor(150 * st.lvl * st.lvl);
-  openSheet(`${h.name}`, `<div class="hhead r-${h.rarity}"><div class="hport">${ART.portrait(h, 150)}</div><div><span class="rtag">${h.rarity}</span><p class="realmtag" style="--rc:${REALMS[h.realm].color}">${REALMS[h.realm].name}</p><p><b>${h.title}</b> · ${h.role}</p>${h.origin ? `<p class="origin">✦ ${h.origin}</p>` : ''}<p class="stars big">${own ? '★'.repeat(st.stars) + '☆'.repeat(5 - st.stars) : 'Not recruited'}</p>${own ? `<p>Level ${st.lvl} / ${heroCap()}</p>${bar(st.xp / xpNeed, 'teal')}<small>${fmt(st.xp)} / ${fmt(xpNeed)} XP</small>` : ''}</div></div>
+  openSheet(`${h.name}`, `${ART.asset('champions', h.id) ? `<div class="hshow r-${h.rarity}" style="--rc:${REALMS[h.realm].color}"><img src="${ART.asset('champions', h.id)}" alt="${esc(h.name)}"></div>` : ''}<div class="hhead r-${h.rarity}"><div class="hport">${ART.portrait(h, 150)}</div><div><span class="rtag">${h.rarity}</span><p class="realmtag" style="--rc:${REALMS[h.realm].color}">${REALMS[h.realm].name}</p><p><b>${h.title}</b> · ${h.role}</p>${h.origin ? `<p class="origin">✦ ${h.origin}</p>` : ''}<p class="stars big">${own ? '★'.repeat(st.stars) + '☆'.repeat(5 - st.stars) : 'Not recruited'}</p>${own ? `<p>Level ${st.lvl} / ${heroCap()}</p>${bar(st.xp / xpNeed, 'teal')}<small>${fmt(st.xp)} / ${fmt(xpNeed)} XP</small>` : ''}</div></div>
   <p class="bio">“${h.bio}”</p>
   <div class="stats"><span>HP ${fmt(s.hp)}</span><span>ATK ${fmt(s.atk)}</span><span>DEF ${fmt(s.def)}</span><span>SPD ${s.spd}</span></div>
   <div class="card"><h4>${ART.icon('vigor', 14)} ${h.skill.name}</h4><p>${h.skill.desc}</p></div>
@@ -842,7 +842,8 @@ function openStages() {
   openSheet(`${ART.icon('vigor', 18)} Story Campaign · Vigor ${S.vigor}`, html + (S.items.vigor ? `<button class="btn" data-act="usevigor">${ART.icon('vigor', 14)} Drink Elixir of Vigor (${S.items.vigor})</button>` : '') + LIVE.adButton('vigor', 'Watch an ad: +12 Vigor'), true);
 }
 
-const shortName = id => HERO[id].name.split(' ').find(w => !['Sir', 'Emira'].includes(w));
+const SHORT = { arthur: 'Arthur', elcid: 'El Cid', suntzu: 'Sun Tzu', peter: 'Peter', leonardo: 'Leonardo', bismarck: 'Bismarck', antarah: 'Antarah', zarqa: 'Zarqa' };
+const shortName = id => SHORT[id] || HERO[id].name.split(' ').find(w => !['Sir', 'Emira'].includes(w));
 /* ---------- story cutscenes ---------- */
 function speakerInfo(sp) {
   if (sp === 'narrator') return { name: '', art: '' };

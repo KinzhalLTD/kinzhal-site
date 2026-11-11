@@ -7,7 +7,12 @@ const BF = (() => {
   const KIND = { ghoul: 'ghoul', hound: 'hound', raider: 'raider', stalker: 'hound', wraith: 'wraith', troll: 'brute', phantom: 'wraith', serpent: 'ghoul', golem: 'brute', warlord: 'raider', queen: 'wraith', wyrm: 'brute', lantern: 'wraith', kraken: 'brute', hollow: 'raider' };
   const SIZE = { foot: 1, archer: 1.05, cav: 1.3, mage: 1.05, raider: 1.1, ghoul: .95, hound: .78, brute: 1.55, wraith: 1.1 };
   const COUNT = { foot: 9, archer: 6, cav: 6, mage: 5, raider: 9, ghoul: 9, hound: 8, brute: 3, wraith: 6 };
-  const RANGED = new Set(['archer', 'mage', 'wraith']);
+  // enemy squads are made of their own creature; big ones come in smaller packs
+  const FSIZE = { ghoul: .95, hound: .85, raider: 1.1, stalker: .95, wraith: 1.1, troll: 1.4, phantom: 1.05, serpent: 1.15, golem: 1.45, warlord: 1.3, queen: 1.15, wyrm: 1.35, lantern: 1.2, kraken: 1.35, hollow: 1.3 };
+  const FCOUNT = { ghoul: 9, hound: 8, raider: 9, stalker: 6, wraith: 6, troll: 4, phantom: 6, serpent: 5, golem: 3, warlord: 5, queen: 5, wyrm: 3, lantern: 5, kraken: 3, hollow: 5 };
+  const WIDE = new Set(['cav', 'hound', 'stalker', 'serpent', 'wyrm', 'kraken']);
+  Object.assign(SIZE, FSIZE); Object.assign(COUNT, FCOUNT);
+  const RANGED = new Set(['archer', 'mage', 'wraith', 'phantom', 'queen', 'lantern']);
   const SHOT = { archer: '#f4e6c0', mage: '#5ff0e0', wraith: '#ff9a3d' };
   let needSize = true, ro = null, groundCv = null; const SC = {};
   let cv = null, ctx, F = null, raf = 0, W = 0, H = 0, dpr = 1, S0 = 40, squads = [], parts = [], floats = [], shots = [], rings = [], last = 0, T = 0, ended = 0, shakeT = 0, shakeP = 0;
@@ -16,12 +21,13 @@ const BF = (() => {
 
   function squadOf(u) { return squads.find(q => q.u === u || q.u.id === u); }
   function build(u, side, i, n, boss) {
-    const type = u.hero ? ROLE[u.hero.role] || 'foot' : KIND[u.kind] || 'raider', ranged = RANGED.has(type), N = boss ? 5 : COUNT[type], cols = ranged ? 2 : 3;
-    const q = { u, side, i, n, type, ranged, boss, N, dir: side === 'h' ? 1 : -1, sol: [], surge: null, flash: 0, kick: 0, cheer: 0, por: ART.asset(u.hero ? 'heroes' : 'foes', u.hero ? u.hero.id : u.kind), spr: ART.asset('army', type) };
+    const own = !u.hero && ART.asset('fiends', u.kind), type = u.hero ? ROLE[u.hero.role] || 'foot' : own ? u.kind : KIND[u.kind] || 'raider', ranged = RANGED.has(type), N = boss ? 5 : COUNT[type] || 6, cols = ranged ? 2 : 3;
+    const q = { u, side, i, n, type, ranged, boss, N, dir: side === 'h' ? 1 : -1, sol: [], surge: null, flash: 0, kick: 0, cheer: 0, por: ART.asset(u.hero ? 'heroes' : 'foes', u.hero ? u.hero.id : u.kind), spr: own || ART.asset('army', type), champ: u.hero ? ART.asset('champions', u.hero.id) : null };
     for (let k = 0; k < N; k++) {
       const giant = boss && k === 0, c = giant ? 0 : Math.floor((boss ? k + 2 : k) / 3) % (cols + 2), r = giant ? 1 : (boss ? k + 2 : k) % 3;
       q.sol.push({ c, r, giant, x: null, y: 0, ph: Math.random() * 6.28, alive: true, die: 0, hop: 0, nextHop: rnd(.3, 1.6), jx: rnd(-.12, .12), jy: rnd(-.08, .08) });
     }
+    if (q.champ) q.sol.unshift({ c: ranged ? -.2 : -.55, r: 1.9, cmd: true, x: null, y: 0, ph: 0, alive: true, die: 0, hop: 0, nextHop: rnd(.3, 1.2), jx: 0, jy: .02 });
     return q;
   }
   function start(fight, canvas) {
@@ -29,7 +35,7 @@ const BF = (() => {
     const base = fight.foes[0] ? fight.foes[0].max : 0;
     fight.heroes.forEach((u, i) => squads.push(build(u, 'h', i, fight.heroes.length, false)));
     fight.foes.forEach((u, i) => squads.push(build(u, 'f', i, fight.foes.length, !u.hero && u.max > 2 * base)));
-    squads.forEach(q => img(q.spr) || img(q.por));
+    squads.forEach(q => { img(q.spr); img(q.por); img(q.champ); });
     cv.onpointerdown = tap; needSize = true; W = H = 0; if (window.ResizeObserver) { ro = new ResizeObserver(() => { needSize = true; }); ro.observe(cv); } raf = requestAnimationFrame(frame);
   }
   function stop() { cancelAnimationFrame(raf); raf = 0; if (ro) { ro.disconnect(); ro = null; } if (cv) cv.onpointerdown = null; cv = null; F = null; squads = []; }
@@ -86,8 +92,8 @@ const BF = (() => {
   /* ---------- simulation of the picture ---------- */
   function step(dt) {
     squads.forEach(q => {
-      const u = q.u, want = u.hp <= 0 ? 0 : Math.max(1, Math.ceil(u.hp / u.max * q.N)); let live = q.sol.filter(s => s.alive);
-      while (live.length > want) { const pool = live.filter(s => !s.giant), s = pool.length ? pool.reduce((a, b) => (a.c + Math.random() * .8 < b.c + Math.random() * .8 ? a : b)) : live[0]; s.alive = false; s.die = T; live = live.filter(v => v !== s); }
+      const u = q.u, want = u.hp <= 0 ? 0 : Math.max(1, Math.ceil(u.hp / u.max * q.N)) + (q.champ ? 1 : 0); let live = q.sol.filter(s => s.alive);
+      while (live.length > want) { const pool = live.filter(s => !s.giant && !s.cmd), s = pool.length ? pool.reduce((a, b) => (a.c + Math.random() * .8 < b.c + Math.random() * .8 ? a : b)) : live[0]; s.alive = false; s.die = T; live = live.filter(v => v !== s); }
       if (live.length < want) { const d = q.sol.filter(s => !s.alive).sort((a, b) => b.die - a.die); for (let k = 0; k < want - live.length && d[k]; k++) { d[k].alive = true; d[k].x = null; } }
       q.flash = Math.max(0, q.flash - dt * 5); q.kick = Math.max(0, q.kick - dt * 5);
       let sx = 0, sy = 0, surging = 0;
@@ -111,23 +117,35 @@ const BF = (() => {
 
   /* ---------- drawing ---------- */
   function drawSoldier(q, s) {
-    const sc = S0 * depth(q) * SIZE[q.type] * (s.giant ? 2.1 : 1), im = img(q.spr), dead = !s.alive, age = dead ? T - s.die : 0; if (dead && age > 1.1) return;
+    const sc = S0 * depth(q) * (s.cmd ? (q.u.hero.id === 'kofi' ? 1.9 : 2.15) : SIZE[q.type] * (s.giant ? 2.1 : 1)), im = img(s.cmd ? q.champ : q.spr), dead = !s.alive, age = dead ? T - s.die : 0; if (dead && age > 1.1) return;
     const bob = s.moving ? Math.abs(Math.sin(T * 11 + s.ph)) * sc * .07 : Math.sin(T * 2.2 + s.ph) * sc * .012, cheer = q.cheer ? Math.abs(Math.sin(T * 7 + s.ph)) * sc * .22 : 0;
-    const float = q.type === 'wraith' ? sc * .12 + Math.sin(T * 3 + s.ph) * sc * .05 : 0;
+    const float = !s.cmd && (q.type === 'wraith' || q.type === 'phantom' || q.type === 'lantern') ? sc * .12 + Math.sin(T * 3 + s.ph) * sc * .05 : 0;
     ctx.save(); ctx.translate(s.x, s.y);
-    ctx.globalAlpha = dead ? clamp(1 - age / 1.1, 0, 1) * .5 : .34; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(0, 0, sc * (q.type === 'cav' || q.type === 'hound' ? .5 : .3), sc * .09, 0, 0, 6.28); ctx.fill();
+    ctx.globalAlpha = dead ? clamp(1 - age / 1.1, 0, 1) * .5 : .34; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(0, 0, sc * (WIDE.has(q.type) && !s.cmd ? .5 : .3), sc * .09, 0, 0, 6.28); ctx.fill();
+    if (s.cmd && !dead) { const rd = q.u.en >= 100 && !F.auto; ctx.globalAlpha = rd ? .55 + Math.sin(T * 8) * .25 : .35; ctx.strokeStyle = rd ? '#ffd36b' : '#5ab0ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 0, sc * .34, sc * .1, 0, 0, 6.28); ctx.stroke(); }
     ctx.globalAlpha = dead ? clamp(1 - (age - .35) / .7, 0, 1) : 1;
     ctx.translate(0, -bob - cheer - float); ctx.scale(q.dir, 1);
     if (dead) ctx.rotate(-Math.min(1, age / .35) * 1.45); else if (s.lean) ctx.rotate(s.lean * .16);
     if (im) {
-      const h = sc, w = h * im.naturalWidth / im.naturalHeight, ph = Math.max(8, Math.ceil(h * dpr / 6) * 6), key = q.spr + ph; let cs = SC[key];
+      const h = sc, w = h * im.naturalWidth / im.naturalHeight, ph = Math.max(8, Math.ceil(h * dpr / 6) * 6), key = (s.cmd ? q.champ : q.spr) + ph; let cs = SC[key];
       if (!cs) { cs = SC[key] = document.createElement('canvas'); cs.height = ph; cs.width = Math.max(1, Math.round(ph * im.naturalWidth / im.naturalHeight)); const cc = cs.getContext('2d'); cc.imageSmoothingQuality = 'high'; cc.drawImage(im, 0, 0, cs.width, cs.height); }
       ctx.drawImage(cs, -w / 2, -h, w, h);
       if (q.flash > .25 && !dead) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.flash * .75; ctx.drawImage(cs, -w / 2, -h, w, h); ctx.globalCompositeOperation = 'source-over'; }
     } else { ctx.fillStyle = q.side === 'h' ? '#5a8fd8' : '#b3433a'; ctx.fillRect(-sc * .18, -sc * .8, sc * .36, sc * .8); ctx.beginPath(); ctx.arc(0, -sc * .9, sc * .16, 0, 6.28); ctx.fill(); }
     ctx.restore();
   }
+  function drawPlate(q) {
+    const u = q.u, s = q.sol[0]; if (u.hp <= 0 || !s || !s.cmd || s.x === null) return;
+    const sc = S0 * depth(q) * 2.15, w = Math.max(54, S0 * 1.5), x = s.x, y = s.y - sc - 10, ready = u.en >= 100 && !F.auto;
+    ctx.save(); ctx.font = `800 ${Math.round(clamp(S0 * .26, 10, 14))}px Cairo,system-ui,sans-serif`; ctx.textAlign = 'center';
+    const nm = u.name, tw = Math.max(w, ctx.measureText(nm).width + 12);
+    ctx.fillStyle = ready ? `rgba(255,211,107,${.85 + Math.sin(T * 9) * .15})` : 'rgba(20,15,34,.85)'; ctx.beginPath(); ctx.roundRect(x - tw / 2, y - 26, tw, 17, 8); ctx.fill();
+    ctx.fillStyle = ready ? '#2c1604' : '#f3ecff'; ctx.fillText(ready ? nm + ' ⚡' : nm, x, y - 13);
+    ctx.fillStyle = '#000a'; ctx.fillRect(x - w / 2 - 1, y - 7, w + 2, 9); ctx.fillStyle = '#5fd38a'; ctx.fillRect(x - w / 2, y - 6, w * clamp(u.hp / u.max, 0, 1), 4); ctx.fillStyle = '#ffd36b'; ctx.fillRect(x - w / 2, y - 1, w * clamp(u.en / 100, 0, 1), 2);
+    ctx.restore();
+  }
   function drawBanner(q) {
+    if (q.champ) return drawPlate(q);
     const u = q.u; if (u.hp <= 0) return; const c = center(q), sc = S0 * depth(q), r = sc * .3, x = c.x - q.dir * sc * (q.ranged ? .5 : 1.25), y = c.y - sc * (q.boss ? 2.55 : 1.62), col = q.side === 'h' ? '#5ab0ff' : '#ff5e3a';
     ctx.save(); ctx.strokeStyle = '#3a2414'; ctx.lineWidth = Math.max(2, sc * .05); ctx.beginPath(); ctx.moveTo(x, y + r); ctx.lineTo(x, c.y - sc * .1); ctx.stroke();
     ctx.fillStyle = col; ctx.beginPath(); const wv = Math.sin(T * 5 + q.i) * r * .18; ctx.moveTo(x, y + r * 1.05); ctx.lineTo(x + q.dir * r * 1.5, y + r * 1.3 + wv); ctx.lineTo(x, y + r * 1.9); ctx.fill();
