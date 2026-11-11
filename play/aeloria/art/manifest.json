@@ -49,7 +49,8 @@
     "title": "key/title.jpg",
     "epic": "key/epic.jpg",
     "victory": "key/victory.jpg",
-    "siege": "key/siege.jpg"
+    "siege": "key/siege.jpg",
+    "sunveldt": "key/sunveldt.jpg"
   },
   "music": {},
   "sfx": {},
@@ -67,7 +68,8 @@
     "farm": "buildings/farm.webp",
     "lumber": "buildings/lumber.webp",
     "quarry": "buildings/quarry.webp",
-    "mine": "buildings/mine.webp"
+    "mine": "buildings/mine.webp",
+    "empty": "buildings/empty.webp"
   },
   "map": {
     "camp": "map/camp.jpg",
@@ -79,7 +81,11 @@
     "grain": "map/grain.jpg",
     "timber": "map/timber.jpg",
     "stonepit": "map/stonepit.jpg",
-    "ore": "map/ore.jpg"
+    "ore": "map/ore.jpg",
+    "mount": "map/mount.webp",
+    "snowmount": "map/snowmount.webp",
+    "wallpiece": "map/wallpiece.webp",
+    "city": "map/city.webp"
   },
   "ground": {
     "grass": "ground/grass.jpg",

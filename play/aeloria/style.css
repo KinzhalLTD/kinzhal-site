@@ -289,7 +289,7 @@ dialog::backdrop{background:#05030acc;backdrop-filter:blur(3px)}
 .float-note{position:fixed;right:16px;bottom:96px;z-index:70;background:#3fd7c8;color:#0b1b22;font-weight:800;border-radius:10px;padding:5px 10px;font-size:12px;animation:up2 1.8s forwards}@keyframes up2{to{transform:translateY(-40px);opacity:0}}
 /* intro */
 #intro{position:fixed;inset:0;z-index:130;background:#05030d;overflow:hidden;transition:opacity .7s}#intro.leaving{opacity:0}
-#introCv{position:absolute;inset:0;width:100%;height:100%}
+#introCv{position:absolute;inset:0;width:100%;height:100%;transition:opacity .6s}
 #intro .lb{position:absolute;left:0;right:0;height:9vh;background:#000;z-index:2}#intro .lb.top{top:0}#intro .lb.bot{bottom:0}
 #introTap{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;background:radial-gradient(circle at 50% 45%,#3a2a6b,#05030d 70%);text-align:center;padding:16px}
 #introTap #introEmblem{filter:drop-shadow(0 0 30px #e8a33d);animation:bob 2s ease-in-out infinite alternate}
@@ -454,3 +454,5 @@ body.painted-ui nav.tabs{padding-left:8px;padding-right:8px}
 .ic.pic{vertical-align:middle;object-fit:contain;filter:drop-shadow(0 1px 2px #000a)}
 .bpaint{object-fit:contain}
 body.painted-ui .bpaint{background:radial-gradient(circle at 50% 60%,#2a2350,#0b0818)}
+.realm{min-height:62px;justify-content:center;text-shadow:0 1px 3px #000,0 0 8px #000}.realm.on{box-shadow:0 0 0 2px var(--gold2),0 0 18px #e8a33d88}
+.bld.locked image{filter:grayscale(.8) brightness(.6)}

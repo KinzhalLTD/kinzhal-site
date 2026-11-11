@@ -1123,7 +1123,39 @@ function mapSprite(ctx, id, x, y, size) {
   ctx.drawImage(im, x - size / 2, y - size / 2, size, size); return true;
 }
 function decorAt(x, y) { const h = ((x * 73856093) ^ (y * 19349663) ^ 0x5bd1e995) >>> 0; const r = h % 1000; return r < 6 ? 'shrine' : r < 28 ? 'village' : r < 75 ? 'herbs' : r < 150 ? 'trees' : null; }
+// Painted world map: ground textures per region, then mountain and forest sprites, baked once into the terrain canvas.
+let TEXD = 0;
+function texturize() {
+  if (TEXD || !TERR || !ART.asset('ground', 'grass')) return; TEXD = 1;
+  const want = { grass: ['ground', 'grass'], sand: ['ground', 'sand'], snow: ['ground', 'snow'], stone: ['ground', 'stone'], trees: ['map', 'trees'], mount: ['map', 'mount'], snowmount: ['map', 'snowmount'] }, im = {}; let left = 0;
+  const go = () => {
+    const T = TERR, cv = T.canvas, ctx = cv.getContext('2d'), mask = document.createElement('canvas'), layer = document.createElement('canvas'); mask.width = W; mask.height = H; layer.width = cv.width; layer.height = cv.height;
+    const mx = mask.getContext('2d'), lx = layer.getContext('2d'), TEX = { frostmark: 'snow', amber: 'sand', sunveldt: 'sand', ash: 'stone', sunspire: 'sand' };
+    for (const k of ['grass', 'sand', 'snow', 'stone']) {
+      if (!im[k]) continue; const d = mx.createImageData(W, H);
+      for (let i = 0; i < W * H; i++) { const t = T.water[i] ? null : T.mount[i] && T.region[i] !== 'frostmark' ? 'stone' : (TEX[T.region[i]] || 'grass'); if (t === k) d.data[i * 4 + 3] = T.river[i] ? 120 : 255; }
+      mx.putImageData(d, 0, 0); lx.globalCompositeOperation = 'source-over'; lx.clearRect(0, 0, layer.width, layer.height); lx.imageSmoothingEnabled = true; lx.drawImage(mask, -TB / 2, -TB / 2, (W + 1) * TB, (H + 1) * TB);
+      lx.globalCompositeOperation = 'source-in'; const p = lx.createPattern(im[k], 'repeat'); p.setTransform(new DOMMatrix().scale(.42)); lx.fillStyle = p; lx.fillRect(0, 0, layer.width, layer.height);
+      ctx.globalAlpha = k === 'grass' ? .6 : .68; ctx.drawImage(layer, 0, 0); ctx.globalAlpha = 1;
+    }
+    const r = rng(S.seed + 31);
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = tIdx(x, y), jx = (r() - .5) * TB * .3, jy = (r() - .5) * TB * .3;
+      if (Math.abs(x - CX) < 3 && Math.abs(y - CY) < 3) continue;
+      if (T.mount[i]) { const m = (T.region[i] === 'frostmark' || T.h[i] > .82) && im.snowmount ? im.snowmount : im.mount; if (m) { const z = TB * (1.5 + r() * .5); ctx.drawImage(m, x * TB + TB / 2 - z / 2 + jx, y * TB + TB / 2 - z * .62 + jy, z, z); } }
+      else if (T.forest[i] && im.trees && r() < .75) { const z = TB * (1.05 + r() * .4); ctx.drawImage(im.trees, x * TB + TB / 2 - z / 2 + jx, y * TB + TB / 2 - z * .6 + jy, z, z); }
+    }
+    mapDirty = true;
+  };
+  for (const [k, [kind, id]] of Object.entries(want)) { const u = ART.asset(kind, id); if (!u) continue; left++; const g = new Image(); g.onload = () => { im[k] = g; if (!--left) go(); }; g.onerror = () => { if (!--left) go(); }; g.src = u; }
+}
+function cityMark(ctx, x, y, s, color) {
+  ctx.fillStyle = '#0006'; ctx.beginPath(); ctx.ellipse(x, y + s * .3, s * .46, s * .16, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(2, s * .07); ctx.beginPath(); ctx.ellipse(x, y + s * .28, s * .46, s * .17, 0, 0, 7); ctx.stroke();
+  return mapSprite(ctx, 'city', x, y - s * .08, s * 1.05);
+}
 function drawMap() {
+  texturize();
   const c = $('#map'); if (!c || c.offsetParent === null || !TERR) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1), w = c.clientWidth, h = c.clientHeight;
   if (c.width !== w * dpr || c.height !== h * dpr) { c.width = w * dpr; c.height = h * dpr; }
@@ -1157,13 +1189,13 @@ function drawMap() {
     const px = (o.x + .5) * s - cam.x, py = (o.y + .5) * s - cam.y;
     if (o.kind === 'node') { if (!medallion(ctx, NODE_ART[o.res], px, py, s * .36, NODE_RIM[o.res] || '#ffd36b')) ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .95) label('Lv ' + o.lvl, px, py + s * .42, '#140f22b8', 10); }
     else if (o.kind === 'camp') { if (!medallion(ctx, 'camp', px, py, s * .42, '#ff5e3a')) ART.mapPaint.camp(ctx, px, py, s, o.lvl); if (cam.z > .7) label('Outpost ' + o.lvl, px, py + s * .42, '#6a1f1fe0', 10); }
-    else if (o.kind === 'city') { ART.mapPaint.city(ctx, px, py, s * 1.15, o.color, o.realm); if (cam.z > .4) label(o.name, px, py + s * .5, '#140f22e0'); }
+    else if (o.kind === 'city') { if (!cityMark(ctx, px, py, s * 1.15, o.color)) ART.mapPaint.city(ctx, px, py, s * 1.15, o.color, o.realm); if (cam.z > .4) label(o.name, px, py + s * .5, '#140f22e0'); }
     else if (o.kind === 'boss') { LIVE.drawBoss(ctx, px, py, s, o, t); label('World Boss · Lv ' + o.lvl, px, py + s * .7, '#7a1f1ae6', 11); }
     else if (o.kind === 'throne') { if (!medallion(ctx, 'throne', px, py - s * .2, s * 1.15, '#ffd36b')) ART.mapPaint.throne(ctx, px, py, s * 1.3, S.throne); label(S.throne ? 'Sunspire Throne · yours' : 'The Sunspire Throne', px, py + s * 1.15, '#5a3a8ae6', 12); }
   }
   const hx = (S.home.x + .5) * s - cam.x, hy = (S.home.y + .5) * s - cam.y;
   if (S.shieldUntil > t) { ctx.fillStyle = '#3fd7c826'; ctx.strokeStyle = '#3fd7c8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, s * .8 + Math.sin(t / 400) * 2, 0, 7); ctx.fill(); ctx.stroke(); }
-  ART.mapPaint.city(ctx, hx, hy, s * 1.3, S.color, S.realm); label(S.name + ' (you)', hx, hy + s * .58, '#1c5a8ae6', 12);
+  if (!cityMark(ctx, hx, hy, s * 1.45, S.color)) ART.mapPaint.city(ctx, hx, hy, s * 1.3, S.color, S.realm); label(S.name + ' (you)', hx, hy + s * .58, '#1c5a8ae6', 12);
   // fog of war
   ctx.save(); ctx.translate(-cam.x, -cam.y); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogCanvas(), -s, -s, (W + 2) * s, (H + 2) * s); ctx.restore();
   // realm names
@@ -1430,7 +1462,13 @@ function playIntro(onDone) {
 }
 
 function boot() {
-  window.addEventListener('artready', () => { document.body.classList.toggle('painted-ui', !!ART.asset('ui', 'button')); if (window.CITY3D && CITY3D.retex) CITY3D.retex(); const k = ART.keyUrl('title'); if (k) { $('#introTap').style.background = `linear-gradient(#05030d66,#05030dcc),url(${k}) center/cover`; } if (S && document.querySelector('#app')) render(); FX.music(); });
+  const REALM_ART = { greenhold: 'chapter1', amber: 'chapter2', frostmark: 'chapter3', jade: 'chapter4', coral: 'chapter5', sunveldt: 'sunveldt' };
+function paintIntro(realm) {
+  const k = ART.keyUrl(realm ? REALM_ART[realm] : 'title') || ART.keyUrl('title'), el = $('#intro'); if (!k || !el) return;
+  el.style.background = `linear-gradient(#05030d55,#05030dbb),url(${k}) center/cover`; const c = $('#introCv'); if (c) c.style.opacity = 0;
+  document.querySelectorAll('#realms .realm').forEach(b => { const u = ART.keyUrl(REALM_ART[b.dataset.r]); if (u) b.style.background = `linear-gradient(#0b081866,#0b0818e0),url(${u}) center/cover`; });
+}
+window.addEventListener('artready', () => { paintIntro(); { const cvw = $('#cityView'); if (cvw && $('#cityDyn')) cvw.innerHTML = ''; } document.body.classList.toggle('painted-ui', !!ART.asset('ui', 'button')); if (window.CITY3D && CITY3D.retex) CITY3D.retex(); const k = ART.keyUrl('title'); if (k) { $('#introTap').style.background = `linear-gradient(#05030d66,#05030dcc),url(${k}) center/cover`; } if (S && document.querySelector('#app')) render(); FX.music(); });
   S = load();
   if (S) { start(); return; }
   const colors = ['#e8a33d', '#3fd7c8', '#b3433a', '#9b7bff', '#3e8a4a', '#ff7a59'];
@@ -1439,8 +1477,9 @@ function boot() {
   $('#colors').innerHTML = colors.map((c, i) => `<button type="button" class="sw ${i ? '' : 'on'}" style="background:${c}" data-c="${c}" aria-label="Banner colour ${i + 1}"></button>`).join('');
   let color = colors[0], stop = null, realm = 'greenhold';
   $('#realms').innerHTML = REALM_IDS.map(k => { const R = REALMS[k]; return `<button type="button" class="realm ${k === realm ? 'on' : ''}" data-r="${k}" style="--rc:${R.color}"><b>${R.name}</b><small>${R.bonusText}</small></button>`; }).join('');
+  paintIntro();
   $('#realmDesc').textContent = REALMS[realm].desc;
-  $('#realms').addEventListener('click', e => { const b = e.target.closest('.realm'); if (!b) return; realm = b.dataset.r; document.querySelectorAll('.realm').forEach(x => x.classList.toggle('on', x === b)); $('#realmDesc').textContent = REALMS[realm].desc; FX.sound('click'); });
+  $('#realms').addEventListener('click', e => { const b = e.target.closest('.realm'); if (!b) return; realm = b.dataset.r; document.querySelectorAll('.realm').forEach(x => x.classList.toggle('on', x === b)); $('#realmDesc').textContent = REALMS[realm].desc; FX.sound('click'); paintIntro(realm); });
   $('#colors').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); FX.sound('click'); });
   $('#introTap').addEventListener('click', () => { $('#introTap').hidden = true; $('#skipIntro').hidden = false; FX.setMood('cine'); FX.music(true); stop = playIntro(); }, { once: true });
   $('#introForm').onsubmit = e => { e.preventDefault(); const name = ($('#lordName').value.trim() || 'Lord of Aeloria').slice(0, 24); S = newState(name, color, realm); save(); if (stop) stop(); $('#intro').classList.add('leaving'); setTimeout(() => { $('#intro').hidden = true; }, 700); FX.sound('horn'); start.fromIntro = true; start(); FX.setMood('city'); setTimeout(() => FX.banner(`Welcome, ${esc(name)}`, `Your citadel rises in ${REALMS[realm].name}. The Hollow King's ash is spreading — gather heroes and begin the Story Campaign.`, { art: ART.emblem(110) }), 600); };

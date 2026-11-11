@@ -219,7 +219,7 @@ const ART = (() => {
     acacia: (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 0c0-10 2-16-6-24M0-10c4-6 8-10 8-16" stroke="#6a4a2a" stroke-width="2.5" fill="none"/><ellipse cx="0" cy="-28" rx="22" ry="6" fill="#7a8a3a"/><ellipse cx="-4" cy="-31" rx="14" ry="4" fill="#9aa64a"/></g>`,
     cherry: (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 0c0-10 2-16-6-24M0-12c4-6 8-8 10-14" stroke="#5a3a2a" stroke-width="2.5" fill="none"/><circle cx="-8" cy="-26" r="9" fill="#f5b0c8"/><circle cx="8" cy="-28" r="9" fill="#f0a0bc"/><circle cx="0" cy="-34" r="8" fill="#ffc8da"/></g>`
   };
-  const tree = (x, y, s = 1, kind) => (TREES[kind || P.tree] || TREES.oak)(x, y, s);
+  const tree = (x, y, s = 1, kind) => { const a = MAN.map && MAN.map.trees; return a ? `<image href="art/${a}" x="${x - 46 * s}" y="${y - 70 * s}" width="${92 * s}" height="${92 * s}"/>` : (TREES[kind || P.tree] || TREES.oak)(x, y, s); };
   const shadow = (w) => `<ellipse cx="0" cy="4" rx="${w}" ry="8" fill="#000" opacity=".18"/>`;
   const B = {
     citadel: L => `${shadow(72)}${box(-58, -50, 116, 54)}${crenel(-58, -50, 116)}<rect x="-70" y="-78" width="24" height="82" fill="${P.wall2}"/><rect x="46" y="-78" width="24" height="82" fill="${P.wall2}"/>${crenel(-70, -78, 24, P.wall3)}${crenel(46, -78, 24, P.wall3)}${cap(-58, -83, 12)}${cap(58, -83, 12)}${box(-30, -86, 60, 40, shade(P.wall, .15))}${cap(0, -86, 24, L >= 10 ? '#e8a33d' : P.roof)}${door(-9, 4, 18, 26)}${win(-62, -40)}${win(54, -40)}${win(-20, -62)}${win(14, -62)}${flag(-58, -100, '#e8a33d')}${flag(58, -100, P.color)}`,
@@ -238,11 +238,16 @@ const ART = (() => {
     mine: () => `${shadow(30)}<path d="M-32 4c0-24 14-38 32-38s32 14 32 38z" fill="#857f77"/><path d="M-12 4v-16a12 12 0 0 1 24 0v16z" fill="#1b1430"/><path d="M-14-12h28M-14-12v16M14-12v16" stroke="#9c5f2e" stroke-width="3"/><path d="M18-22l6-6 4 4-6 4z" fill="#c9d6e3"/>`,
     empty: () => `<path d="M-30 0l30-12 30 12-30 12z" fill="#000" opacity=".12" stroke="#fff" stroke-dasharray="4 4" stroke-opacity=".55"/><text x="0" y="5" text-anchor="middle" font-size="16" fill="#fff" opacity=".8">+</text>`
   };
-  const building = (id, L) => (B[id] || B.empty)(L || 1);
+  const BSIZE = { citadel: 230, empty: 96, farm: 118, lumber: 118, quarry: 118, mine: 118 };
+  const building = (id, L) => {
+    const a = MAN.buildings && MAN.buildings[B[id] ? id : 'empty']; if (!a) return (B[id] || B.empty)(L || 1);
+    const z = (BSIZE[id] || 150) * (id === 'empty' ? 1 : 1 + Math.min(L || 1, 20) * .01);
+    return `<ellipse cy="8" rx="${z * .38}" ry="${z * .13}" fill="#000" opacity=".28"/><image href="art/${a}" x="${-z / 2}" y="${-z * .78}" width="${z}" height="${z}"/>${id === 'empty' || !B[id] ? '<text x="0" y="2" text-anchor="middle" font-size="20" font-weight="900" fill="#fff" stroke="#000" stroke-width=".8" opacity=".9">+</text>' : ''}`;
+  };
 
   /* ---------- city ground per realm ---------- */
   const cityBg = () => {
-    const g = P.ground, u = uid('c');
+    const g = P.ground, u = uid('c'), GT = { frostmark: 'snow', amber: 'sand', sunveldt: 'sand' }, gt = MAN.ground && MAN.ground[GT[P.realm] || 'grass'], st = MAN.ground && MAN.ground.stone;
     const texture = {
       amber: `<path d="M0 30c20-12 40-12 80 0" stroke="${g[2]}" stroke-width="2" fill="none" opacity=".4"/>`,
       frostmark: `<path d="M0 28c20-6 40-6 80 0" stroke="#fff" stroke-width="3" fill="none" opacity=".7"/><circle cx="20" cy="12" r="1.5" fill="#fff"/>`,
@@ -252,11 +257,12 @@ const ART = (() => {
     const coast = P.realm === 'coral' ? `<path d="M1000 0V700H940C900 600 960 500 920 400S960 200 900 100 960 0 1000 0z" fill="${P.water}"/><path d="M940 700C900 600 960 500 920 400S960 200 900 100 960 0 960 0" stroke="#fff" stroke-width="4" fill="none" opacity=".7" stroke-dasharray="14 10"/>` : '';
     return `<defs><radialGradient id="${u}g" cx="50%" cy="42%" r="75%"><stop offset="0" stop-color="${g[0]}"/><stop offset=".7" stop-color="${g[1]}"/><stop offset="1" stop-color="${g[2]}"/></radialGradient>
       <linearGradient id="${u}w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${shade(P.water, .3)}"/><stop offset="1" stop-color="${shade(P.water, -.35)}"/></linearGradient>
-      <pattern id="${u}p" width="80" height="40" patternUnits="userSpaceOnUse">${texture}</pattern></defs>
-      <rect width="1000" height="700" fill="url(#${u}g)"/><rect width="1000" height="700" fill="url(#${u}p)"/>${coast}
+      <pattern id="${u}p" width="80" height="40" patternUnits="userSpaceOnUse">${texture}</pattern>
+      ${gt ? `<pattern id="${u}t" width="220" height="220" patternUnits="userSpaceOnUse"><image href="art/${gt}" width="220" height="220"/></pattern>` : ''}${st ? `<pattern id="${u}s" width="150" height="150" patternUnits="userSpaceOnUse" patternTransform="rotate(27) scale(1 .6)"><image href="art/${st}" width="150" height="150"/></pattern>` : ''}</defs>
+      <rect width="1000" height="700" fill="url(#${u}g)"/>${gt ? `<rect width="1000" height="700" fill="url(#${u}t)" opacity=".82"/><rect width="1000" height="700" fill="url(#${u}g)" opacity=".25"/>` : `<rect width="1000" height="700" fill="url(#${u}p)"/>`}${coast}
       <ellipse cx="880" cy="120" rx="80" ry="34" fill="url(#${u}w)"/><ellipse cx="880" cy="120" rx="80" ry="34" fill="none" stroke="${shade(P.ground[2], -.2)}" stroke-width="3"/>${tree(820, 120, 1)}${tree(940, 110, .9)}${tree(860, 150, .8, P.realm === 'jade' ? 'cherry' : undefined)}
-      <path d="M500 130L820 290 500 450 180 290z" fill="${shade(P.ground[0], P.realm === 'frostmark' ? -.06 : .12)}" stroke="${P.wall3}" stroke-width="2"/>
-      <path d="M500 112L850 290 500 468 150 290z" fill="none" stroke="${P.wall2}" stroke-width="14" stroke-linejoin="round"/>
+      <path d="M500 130L820 290 500 450 180 290z" fill="${st ? `url(#${u}s)` : shade(P.ground[0], P.realm === 'frostmark' ? -.06 : .12)}" stroke="${P.wall3}" stroke-width="2"/>
+      <path d="M500 112L850 290 500 468 150 290z" fill="none" stroke="${shade(P.wall3, -.25)}" stroke-width="22" stroke-linejoin="round" opacity=".55" transform="translate(0 7)"/><path d="M500 112L850 290 500 468 150 290z" fill="none" stroke="${P.wall2}" stroke-width="16" stroke-linejoin="round"/>
       <path d="M500 112L850 290 500 468 150 290z" fill="none" stroke="${shade(P.wall, .2)}" stroke-width="5" stroke-dasharray="10 6" stroke-linejoin="round"/>
       <path d="M500 468v240" stroke="${shade(P.ground[1], -.12)}" stroke-width="26"/>
       ${trees.map(([x, y, s], i) => tree(x, y, s, P.realm === 'jade' && i % 3 === 0 ? 'cherry' : undefined)).join('')}`;
