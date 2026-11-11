@@ -1,5 +1,11 @@
 {
-  "heroes": {},
+  "heroes": {
+    "astrid": "heroes/astrid.png",
+    "sigrun": "heroes/sigrun.png",
+    "aldric": "heroes/aldric.png",
+    "elowen": "heroes/elowen.png",
+    "rania": "heroes/rania.png"
+  },
   "foes": {},
   "key": {},
   "music": {},
