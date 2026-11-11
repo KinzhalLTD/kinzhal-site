@@ -681,6 +681,10 @@ function renderCity() {
     const u = ART.asset('landmark', id); if (!u) continue; const dot = id === 'arena' ? S.arena && S.arena.tickets > 0 : id === 'bazaar' ? (S.market || {}).spin !== today() || S.free !== today() : id === 'altar' ? S.tokens > 0 : false, w = nm.length * 8.6 + 22;
     items.push({ y, html: `<g class="bld lmk" data-act="landmark" data-id="${id}" transform="translate(${x} ${y})"><ellipse cx="0" cy="6" rx="96" ry="26" fill="#0005"/><image href="${u}" x="-110" y="-172" width="220" height="200"/></g>`, lab: `<g class="bld-lab lmk" data-act="landmark" data-id="${id}" transform="translate(${x} ${y + 40})"><rect x="${-w / 2}" y="-12" width="${w}" height="24" rx="12" fill="#2a1508f0" stroke="#ffd36b"/><text y="5" text-anchor="middle" style="fill:#ffe08a">${nm}</text>${dot ? `<circle cx="${w / 2 - 2}" cy="-11" r="8" fill="#e5484d" stroke="#fff" stroke-width="1.5"/><text x="${w / 2 - 2}" y="-6.500" text-anchor="middle" style="font-size:11px;font-weight:900">!</text>` : ''}</g>` });
   }
+  if (paintedCity()) S.squad.filter(id => S.heroes[id] && S.heroes[id].stars && ART.asset('champions', id)).slice(0, 3).forEach((id, i) => {
+    const [x, y] = [[446, 400], [554, 400], [500, 420]][i];
+    items.push({ y, html: `<g class="cityhero" data-act="hero" data-id="${id}" transform="translate(${x} ${y})"><ellipse rx="24" ry="7" fill="#0007"/><g class="ch-bob" style="animation-delay:${-i * .7}s"><image href="${ART.asset('champions', id)}" x="-44" y="-114" width="88" height="118"/></g></g>` });
+  });
   items.sort((a, b) => a.y - b.y);
   const banner = paintedCity() ? '' : `<g transform="translate(500 92)"><path d="M0 0v-40" stroke="#5a3418" stroke-width="3"/><path class="wave" d="M0-40h40l-8 9 8 9H0z" fill="${S.color}"/></g>`;
   const troopsN = troopCount(S.troops);
@@ -843,6 +847,37 @@ function stageFoes(ch, n) {
 }
 let fight = null;
 let STAGE_K = .00764;
+/* ---------- Daily Boss Trial: a boss of the day, 3 attempts, rewards by damage dealt ---------- */
+const TRIAL_TURNS = 12, TRIAL_TIERS = [[.1, 'Bronze', '#c07a3a'], [.3, 'Silver', '#c9d6e3'], [.6, 'Gold', '#ffd36b'], [1, 'Legend', '#b48cff']];
+const trialState = () => { if (!S.trial || S.trial.day !== today()) S.trial = { day: today(), left: 3, best: 0 }; return S.trial; };
+const trialBossCh = () => { const d = new Date(); return (d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate()) % CHAPTERS.length + 1; };
+const progressCh = () => { for (let c = 1; c <= CHAPTERS.length; c++) if (!S.stages[c + '-6']) return c; return CHAPTERS.length; };
+function trialCard() {
+  const t = trialState(), C = CHAPTERS[trialBossCh() - 1], u = ART.asset('fiends', C.boss.kind), tier = TRIAL_TIERS.filter(x => t.best >= x[0]).pop();
+  return `<div class="trialcard" style="--rc:${(REALMS[C.realm] || { color: '#7a4fb3' }).color}">${u ? `<img src="${u}" alt="">` : ART.enemy(C.boss.kind, 110)}<div><small>Daily Boss Trial</small><h4>${esc(C.boss.name)}</h4><p class="muted">${TRIAL_TURNS} turns to deal as much damage as you can. Rewards grow with every tier you reach.</p>
+    <div class="ttiers">${TRIAL_TIERS.map(([p, n, c]) => `<span class="${t.best >= p ? 'got' : ''}" style="--tc:${c}">${n}<i>${Math.round(p * 100)}%</i></span>`).join('')}</div>
+    <p class="tbest">Best today: <b>${Math.round(t.best * 100)}%</b>${tier ? ` · ${tier[1]}` : ''}</p>${t.left ? `<button class="btn gold" data-act="trial">Fight · ${t.left} attempt${t.left > 1 ? 's' : ''} left</button>` : `<span class="muted">New boss in ${fmtT(midnight())}</span>`}</div></div>`;
+}
+function startTrial() {
+  const t = trialState(); if (!t.left) return toast('No attempts left today: a new boss arrives at midnight', 'bad');
+  const squad = S.squad.filter(id => S.heroes[id] && S.heroes[id].stars > 0); if (!squad.length) return toast('Pick heroes for your squad', 'bad');
+  t.left--; const ch = trialBossCh(), C = CHAPTERS[ch - 1], base = stageFoes(progressCh(), 6).reduce((a, b) => b.max > a.max ? b : a);
+  const hp = Math.round(base.max * 1.3), boss = { id: 'trialboss', name: C.boss.name, kind: C.boss.kind, hp, max: hp, atk: Math.round(base.atk * .9), def: base.def, spd: base.spd, en: 0, foe: true };
+  fight = { mode: 'trial', key: 'Trial', ch, n: 6, heroes: LIVE.squadUnits(squad), foes: [boss], turn: 0, buff: 0, shield: 0, auto: !!S.autoSkill, speed: S.fightSpeed || 1, over: false, q: [], next: now() + 1500, pauseUntil: 0 };
+  closeSheet(); $('#battle').hidden = false; buildFight(); FX.setMood('boss'); FX.sound('horn');
+  { const bu = ART.asset('fiends', C.boss.kind); setTimeout(() => FX.banner(`<span class="bossword">TRIAL</span>${esc(C.boss.name)}`, `${TRIAL_TURNS} turns · deal all the damage you can`, { cls: 'boss', ms: 2000, sound: 'alarm', art: bu ? `<img class="bossfig" src="${bu}" alt="">` : '' }), 1900); }
+  fight.timer = setInterval(fightLoop, 50); save();
+}
+function endTrial(f) {
+  const t = trialState(), b = f.foes[0], pct = Math.min(1, (b.max - Math.max(0, b.hp)) / b.max), tier = TRIAL_TIERS.filter(x => pct >= x[0]).pop(), first = pct > t.best, L = Math.max(1, S.b.citadel);
+  t.best = Math.max(t.best, pct); const ti = tier ? TRIAL_TIERS.indexOf(tier) : -1;
+  const r = ti < 0 ? { gold: 150 * L } : { gold: [400, 900, 1600, 3000][ti] * L, gems: [5, 12, 25, 60][ti], essence: [3, 6, 12, 25][ti] }; if (ti >= 2) r.items = { [ti === 3 ? 'sp60' : 'sp5']: ti === 3 ? 1 : 2 };
+  give(r); LIVE.on('stage', 1);
+  const html = `<div class="res-rays"></div><h2 class="win" style="font-size:clamp(26px,7vw,40px)">${tier ? tier[1] + ' tier' : 'Trial over'}</h2><div class="tmeter"><i style="width:${pct * 100}%"></i>${TRIAL_TIERS.map(([p, n, c]) => `<b style="left:${p * 100}%;--tc:${c}" class="${pct >= p ? 'got' : ''}">${n}</b>`).join('')}</div><p class="tdmg"><b>${fmt(b.max - Math.max(0, b.hp))}</b> damage · ${Math.round(pct * 100)}% of the boss${first && pct > 0 ? ' · <em>new best today!</em>' : ''}</p>
+    <div class="rloot">${META.rewardHTML(r)}</div><div class="rbtns"><button class="btn" data-act="closefight">Leave</button>${t.left ? `<button class="btn gold" data-act="retry">Try again (${t.left})</button>` : ''}</div>`;
+  const box = document.createElement('div'); box.className = 'result won'; box.innerHTML = html; setTimeout(() => $('#battle .bfield')?.appendChild(box), 500);
+  FX.sound(tier ? 'win' : 'loss'); if (tier) setTimeout(() => FX.confetti(), 300); save();
+}
 function openStages() {
   const html = CHAPTERS.map((C, ci) => {
     const unlocked = ci === 0 || S.stages[`${ci}-6`], R = REALMS[C.realm] || { color: '#7a4fb3', name: 'The Sunspire' }, done = [1, 2, 3, 4, 5, 6].filter(n => S.stages[`${ci + 1}-${n}`]).length;
@@ -851,7 +886,7 @@ function openStages() {
       return `<button class="stage ${n === 6 ? 'boss' : ''} ${prev ? '' : 'locked'} ${prev && !stars ? 'next' : ''}" data-act="stage" data-key="${key}" ${prev ? '' : 'disabled'}><b>${key}</b><span>${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>${join && !stars ? `<small class="join">${shortName(join)} joins</small>` : shard ? `<small>${shortName(shard)}</small>` : ''}</button>`;
     }).join('')}</div></div>`;
   }).join('');
-  openSheet(`${ART.icon('vigor', 18)} Story Campaign · Vigor ${S.vigor}`, html + (S.items.vigor ? `<button class="btn" data-act="usevigor">${ART.icon('vigor', 14)} Drink Elixir of Vigor (${S.items.vigor})</button>` : '') + LIVE.adButton('vigor', 'Watch an ad: +12 Vigor'), true);
+  openSheet(`${ART.icon('vigor', 18)} Story Campaign · Vigor ${S.vigor}`, trialCard() + html + (S.items.vigor ? `<button class="btn" data-act="usevigor">${ART.icon('vigor', 14)} Drink Elixir of Vigor (${S.items.vigor})</button>` : '') + LIVE.adButton('vigor', 'Watch an ad: +12 Vigor'), true);
 }
 
 const SHORT = { arthur: 'Arthur', elcid: 'El Cid', suntzu: 'Sun Tzu', peter: 'Peter', leonardo: 'Leonardo', bismarck: 'Bismarck', antarah: 'Antarah', zarqa: 'Zarqa' };
@@ -932,7 +967,7 @@ function buildFight() {
     <div class="pf">${side === 'h' || u.hero ? ART.portrait(u.hero, 88) : ART.enemy(u.kind, 88)}<span class="tapme">SKILL!</span></div><b>${esc(u.name)}</b>
     <div class="hpbar"><i class="trail"></i><i class="fill"></i></div>${side === 'h' ? '<div class="enbar"><i></i></div>' : ''}<div class="fx-st"></div></div>`;
   $('#battle').innerHTML = `${arenaSVG(f.ch)}<div class="dust"></div><div class="bfield army">
-    <div class="btop"><button class="bt" data-act="retreat">✕</button><div class="stage-t">${f.mode === 'arena' ? `<small>Arena of Crowns</small><b>vs ${esc(f.opp.name)}</b>` : `<small>Chapter ${f.ch} · ${CHAPTERS[f.ch - 1].name}</small><b>Stage ${f.key}</b>`}</div><span id="bstat"></span><button class="bt" data-act="bspeed" id="bspeed">${f.speed}×</button><label class="bt auto"><input type="checkbox" data-act="auto" ${f.auto ? 'checked' : ''}>Auto</label></div>
+    <div class="btop"><button class="bt" data-act="retreat">✕</button><div class="stage-t">${f.mode === 'arena' ? `<small>Arena of Crowns</small><b>vs ${esc(f.opp.name)}</b>` : f.mode === 'trial' ? `<small>Daily Boss Trial · ${TRIAL_TURNS} turns</small><b>${esc(f.foes[0].name)}</b>` : `<small>Chapter ${f.ch} · ${CHAPTERS[f.ch - 1].name}</small><b>Stage ${f.key}</b>`}</div><span id="bstat"></span><button class="bt" data-act="bspeed" id="bspeed">${f.speed}×</button><label class="bt auto"><input type="checkbox" data-act="auto" ${f.auto ? 'checked' : ''}>Auto</label></div>
     <div class="row foes">${f.foes.map(u => unit(u, 'f')).join('')}</div>
     <div class="bfwrap"><canvas id="bfcv"></canvas><div class="vs"><span>Turn <b id="bturn">1</b></span></div></div>
     <div class="row mine">${f.heroes.map(u => unit(u, 'h')).join('')}</div>
@@ -1091,7 +1126,7 @@ function castSkill(u, bonus = 1) {
 function fightLoop() {
   const f = fight; if (!f || f.over) return;
   const t = now(); if (t < f.next || t < f.pauseUntil) return;
-  if (!alive(f.foes).length || !alive(f.heroes).length || f.turn > 90) return endFight(!alive(f.foes).length);
+  if (!alive(f.foes).length || !alive(f.heroes).length || f.turn > 90 || (f.mode === 'trial' && f.turn >= TRIAL_TURNS)) return endFight(!alive(f.foes).length);
   if (!f.q.length) {
     if (f.started) { if (f.shield) f.shield--; if (f.buff) f.buff--; f.turn++; }
     f.started = true;
@@ -1114,6 +1149,7 @@ function fightLoop() {
 function endFight(win) {
   const f = fight; if (f.over) return; f.over = true; clearInterval(f.timer); BF.end(win);
   if (f.mode === 'arena') return LIVE.endArena(f, win);
+  if (f.mode === 'trial') return endTrial(f);
   const ch = f.ch, n = f.n, idx = (ch - 1) * 6 + n;
   let html, r = {}, stars = 0;
   if (win) {
@@ -1500,7 +1536,8 @@ function onAct(e) {
     case 'closefight': { const oc = fight && fight.outro; leaveFight(); render(); if (oc) chapterStory(oc, 'outro', () => { if (oc === CHAPTERS.length) FX.banner('Aeloria Restored', 'The Hollow King is defeated. Now claim the Sunspire Throne on the World map.', { art: ART.emblem(120) }); openStages(); }); else openStages(); break; }
     case 'story': closeSheet(); { const c = +d.ch; chapterStory(c, 'intro', () => { if (S.stages[c + '-6']) chapterStory(c, 'outro', openStages); else openStages(); }); } break;
     case 'retreat': if (fight && !fight.over && !el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Retreat?'; setTimeout(() => { if (el.isConnected) { delete el.dataset.sure; el.textContent = '✕'; } }, 2500); break; } leaveFight(); render(); break;
-    case 'retry': { const k = fight.key; leaveFight(); startStage(k); break; }
+    case 'retry': { const k = fight.key, tr = fight.mode === 'trial'; leaveFight(); tr ? startTrial() : startStage(k); break; }
+    case 'trial': startTrial(); break;
     case 'nextstage': { const oc = fight && fight.outro; leaveFight(); if (oc) chapterStory(oc, 'outro', () => startStage(d.key)); else startStage(d.key); break; }
     case 'bspeed': if (fight) { fight.speed = fight.speed === 1 ? 2 : 1; S.fightSpeed = fight.speed; el.textContent = fight.speed + '×'; } break;
     case 'usevigor': useItem('vigor'); openStages(); break;
@@ -1635,6 +1672,14 @@ function playIntro(onDone) {
 
 function boot() {
   const REALM_ART = { greenhold: 'chapter1', amber: 'chapter2', frostmark: 'chapter3', jade: 'chapter4', coral: 'chapter5', sunveldt: 'sunveldt' };
+const REALM_HERO = { greenhold: 'aldric', amber: 'saqr', frostmark: 'astrid', jade: 'lian', coral: 'kaimana', sunveldt: 'kofi' };
+// The chosen realm's champion steps up beside the founding form.
+function realmChampion(r) {
+  const id = REALM_HERO[r], u = id && ART.asset('champions', id), host = $('#intro'); if (!u || !host) return;
+  host.querySelectorAll('.rchamp').forEach(e => { e.classList.add('out'); setTimeout(() => e.remove(), 350); });
+  const el = document.createElement('div'); el.className = 'rchamp'; el.style.setProperty('--rc', REALMS[r].color);
+  el.innerHTML = `<img src="${u}" alt=""><span>${esc(HERO[id].name)}<small>${esc(HERO[id].title)}</small></span>`; host.appendChild(el);
+}
 function titleLineup() {
   const t = $('#introTap'); if (!t || t.querySelector('.tapline') || !ART.asset('champions', 'arthur')) return;
   const ids = ['astrid', 'antarah', 'arthur', 'saqr', 'lian'], boss = ART.asset('fiends', 'hollow');
@@ -1657,9 +1702,9 @@ window.addEventListener('artready', () => { paintIntro(); { const cvw = $('#city
   $('#colors').innerHTML = colors.map((c, i) => `<button type="button" class="sw ${i ? '' : 'on'}" style="background:${c}" data-c="${c}" aria-label="Banner colour ${i + 1}"></button>`).join('');
   let color = colors[0], stop = null, realm = 'greenhold';
   $('#realms').innerHTML = REALM_IDS.map(k => { const R = REALMS[k]; return `<button type="button" class="realm ${k === realm ? 'on' : ''}" data-r="${k}" style="--rc:${R.color}"><b>${R.name}</b><small>${R.bonusText}</small></button>`; }).join('');
-  paintIntro();
+  paintIntro(); realmChampion(realm);
   $('#realmDesc').textContent = REALMS[realm].desc;
-  $('#realms').addEventListener('click', e => { const b = e.target.closest('.realm'); if (!b) return; realm = b.dataset.r; document.querySelectorAll('.realm').forEach(x => x.classList.toggle('on', x === b)); $('#realmDesc').textContent = REALMS[realm].desc; FX.sound('click'); paintIntro(realm); });
+  $('#realms').addEventListener('click', e => { const b = e.target.closest('.realm'); if (!b) return; realm = b.dataset.r; document.querySelectorAll('.realm').forEach(x => x.classList.toggle('on', x === b)); $('#realmDesc').textContent = REALMS[realm].desc; FX.sound('click'); paintIntro(realm); realmChampion(realm); });
   $('#colors').addEventListener('click', e => { const b = e.target.closest('.sw'); if (!b) return; color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); FX.sound('click'); });
   $('#introTap').addEventListener('click', () => { $('#introTap').hidden = true; $('#skipIntro').hidden = false; FX.setMood('cine'); FX.music(true); stop = playIntro(); }, { once: true });
   $('#introForm').onsubmit = e => { e.preventDefault(); const name = ($('#lordName').value.trim() || 'Lord of Aeloria').slice(0, 24); S = newState(name, color, realm); save(); if (stop) stop(); $('#intro').classList.add('leaving'); setTimeout(() => { $('#intro').hidden = true; }, 700); FX.sound('horn'); start.fromIntro = true; start(); FX.setMood('city'); setTimeout(() => FX.banner(`Welcome, ${esc(name)}`, `Your citadel rises in ${REALMS[realm].name}. The Hollow King's ash is spreading — gather heroes and begin the Story Campaign.`, { art: ART.emblem(110) }), 600); };
