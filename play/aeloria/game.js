@@ -864,7 +864,7 @@ function startStage(key, skipStory) {
 }
 function buildFight() {
   const f = fight;
-  const unit = (u, side) => `<div class="unit ${side === 'h' ? 'hero-u' : 'foe-u'} ${u.max > 2 * (f.foes[0]?.max || 0) && side === 'f' ? 'boss' : ''}" id="u-${side}-${u.id}" ${side === 'h' ? `data-act="cast" data-id="${u.id}"` : ''}>
+  const unit = (u, side) => `<div class="unit ${side === 'h' ? 'hero-u' : 'foe-u'} ${u.max > 2 * (f.foes[0]?.max || 0) && side === 'f' ? 'boss' : ''}" id="u-${side}-${u.id}" data-act="${side === 'h' ? 'cast' : 'target'}" data-id="${u.id}">
     <div class="pf">${side === 'h' || u.hero ? ART.portrait(u.hero, 88) : ART.enemy(u.kind, 88)}<span class="tapme">SKILL!</span></div><b>${esc(u.name)}</b>
     <div class="hpbar"><i class="trail"></i><i class="fill"></i></div>${side === 'h' ? '<div class="enbar"><i></i></div>' : ''}<div class="fx-st"></div></div>`;
   $('#battle').innerHTML = `${arenaSVG(f.ch)}<div class="dust"></div><div class="bfield">
@@ -872,8 +872,27 @@ function buildFight() {
     <div class="row foes">${f.foes.map(u => unit(u, 'f')).join('')}</div>
     <div class="vs"><span>Turn <b id="bturn">1</b></span></div>
     <div class="row mine">${f.heroes.map(u => unit(u, 'h')).join('')}</div>
-    <p class="hint">${f.auto ? 'Auto skills on' : 'Tap a glowing hero to unleash their skill'}</p></div><div class="stage-intro"><small>Hero Trials</small><b>Stage ${f.key}</b><span>Fight!</span></div>`;
+    <p class="hint"></p></div><div class="stage-intro"><small>Hero Trials</small><b>Stage ${f.key}</b><span>Fight!</span></div>`;
+  f.foes.forEach((u, i) => { u.cd = 2 + (i + f.n) % 3; u.wind = 0; }); f.perfects = 0; f.breaks = 0; f.bestChain = 0;
   updFight(); clashIntro(f);
+}
+const focusFoe = () => { const a = alive(fight.foes); return a.find(u => u.id === fight.target) || a[0]; };
+function callout(txt, cls = '') { const b = $('#battle'); if (!b) return; const n = document.createElement('div'); n.className = 'callout ' + cls; n.textContent = txt; b.appendChild(n); setTimeout(() => n.remove(), 950); }
+// Timed cast: a ring closes on the hero; tapping as it meets the gold circle powers up the skill.
+function timedCast(u) {
+  const f = fight; if (f.timing) return;
+  const el = document.getElementById('u-h-' + u.id);
+  if (!el || (window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches)) { castSkill(u); updFight(); return; }
+  const c = FX.centerOf(el), D = 950, t0 = performance.now(), ov = document.createElement('div'); ov.className = 'timing'; ov.style.setProperty('--x', c.x + 'px'); ov.style.setProperty('--y', c.y + 'px');
+  ov.innerHTML = '<i class="tm-target"></i><i class="tm-ring"></i><b>TAP ON GOLD</b>'; $('#battle').appendChild(ov);
+  f.timing = true; f.pauseUntil = Math.max(f.pauseUntil, now() + D + 150); FX.sound('tick'); let fin = false;
+  const done = tap => {
+    if (fin) return; fin = true; const sc = 2.6 - 2 * (performance.now() - t0) / D, err = tap ? Math.abs(sc - 1) : 9, g = err < .14 ? 'perfect' : err < .38 ? 'great' : 'ok';
+    ov.classList.add('done'); setTimeout(() => ov.remove(), 280); f.timing = false; if (fight !== f || f.over || u.hp <= 0) return;
+    if (g === 'perfect') { f.perfects++; callout('PERFECT!  ×1.5'); FX.sound('crit'); navigator.vibrate && navigator.vibrate(25); } else if (g === 'great') { callout('GREAT  ×1.25', 'great'); FX.sound('coin'); }
+    castSkill(u, g === 'perfect' ? 1.5 : g === 'great' ? 1.25 : 1); updFight();
+  };
+  ov.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); done(true); }); setTimeout(() => done(false), D);
 }
 // Cinematic opener: both sides slide in over painted siege art, then collide.
 function clashIntro(f) {
@@ -911,12 +930,14 @@ function updUnit(u, side) {
   el.querySelector('.fill').style.width = p + '%'; el.querySelector('.trail').style.width = p + '%';
   el.classList.toggle('low', p < 30 && p > 0); el.classList.toggle('stun', !!u.stun);
   if (u.hp <= 0 && !el.classList.contains('dead')) { el.classList.add('dead'); const c = FX.centerOf(el); FX.burst(c.x, c.y, { n: 26, colors: side === 'f' ? ['#ff7a59', '#ffd36b', '#3a2414'] : ['#9fc3e6', '#fff'], speed: 5 }); }
+  if (side === 'f') { el.classList.toggle('wind', !!u.wind && u.hp > 0); el.classList.toggle('tgt', u.hp > 0 && focusFoe() === u && alive(fight.foes).length > 1); }
   if (side === 'h') { el.querySelector('.enbar i').style.width = u.en + '%'; el.classList.toggle('ready', u.en >= 100 && u.hp > 0 && !fight.auto); }
 }
 function updFight() {
   const f = fight; if (!f) return;
   f.foes.forEach(u => updUnit(u, 'f')); f.heroes.forEach(u => updUnit(u, 'h'));
   const t = $('#bturn'); if (t) t.textContent = f.turn + 1;
+  const hn = $('#battle .hint'); if (hn) { const w = alive(f.foes).some(u => u.wind), rd = alive(f.heroes).some(u => u.en >= 100); hn.className = 'hint' + (w && !f.auto ? ' warn' : ''); hn.textContent = f.auto ? 'Auto skills on: switch Auto off to time your skills and break enemy charges' : w && rd ? '⚠ A foe is charging a heavy blow: hit it with a skill to break it!' : w ? '⚠ A foe is charging a heavy blow' : rd ? 'Tap the glowing hero, then tap as the ring meets the gold circle' : 'Tap a foe to focus your attacks on it'; }
   const st = $('#bstat'); if (st) st.innerHTML = (f.shield ? '<i class="st sh">🛡 Bastion</i>' : '') + (f.buff ? '<i class="st bf">✦ Star Chart</i>' : '');
 }
 const alive = a => a.filter(u => u.hp > 0);
@@ -966,18 +987,25 @@ function skillFx(kind) {
   const sz = Math.max(r.height * 1.9, Math.min(r.width, 420)); im.style.cssText = `left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;width:${sz}px;height:${sz}px`;
   document.body.appendChild(im); setTimeout(() => im.remove(), 900);
 }
-function castSkill(u) {
-  const f = fight, sk = u.hero.skill, atk = u.atk * (f.buff ? 1.4 : 1); u.en = 0;
+function castSkill(u, bonus = 1) {
+  const f = fight, sk = u.hero.skill; u.en = 0;
+  if (f.chainTurn === f.turn) { f.chain = Math.min(3, (f.chain || 0) + 1); f.bestChain = Math.max(f.bestChain || 0, f.chain); setTimeout(() => callout(`CHAIN ×${f.chain + 1}  +${f.chain * 15}%`, 'chain'), 380); } else f.chain = 0;
+  f.chainTurn = f.turn; const atk = u.atk * (f.buff ? 1.4 : 1) * bonus * (1 + .15 * f.chain);
+  const winding = alive(f.foes).filter(t => t.wind);
   FX.cutIn(ART.portrait(u.hero, 150), u.hero.name, sk.name, u.hero.look.bg);
   const delay = 520 / f.speed; f.pauseUntil = now() + 1000 / f.speed;
   const foes = alive(f.foes);
   // effects apply now (so the outcome never depends on timers); the visuals land after the cut-in
   if (sk.kind === 'aoe' || sk.kind === 'stun') foes.forEach(t => { dealTo(t, atk * sk.mult, 'f', delay, .2); if (sk.kind === 'stun') t.stun = 1; });
-  else if (sk.kind === 'single' && foes[0]) dealTo(foes[0], atk * sk.mult, 'f', delay, .3);
+  else if (sk.kind === 'single' && foes[0]) dealTo(focusFoe(), atk * sk.mult, 'f', delay, .3);
   else if (sk.kind === 'crit' && foes.length) dealTo(foes.reduce((a, b) => a.hp < b.hp ? a : b), atk * sk.mult, 'f', delay, .6);
   else if (sk.kind === 'heal') alive(f.heroes).forEach(h => { const v = Math.round(atk * sk.mult); h.hp = Math.min(h.max, h.hp + v); hitFx('h', h.id, '+' + fmt(v), 'heal', delay); });
-  else if (sk.kind === 'shield') f.shield = 3;
-  else if (sk.kind === 'buff') f.buff = 3;
+  else if (sk.kind === 'shield') f.shield = bonus > 1.3 ? 4 : 3;
+  else if (sk.kind === 'buff') f.buff = bonus > 1.3 ? 4 : 3;
+  // a skill that lands on a charging foe breaks its heavy blow and rallies the squad
+  const hitSet = sk.kind === 'aoe' || sk.kind === 'stun' ? winding : sk.kind === 'single' ? winding.filter(t => t === focusFoe() || t.hp <= 0) : sk.kind === 'crit' ? winding.filter(t => t.hp <= 0 || t === foes.reduce((a, b) => a.hp < b.hp ? a : b)) : [];
+  hitSet.forEach(t => { t.wind = 0; t.cd = 3; f.breaks++; if (t.hp > 0) hitFx('f', t.id, 'BROKEN!', 'info', delay + 250); });
+  if (hitSet.length) { alive(f.heroes).forEach(h => h.en = Math.min(100, h.en + 15)); setTimeout(() => { if (fight === f) { callout('CHARGE BROKEN!', 'brk'); FX.sound('coin'); } }, delay + 250); }
   setTimeout(() => {
     if (!fight) return;
     skillFx(sk.kind);
@@ -1004,9 +1032,11 @@ function fightLoop() {
   let wait = 330 / f.speed;
   if (side === 'h') {
     if (u.en >= 100 && f.auto) { castSkill(u); wait = 1050 / f.speed; }
-    else { const tg = alive(f.foes)[0]; if (tg) { const d = lunge('h', u, tg); dealTo(tg, u.atk * (f.buff ? 1.4 : 1), 'f', d, .12); u.en = Math.min(100, u.en + 22); } }
+    else { const tg = focusFoe(); if (tg) { const d = lunge('h', u, tg); dealTo(tg, u.atk * (f.buff ? 1.4 : 1), 'f', d, .12); u.en = Math.min(100, u.en + 22); } }
   } else {
     if (u.stun) { u.stun = 0; hitFx('f', u.id, 'STUNNED', 'info'); }
+    else if (!u.wind && --u.cd <= 0) { u.wind = 1; hitFx('f', u.id, 'CHARGING!', 'info'); FX.sound('tick'); wait = 520 / f.speed; }
+    else if (u.wind) { u.wind = 0; u.cd = 3; const hs = alive(f.heroes); if (hs.length) { const tank = hs.find(h => h.hero.role === 'Tank'), tg = tank && Math.random() < .6 ? tank : pick(hs), d = lunge('f', u, tg); dealTo(tg, u.atk * 1.9, 'h', d, 0); hitFx('h', tg.id, 'HEAVY BLOW', 'info', d + 120); setTimeout(() => FX.shake($('#battle .bfield'), 12, 300), d); } }
     else { const hs = alive(f.heroes); if (hs.length) { const tank = hs.find(h => h.hero.role === 'Tank'); const tg = tank && Math.random() < .6 ? tank : pick(hs); const d = lunge('f', u, tg); dealTo(tg, u.atk, 'h', d, .08); if (u.max > 3 * f.heroes[0].max) setTimeout(() => FX.shake($('#battle .bfield'), 8, 220), d); } }
   }
   f.next = t + wait; setTimeout(updFight, wait * .8);
@@ -1020,7 +1050,8 @@ function endFight(win) {
     const fallen = f.heroes.filter(h => h.hp <= 0).length, first = !S.stages[f.key]; stars = 3 - Math.min(2, fallen);
     S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++; META.xp(15); LIVE.on('stage', 1); S.essence += 2 + Math.floor(idx / 3);
     const xp = 100 + idx * 45; f.heroes.forEach(h => heroXP(h.id, xp));
-    r = { gold: 200 + idx * 120 }; if (first) r.gems = 10 + idx * 2;
+    r = { gold: 200 + idx * 120 + (f.perfects || 0) * 40 + (f.breaks || 0) * 60 }; if (first) r.gems = 10 + idx * 2;
+    S.stats.perfects = (S.stats.perfects || 0) + (f.perfects || 0); S.stats.breaks = (S.stats.breaks || 0) + (f.breaks || 0);
     const sh = STAGE_SHARD[f.key]; if (sh && (first || Math.random() < .5)) r.shards = { [sh]: first ? 5 : 1 + Math.floor(Math.random() * 2) };
     else if (Math.random() < .3) r.shards = { [pick(HEROES).id]: 1 };
     if (n === 6 && first) r.items = { sp60: 1, vigor: 1 };
@@ -1030,6 +1061,7 @@ function endFight(win) {
     const nextKey = n < 6 ? `${ch}-${n + 1}` : ch < CHAPTERS.length ? `${ch + 1}-1` : null;
     html = `<div class="res-rays"></div><h2 class="win">Victory</h2>${f.joined ? `<div class="joined">${ART.portrait(HERO[f.joined], 64)}<div><small>New hero</small><b>${HERO[f.joined].name} joins your court!</b></div></div>` : ''}<div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
       <div class="rheroes">${f.heroes.map(h => `<div>${ART.portrait(h.hero, 54)}<small>Lv ${S.heroes[h.id].lvl}</small><em>+${xp} XP</em></div>`).join('')}</div>
+      <div class="rskill"><span><b>${f.perfects || 0}</b>Perfect casts</span><span><b>${f.breaks || 0}</b>Charges broken</span><span><b>${f.bestChain ? '×' + (f.bestChain + 1) : '–'}</b>Best chain</span></div>
       <div class="rloot">${META.rewardHTML(r)}</div>
       <div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn" data-act="retry">Retry</button>${nextKey ? `<button class="btn gold" data-act="nextstage" data-key="${nextKey}">Next stage ›</button>` : ''}</div>`;
     FX.sound('win'); setTimeout(() => FX.confetti(), 300);
@@ -1342,7 +1374,8 @@ function onAct(e) {
     case 'tutor': { const h = S.heroes[d.id], c = Math.floor(150 * h.lvl * h.lvl); if (h.lvl >= heroCap()) { toast('Raise the Hall of Heroes to lift the level cap', 'bad'); break; } if (S.res.gold < c) { toast('Not enough Gold', 'bad'); break; } S.res.gold -= c; heroXP(d.id, xpFor(h.lvl) * .5); sfx('done'); render(); openHero(d.id); break; }
     case 'stages': openStages(); break;
     case 'stage': startStage(d.key); break;
-    case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && now() >= fight.pauseUntil) { castSkill(u); updFight(); } break; }
+    case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && !fight.timing && now() >= fight.pauseUntil) timedCast(u); break; }
+    case 'target': if (fight && !fight.over) { const u = fight.foes.find(h => h.id === d.id); if (u && u.hp > 0) { fight.target = u.id; sfx('click'); updFight(); } } break;
     case 'auto': break;
     case 'closefight': { const oc = fight && fight.outro; leaveFight(); render(); if (oc) chapterStory(oc, 'outro', () => { if (oc === CHAPTERS.length) FX.banner('Aeloria Restored', 'The Hollow King is defeated. Now claim the Sunspire Throne on the World map.', { art: ART.emblem(120) }); openStages(); }); else openStages(); break; }
     case 'story': closeSheet(); { const c = +d.ch; chapterStory(c, 'intro', () => { if (S.stages[c + '-6']) chapterStory(c, 'outro', openStages); else openStages(); }); } break;
@@ -1383,7 +1416,7 @@ function onInput(e) {
   const el = e.target; const a = el.dataset.act;
   if (a === 'tn') { trainSel.n = +el.value; $('#tnv').textContent = el.value; const c = el.closest('.train'); c.querySelector('.costs').innerHTML = costHTML(trainCost(trainSel.t, trainSel.tier, trainSel.n)) + `<span class="cost">${ART.icon('clock', 15)}${fmtT(trainTime(trainSel.tier, trainSel.n))}</span>`; const b = c.querySelector('[data-act=train]'); if (b) b.textContent = `Train ${trainSel.n}`; }
   if (a === 'sendn') { sendSel[el.dataset.k] = +el.value; $('#sn-' + el.dataset.k).textContent = el.value; const go = $('[data-act=go]'); sendInfo(S.world.find(w => w.id === +go.dataset.id), go.dataset.kind); }
-  if (a === 'auto') { fight.auto = el.checked; S.autoSkill = el.checked; updFight(); const h = $('#battle .hint'); if (h) h.textContent = el.checked ? 'Auto skills on' : 'Tap a glowing hero to unleash their skill'; }
+  if (a === 'auto') { fight.auto = el.checked; S.autoSkill = el.checked; updFight(); const h = $('#battle .hint'); }
 }
 function openMenu() {
   openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">${REALMS[S.realm].name} · ${REALMS[S.realm].bonusText} · Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
