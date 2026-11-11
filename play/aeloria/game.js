@@ -214,14 +214,15 @@ const troopCount = t => Object.values(t || {}).reduce((a, b) => a + b, 0);
 const troopMight = t => Object.entries(t || {}).reduce((a, [k, n]) => a + n * TIER_MIGHT[tparse(k)[1] - 1], 0);
 function heroStats(id) {
   const d = HERO[id], h = S.heroes[id]; const m = (1 + .13 * (h.lvl - 1)) * (1 + .2 * (h.stars - 1));
-  return { hp: Math.round(d.hp * m), atk: Math.round(d.atk * m), def: Math.round(d.def * m), spd: d.spd };
+  const g = LIVE.gearMult(id);
+  return { hp: Math.round(d.hp * m * g.hp), atk: Math.round(d.atk * m * g.atk), def: Math.round(d.def * m * g.def), spd: d.spd };
 }
 const heroMight = () => Object.entries(S.heroes).reduce((a, [id, h]) => a + h.lvl * 40 * h.stars, 0);
 function might() {
   let m = 0; for (const [k, l] of Object.entries(S.b)) m += l * l * (k === 'citadel' ? 40 : 14);
   S.fields.forEach(f => { if (f) m += f.l * f.l * 6; });
   m += troopMight(S.troops) + S.marches.reduce((a, x) => a + troopMight(x.troops), 0);
-  m += heroMight() + Object.values(S.tech).reduce((a, l) => a + l * 60, 0);
+  m += heroMight() + LIVE.gearMight() + Object.values(S.tech).reduce((a, l) => a + l * 60, 0);
   return Math.floor(m);
 }
 const vigorMax = () => 60 + S.b.mews * 2 + vipLvl() * 5;
@@ -244,6 +245,8 @@ function give(r, label) {
   for (const [k, v] of Object.entries(r || {})) {
     if (k === 'items') for (const [i, n] of Object.entries(v)) { S.items[i] = (S.items[i] || 0) + n; parts.push(`${n}× ${ITEMS[i].name}`); }
     else if (k === 'gems') { S.gems += v; parts.push(`${v} gems`); }
+    else if (k === 'essence') { S.essence = (S.essence || 0) + v; parts.push(`${v} Ember Essence`); }
+    else if (k === 'tokens') { S.tokens = (S.tokens || 0) + v; parts.push(`${v} Crown Sigil${v > 1 ? 's' : ''}`); }
     else if (k === 'shards') for (const [h, n] of Object.entries(v)) { addShards(h, n); parts.push(`${n} ${shortName(h)} shards`); }
     else if (RES.includes(k)) { S.res[k] += v; parts.push(`${fmt(v)} ${RNAME[k]}`); }
   }
@@ -283,7 +286,7 @@ function startUpgrade(key, typeForEmpty) {
 function finishBuild(q) {
   if (q.key[0] === 'f' && q.key !== 'farm') S.fields[+q.key.slice(1)].l = q.to; else S.b[q.key] = q.to;
   S.queue = S.queue.filter(x => x !== q);
-  S.stats.builds = (S.stats.builds || 0) + 1; META.xp(q.id === 'citadel' ? 60 : 20); buildFx(q);
+  S.stats.builds = (S.stats.builds || 0) + 1; LIVE.on('build', 1); META.xp(q.id === 'citadel' ? 60 : 20); buildFx(q);
   toast(`${BLD[q.id].name} reached level ${q.to}`, 'good'); sfx('done');
   if (q.id === 'citadel') { log(`Your Citadel rose to level ${q.to}.`); citadelBanner(q.to); }
 }
@@ -435,6 +438,7 @@ function arrive(m) {
     m.state = 'gather'; m.gstart = now(); m.gend = now() + Math.min(m.load, o.amount) / m.rate * 1000; return;
   }
   // attack
+  if (o.kind === 'boss') { if (o.dead) report('World Boss', 'The Colossus had already fallen when your army arrived.'); else LIVE.hitBoss(m, o); return goBack(); }
   const p = playerAtk(); const isCity = o.kind === 'city' || o.kind === 'throne';
   const res = battle({ troops: m.troops, ...p }, { troops: o.troops, defB: o.kind === 'throne' ? .5 : o.kind === 'city' ? o.lvl * .02 : 0, wall: o.wall || 0 });
   m.troops = res.leftA;
@@ -443,14 +447,14 @@ function arrive(m) {
   let body = `<p><b>${res.win ? 'Victory!' : 'Defeat.'}</b> ${res.rounds} rounds.</p><p>Your losses: ${troopsHTML(res.lossA)} <span class="muted">(${fmt(healed)} sent to the Infirmary)</span></p><p>Enemy losses: ${troopsHTML(res.lossD)}</p>`;
   if (res.win) {
     if (o.kind === 'camp') {
-      META.xp(30); S.stats.camps++; S.stats.campMax = Math.max(S.stats.campMax, o.lvl);
+      META.xp(30); LIVE.on('camp', 1); S.essence += 4 * o.lvl; S.stats.camps++; S.stats.campMax = Math.max(S.stats.campMax, o.lvl);
       const L = o.lvl; m.loot = { gold: 300 * L * L, grain: 800 * L, timber: 600 * L, stone: 400 * L, ore: 150 * L };
       const extra = { items: { gift: 1 + (L >= 5 ? 1 : 0) } }; if (Math.random() < .35) extra.items.sp5 = 1 + Math.floor(L / 3); if (Math.random() < .25) extra.gems = 5 * L;
       if (L >= 4 && Math.random() < .3) extra.shards = { [pick(HEROES).id]: 1 + Math.floor(L / 4) };
       body += `<p>Spoils: ${give(extra)} and resources carried home.</p>`;
       o.respawnAt = now() + 4 * 60e3; o.dead = true;
     } else if (o.kind === 'city') {
-      META.xp(60); S.stats.rivals++; const take = {}; for (const k of RES) { take[k] = Math.floor(Math.min(o.res[k] * .4, loadOf(m.troops) / 5)); o.res[k] -= take[k]; }
+      META.xp(60); LIVE.on('rival', 1); S.stats.rivals++; const take = {}; for (const k of RES) { take[k] = Math.floor(Math.min(o.res[k] * .4, loadOf(m.troops) / 5)); o.res[k] -= take[k]; }
       m.loot = take; body += `<p>You plundered ${RES.map(k => ART.icon(k, 14) + fmt(take[k])).join(' ')}</p>`; o.lvl = Math.max(1, o.lvl); o.angry = (o.angry || 0) + 1;
     } else if (o.kind === 'throne') {
       if (troopCount(o.troops) === 0) { S.throne = true; body += '<p><b>The Sunspire Throne is yours. All six realms bow to you, Sovereign.</b></p>'; burst(); burst(); log('You captured the Sunspire Throne!'); }
@@ -464,7 +468,7 @@ function arrive(m) {
 }
 function marchHome(m) {
   for (const [k, n] of Object.entries(m.troops)) S.troops[k] = (S.troops[k] || 0) + n;
-  if (m.kind === 'gather') META.xp(15);
+  if (m.kind === 'gather') { META.xp(15); LIVE.on('gather', Object.values(m.loot).reduce((a, b) => a + b, 0)); }
   if (m.kind === 'gather') S.stats.gathered += Object.values(m.loot).reduce((a, b) => a + b, 0);
   const t = give(m.loot); if (t) toast(`March home: ${t}`, 'good');
   S.marches = S.marches.filter(x => x !== m);
@@ -506,8 +510,8 @@ function tick() {
   const t = now(); let dt = (t - lastTick) / 1000; lastTick = t; if (dt < 0) dt = 0;
   produce(dt);
   for (const q of [...S.queue]) if (q.end <= t) finishBuild(q);
-  if (S.training && S.training.end <= t) { const { k, n } = S.training; S.troops[k] = (S.troops[k] || 0) + n; S.stats.trained += n; S.training = null; META.xp(10); const [ty, ti] = tparse(k); toast(`${fmt(n)} ${TROOP[ty].name} ${'I'.repeat(ti)} ready`, 'good'); sfx('done'); }
-  if (S.rq && S.rq.end <= t) { S.tech[S.rq.id] = S.rq.to; toast(`${TECHM[S.rq.id].name} level ${S.rq.to} complete`, 'good'); sfx('done'); S.rq = null; META.xp(25); }
+  if (S.training && S.training.end <= t) { const { k, n } = S.training; S.troops[k] = (S.troops[k] || 0) + n; S.stats.trained += n; S.training = null; META.xp(10); LIVE.on('train', n); const [ty, ti] = tparse(k); toast(`${fmt(n)} ${TROOP[ty].name} ${'I'.repeat(ti)} ready`, 'good'); sfx('done'); }
+  if (S.rq && S.rq.end <= t) { S.tech[S.rq.id] = S.rq.to; toast(`${TECHM[S.rq.id].name} level ${S.rq.to} complete`, 'good'); sfx('done'); S.rq = null; META.xp(25); LIVE.on('research', 1); }
   for (const h of [...S.helps]) if (h.at <= t) { applyHelp(h); S.helps.splice(S.helps.indexOf(h), 1); }
   for (const m of [...S.marches]) {
     if (m.state === 'out' && t >= m.arrive) arrive(m);
@@ -515,7 +519,7 @@ function tick() {
     else if (m.state === 'back' && t >= m.back) marchHome(m);
   }
   for (const o of S.world) {
-    if (o.dead && o.respawnAt <= t) { const p = freeSpot(); Object.assign(o, makeCamp(o.id, p)); delete o.dead; delete o.respawnAt; }
+    if (o.dead && o.kind === 'camp' && o.respawnAt <= t) { const p = freeSpot(); Object.assign(o, makeCamp(o.id, p)); delete o.dead; delete o.respawnAt; }
     if (o.kind === 'city' && Math.random() < dt / 60) { for (const k in o.troops) o.troops[k] += Math.ceil(o.troops[k] * .01); for (const k of RES) o.res[k] = Math.min(o.res[k] + 400 * o.lvl, 60000 * o.lvl); }
   }
   // vigor regen 1 per 40s, max 60 (+mews)
@@ -524,6 +528,7 @@ function tick() {
   // raids
   if (!S.incoming && S.b.citadel >= 4 && t >= S.raidAt) { if (S.shieldUntil > t) scheduleRaid(); else startRaid(); }
   if (S.incoming && t >= S.incoming.arrive) resolveRaid();
+  LIVE.tick(dt);
   // house chatter
   if (Math.random() < dt / 45) { S.house.chat.push({ from: pick(HOUSE_NAMES), t: pick(HOUSE_CHAT), at: t }); S.house.chat = S.house.chat.slice(-30); }
   if (Math.random() < dt / 70 && S.house.requests.length < 6) S.house.requests.push({ from: pick(HOUSE_NAMES), what: pick(['Citadel', 'Barracks', 'Ramparts', 'Smelting', 'Date Farm', 'Infirmary']) });
@@ -562,7 +567,8 @@ function renderHud() {
   $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0);
   const shield = S.shieldUntil > now();
   $('#status').innerHTML = (S.incoming ? `<button class="alert" data-act="incoming">⚠ ${esc(S.incoming.name)} attacks in ${fmtT((S.incoming.arrive - now()) / 1000)}</button>` : '') +
-    (shield ? `<span class="veil">${ART.icon('shield', 14)} Ward ${fmtT((S.shieldUntil - now()) / 1000)}</span>` : '');
+    (shield ? `<span class="veil">${ART.icon('shield', 14)} Ward ${fmtT((S.shieldUntil - now()) / 1000)}</span>` : '') +
+    `<button class="evchip" data-act="tab" data-tab="quests" data-res="event" style="--ec:${LIVE.curEvent().color}">✦ ${LIVE.curEvent().name}: ${fmt(S.event.pts)}</button>`;
 }
 function renderQueues() {
   const t = now(), rows = [];
@@ -719,7 +725,7 @@ function openSpeed(kind, key) {
   openSheet('Speed up', `<p><b>${title}</b></p>${bar(1 - left / t.total)}<p>Time left: <b>${fmtT(left / 1000)}</b></p>
     ${kind === 'b' && left <= freeLimit() ? `<button class="btn gold" data-act="usesp" data-kind="b" data-key="${key}" data-i="free">Finish free</button>` : ''}
     <div class="btns">${its || '<span class="muted">No hourglasses in your bag.</span>'}</div>
-    <button class="btn gold" data-act="usesp" data-kind="${kind}" data-key="${key || ''}" data-i="gems">${ART.icon('gem', 14)} ${gemCost(left)} Finish now</button>`);
+    <button class="btn gold" data-act="usesp" data-kind="${kind}" data-key="${key || ''}" data-i="gems">${ART.icon('gem', 14)} ${gemCost(left)} Finish now</button>${LIVE.adButton('speed', 'Watch an ad: −15 min', `data-kind="${kind}" data-key="${key || ''}"`)}`);
 }
 
 /* ======================= Army tab ======================= */
@@ -734,9 +740,10 @@ function renderArmy() {
 function renderHeroes() {
   const owned = HEROES.filter(h => S.heroes[h.id] && S.heroes[h.id].stars > 0), rest = HEROES.filter(h => !owned.includes(h));
   const card = h => { const st = S.heroes[h.id] || { lvl: 0, stars: 0, shards: 0 }; const own = st.stars > 0; return `<button class="hero r-${h.rarity} ${own ? '' : 'dim'} ${S.squad.includes(h.id) ? 'insq' : ''}" data-act="hero" data-id="${h.id}"><span class="rtag">${h.rarity}</span>${ART.portrait(h, 92)}<b>${h.name}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small><span class="stars">${own ? '★'.repeat(st.stars) : `${st.shards}/${STAR_SHARDS[1]} shards`}</span></button>`; };
-  return `<h2>Heroes</h2><div class="squad"><span>Squad</span>${[0, 1, 2].map(i => S.squad[i] ? `<span class="slot">${ART.portrait(HERO[S.squad[i]], 44)}</span>` : '<span class="slot empty">+</span>').join('')}<span class="muted">Squad leads your armies: +${(squadBonus() * 100).toFixed(1)}% troop ATK</span></div>
+  return `<h2>Heroes</h2><div class="squad"><span>Squad</span>${[0, 1, 2].map(i => S.squad[i] ? `<span class="slot">${ART.portrait(HERO[S.squad[i]], 44)}</span>` : '<span class="slot empty">+</span>').join('')}<span class="muted">Squad leads your armies: +${(squadBonus() * 100).toFixed(1)}% troop ATK${(() => { const l = LIVE.synergy(S.squad.filter(id => S.heroes[id] && S.heroes[id].stars)).label; return l ? ` · <b class="good">${l}</b>` : ''; })()}</span></div>
   <div class="heroes">${owned.map(card).join('')}${rest.map(card).join('')}</div>
-  <div class="card stagecard"><div><h3>${ART.icon('vigor', 18)} Story Campaign</h3><p class="muted">Follow the story across the six realms of Aeloria. Each stage costs 6 Vigor. Vigor: <b>${S.vigor}</b> / ${vigorMax()}</p></div><button class="btn gold" data-act="stages">Open campaign</button></div>`;
+  <div class="card stagecard"><div><h3>${ART.icon('vigor', 18)} Story Campaign</h3><p class="muted">Follow the story across the six realms of Aeloria. Each stage costs 6 Vigor. Vigor: <b>${S.vigor}</b> / ${vigorMax()}</p></div><button class="btn gold" data-act="stages">Open campaign</button></div>
+  <div class="card stagecard arenacard"><div><h3>⚔ Arena of Crowns</h3><p class="muted">Duel other lords' hero squads. Climb from Bronze to Champion, earn Glory and daily gems. Tickets today: <b>${S.arena.day === today() ? S.arena.tickets : 5}</b></p></div><button class="btn gold" data-act="arena">Enter Arena</button></div>`;
 }
 function openHero(id) {
   const h = HERO[id], st = S.heroes[id] || { lvl: 0, stars: 0, shards: 0, xp: 0 }, own = st.stars > 0;
@@ -748,6 +755,7 @@ function openHero(id) {
   <div class="stats"><span>HP ${fmt(s.hp)}</span><span>ATK ${fmt(s.atk)}</span><span>DEF ${fmt(s.def)}</span><span>SPD ${s.spd}</span></div>
   <div class="card"><h4>${ART.icon('vigor', 14)} ${h.skill.name}</h4><p>${h.skill.desc}</p></div>
   <p>Shards: <b>${st.shards}</b>${need ? ` / ${need} for ${own ? 'next star' : 'recruit'}` : ''}. <span class="muted">Win campaign stages, destroy Ashen outposts or use the Crown Summon to find shards.</span></p>
+  ${own ? LIVE.gearHTML(id) : ''}
   <div class="btns">
   ${need && st.shards >= need ? `<button class="btn gold" data-act="star" data-id="${id}">${own ? 'Raise star' : 'Recruit'}</button>` : ''}
   ${own ? `<button class="btn" data-act="squad" data-id="${id}">${S.squad.includes(id) ? 'Remove from squad' : 'Add to squad'}</button>
@@ -778,7 +786,7 @@ function openStages() {
       return `<button class="stage ${n === 6 ? 'boss' : ''} ${prev ? '' : 'locked'} ${prev && !stars ? 'next' : ''}" data-act="stage" data-key="${key}" ${prev ? '' : 'disabled'}><b>${key}</b><span>${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>${join && !stars ? `<small class="join">${shortName(join)} joins</small>` : shard ? `<small>${shortName(shard)}</small>` : ''}</button>`;
     }).join('')}</div></div>`;
   }).join('');
-  openSheet(`${ART.icon('vigor', 18)} Story Campaign · Vigor ${S.vigor}`, html + (S.items.vigor ? `<button class="btn" data-act="usevigor">${ART.icon('vigor', 14)} Drink Elixir of Vigor (${S.items.vigor})</button>` : ''), true);
+  openSheet(`${ART.icon('vigor', 18)} Story Campaign · Vigor ${S.vigor}`, html + (S.items.vigor ? `<button class="btn" data-act="usevigor">${ART.icon('vigor', 14)} Drink Elixir of Vigor (${S.items.vigor})</button>` : '') + LIVE.adButton('vigor', 'Watch an ad: +12 Vigor'), true);
 }
 
 const shortName = id => HERO[id].name.split(' ').find(w => !['Sir', 'Emira'].includes(w));
@@ -839,7 +847,7 @@ function startStage(key, skipStory) {
   if (S.vigor < 6) return toast('Not enough Vigor — rest a while or drink a Elixir of Vigor', 'bad');
   const squad = S.squad.filter(id => S.heroes[id] && S.heroes[id].stars > 0); if (!squad.length) return toast('Pick heroes for your squad', 'bad');
   S.vigor -= 6; const [ch, n] = key.split('-').map(Number);
-  const heroes = squad.map(id => { const s = heroStats(id); return { id, name: shortName(id), hero: HERO[id], hp: s.hp, max: s.hp, atk: s.atk, def: s.def, spd: s.spd, en: 20 }; });
+  const heroes = LIVE.squadUnits(squad);
   fight = { key, ch, n, heroes, foes: stageFoes(ch, n), turn: 0, buff: 0, shield: 0, auto: !!S.autoSkill, speed: S.fightSpeed || 1, over: false, q: [], next: now() + 1500, pauseUntil: 0 };
   closeSheet(); const b = $('#battle'); b.hidden = false; buildFight(); FX.setMood('battle'); FX.sound('horn');
   if (n === 6) setTimeout(() => FX.banner(`<span class="bossword">BOSS</span>${esc(CHAPTERS[ch - 1].boss.name)}`, `Chapter ${ch} · ${CHAPTERS[ch - 1].name}`, { cls: 'boss', ms: 1700, sound: 'alarm', art: ART.enemy(CHAPTERS[ch - 1].boss.kind, 110) }), 200);
@@ -848,10 +856,10 @@ function startStage(key, skipStory) {
 function buildFight() {
   const f = fight;
   const unit = (u, side) => `<div class="unit ${side === 'h' ? 'hero-u' : 'foe-u'} ${u.max > 2 * (f.foes[0]?.max || 0) && side === 'f' ? 'boss' : ''}" id="u-${side}-${u.id}" ${side === 'h' ? `data-act="cast" data-id="${u.id}"` : ''}>
-    <div class="pf">${side === 'h' ? ART.portrait(u.hero, 88) : ART.enemy(u.kind, 88)}<span class="tapme">SKILL!</span></div><b>${esc(u.name)}</b>
+    <div class="pf">${side === 'h' || u.hero ? ART.portrait(u.hero, 88) : ART.enemy(u.kind, 88)}<span class="tapme">SKILL!</span></div><b>${esc(u.name)}</b>
     <div class="hpbar"><i class="trail"></i><i class="fill"></i></div>${side === 'h' ? '<div class="enbar"><i></i></div>' : ''}<div class="fx-st"></div></div>`;
   $('#battle').innerHTML = `${arenaSVG(f.ch)}<div class="dust"></div><div class="bfield">
-    <div class="btop"><button class="bt" data-act="retreat">✕</button><div class="stage-t"><small>Chapter ${f.ch} · ${CHAPTERS[f.ch - 1].name}</small><b>Stage ${f.key}</b></div><span id="bstat"></span><button class="bt" data-act="bspeed" id="bspeed">${f.speed}×</button><label class="bt auto"><input type="checkbox" data-act="auto" ${f.auto ? 'checked' : ''}>Auto</label></div>
+    <div class="btop"><button class="bt" data-act="retreat">✕</button><div class="stage-t">${f.mode === 'arena' ? `<small>Arena of Crowns</small><b>vs ${esc(f.opp.name)}</b>` : `<small>Chapter ${f.ch} · ${CHAPTERS[f.ch - 1].name}</small><b>Stage ${f.key}</b>`}</div><span id="bstat"></span><button class="bt" data-act="bspeed" id="bspeed">${f.speed}×</button><label class="bt auto"><input type="checkbox" data-act="auto" ${f.auto ? 'checked' : ''}>Auto</label></div>
     <div class="row foes">${f.foes.map(u => unit(u, 'f')).join('')}</div>
     <div class="vs"><span>Turn <b id="bturn">1</b></span></div>
     <div class="row mine">${f.heroes.map(u => unit(u, 'h')).join('')}</div>
@@ -953,11 +961,12 @@ function fightLoop() {
 }
 function endFight(win) {
   const f = fight; if (f.over) return; f.over = true; clearInterval(f.timer);
+  if (f.mode === 'arena') return LIVE.endArena(f, win);
   const ch = f.ch, n = f.n, idx = (ch - 1) * 6 + n;
   let html, r = {}, stars = 0;
   if (win) {
     const fallen = f.heroes.filter(h => h.hp <= 0).length, first = !S.stages[f.key]; stars = 3 - Math.min(2, fallen);
-    S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++; META.xp(15);
+    S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++; META.xp(15); LIVE.on('stage', 1); S.essence += 2 + Math.floor(idx / 3);
     const xp = 100 + idx * 45; f.heroes.forEach(h => heroXP(h.id, xp));
     r = { gold: 200 + idx * 120 }; if (first) r.gems = 10 + idx * 2;
     const sh = STAGE_SHARD[f.key]; if (sh && (first || Math.random() < .5)) r.shards = { [sh]: first ? 5 : 1 + Math.floor(Math.random() * 2) };
@@ -998,7 +1007,7 @@ function renderResearch() {
 function renderQuests() {
   const q = QUESTS[S.quest], ready = q && q.c(S), chest = now() >= S.chestAt;
   const rw = r => Object.entries(r).map(([k, v]) => k === 'items' ? Object.entries(v).map(([i, n]) => `${ART.icon(ITEMS[i].icon, 14)}${n}× ${ITEMS[i].name}`).join(' ') : `${ART.icon(k === 'gems' ? 'gem' : k, 14)}${fmt(v)}`).join(' ');
-  return `<h2>Quests</h2>${META.passHTML()}
+  return `<h2>Quests</h2>${LIVE.eventHTML()}${META.passHTML()}
   <div class="card chest ${chest ? 'ready' : ''}">${ART.icon('chest', 42)}<div><h4>Supply chest</h4><p class="muted">The royal quartermaster sends supplies every 6 hours.</p></div>${chest ? '<button class="btn gold" data-act="chest">Open</button>' : `<span class="muted">${fmtT((S.chestAt - now()) / 1000)}</span>`}</div>
   ${q ? `<div class="card quest ${ready ? 'ready' : ''}"><small>Story quest ${S.quest + 1} / ${QUESTS.length}</small><h4>${q.t}</h4><p>Reward: ${rw(q.r)}</p>${ready ? '<button class="btn gold" data-act="claim">Claim</button>' : '<span class="muted">In progress</span>'}</div>` : '<div class="card"><h4>Every story quest complete. You rule the sands!</h4></div>'}
   <div class="card"><h4>Upcoming</h4>${QUESTS.slice(S.quest + 1, S.quest + 4).map(x => `<p class="muted">· ${x.t}</p>`).join('') || '<p class="muted">—</p>'}</div>
@@ -1073,6 +1082,7 @@ function drawMap() {
     if (o.kind === 'node') { ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .95) label('Lv ' + o.lvl, px, py + s * .42, '#140f22b8', 10); }
     else if (o.kind === 'camp') { ART.mapPaint.camp(ctx, px, py, s, o.lvl); if (cam.z > .7) label('Outpost ' + o.lvl, px, py + s * .42, '#6a1f1fe0', 10); }
     else if (o.kind === 'city') { ART.mapPaint.city(ctx, px, py, s * 1.15, o.color, o.realm); if (cam.z > .4) label(o.name, px, py + s * .5, '#140f22e0'); }
+    else if (o.kind === 'boss') { LIVE.drawBoss(ctx, px, py, s, o, t); label('World Boss · Lv ' + o.lvl, px, py + s * .7, '#7a1f1ae6', 11); }
     else if (o.kind === 'throne') { ART.mapPaint.throne(ctx, px, py, s * 1.3, S.throne); label(S.throne ? 'Sunspire Throne · yours' : 'The Sunspire Throne', px, py + s * 1.15, '#5a3a8ae6', 12); }
   }
   const hx = (S.home.x + .5) * s - cam.x, hy = (S.home.y + .5) * s - cam.y;
@@ -1126,6 +1136,7 @@ function explore(x, y) {
   sendMarch({ id: 0, x, y }, 'explore', {});
 }
 function openTile(o) {
+  if (o.kind === 'boss') return openSheet('World Boss · Ashen Colossus', LIVE.bossHTML(o));
   const d = dist(S.home, o), eta = fmtT(travelMs(o, {}) / 1000);
   let html = `<p class="muted">Coordinates (${o.x}, ${o.y}) · ${d.toFixed(1)} leagues · march ≈ ${eta}</p>`;
   if (o.kind === 'node') {
@@ -1191,7 +1202,7 @@ function openTab(t) {
 function render() {
   renderHud(); renderQueues();
   if (tab === 'city') renderCity();
-  const P = { army: renderArmy, heroes: renderHeroes, research: renderResearch, quests: renderQuests, house: renderHouse, bag: renderBag, store: META.renderStore }[tab];
+  const P = { army: renderArmy, heroes: renderHeroes, research: renderResearch, quests: renderQuests, house: renderHouse, bag: renderBag, store: META.renderStore, arena: LIVE.renderArena }[tab];
   if (P) { const y = $('#panel').scrollTop; $('#panel').innerHTML = P(); $('#panel').scrollTop = y; }
 }
 
@@ -1254,7 +1265,7 @@ function onAct(e) {
     case 'music': S.settings.music = !S.settings.music; FX.music(S.settings.music); openMenu(); break;
     case 'sfxt': S.settings.sfx = !S.settings.sfx; FX.setSfx(S.settings.sfx); openMenu(); break;
     case 'replay': $('#intro').hidden = false; $('#introForm').hidden = true; $('#introTitle').classList.remove('show'); $('#skipIntro').hidden = false; $('#introTap').hidden = true; { const stop = playIntro(() => { }); $('#introForm').onsubmit = e => { e.preventDefault(); stop(); $('#intro').hidden = true; }; $('#introForm button').textContent = 'Return to my realm'; $('#lordName').hidden = true; $('#colors').hidden = true; } closeSheet(); break;
-    default: META.act(a, d, el);
+    default: META.act(a, d, el) || LIVE.act(a, d, el);
   }
 }
 function onInput(e) {
@@ -1266,13 +1277,13 @@ function onInput(e) {
 function openMenu() {
   openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">${REALMS[S.realm].name} · ${REALMS[S.realm].bonusText} · Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
   <div class="card"><h4>How to play</h4><ul class="howto"><li>Upgrade fields to grow Grain, Timber, Stone and Iron. The Citadel caps everything else.</li><li>Train troops in the Barracks. Spearmen › Cavalry › Archers › Spearmen.</li><li>On the World map, explore the fog, gather resources, destroy Ashen outposts and scout Ash-sworn lords.</li><li>Lead heroes through the Story Campaign across six realms to earn XP, shards and new heroes. Your squad boosts every army.</li><li>From Citadel 4 rivals may raid you. Watch the warning, raise an Aegis Ward, or fight back.</li><li>Final goal: break the garrison of the Sunspire Throne at the heart of Aeloria.</li></ul></div>
-  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="logincal">📅 Royal Courier</button></div></div>
+  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="notify">🔔 Enable notifications</button><button class="btn" data-act="logincal">📅 Royal Courier</button></div></div>
   <p class="muted">Progress is saved in this browser.</p><button class="btn" data-act="reset">Start a new realm</button>`);
 }
 
 /* ======================= start ======================= */
 function start() {
-  if (!TERR) TERR = buildTerrain(S.seed); ART.setRealm(S.realm || 'greenhold'); document.title = `${GAME.name} · ${S.name}`;
+  if (!TERR) TERR = buildTerrain(S.seed); ART.setRealm(S.realm || 'greenhold', LIVE.skinPal()); document.title = `${GAME.name} · ${S.name}`;
   document.addEventListener('click', onAct); document.addEventListener('input', onInput);
   document.addEventListener('submit', e => { if (e.target.dataset.act === 'chat') { e.preventDefault(); const v = e.target.m.value.trim(); if (v) { S.house.chat.push({ from: S.name, t: v, at: now() }); setTimeout(() => { S.house.chat.push({ from: pick(HOUSE_NAMES), t: pick(['Well said!', 'Agreed, my lord.', 'Ha! Good one.', 'On it.', 'For the Dawn Falcon!']), at: now() }); if (tab === 'house') render(); }, 1500); render(); } } });
   $('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
@@ -1284,6 +1295,7 @@ function start() {
   lastTick = Math.max(S.last || now(), now() - 12 * 3600e3);
   const away = (now() - lastTick) / 1000;
   tick();
+  LIVE.comeback(away);
   if (away > 120) toast(`Welcome back! Your realm worked for ${fmtT(away)} while you were away.`, 'good');
   openTab('city');
   setTimeout(() => META.loginPopup(), start.fromIntro ? 2500 : 900);

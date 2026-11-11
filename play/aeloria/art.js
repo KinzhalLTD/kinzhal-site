@@ -33,6 +33,7 @@ const ART = (() => {
     ore: '<g><path d="M4 17l4-9h8l4 9-8 4z" fill="#5a6f86"/><path d="M8 8h8l-4 6z" fill="#c9d6e3"/><path d="M4 17l8-3 8 3-8 4z" fill="#3f4f63"/></g>',
     gold: '<g><circle cx="12" cy="12" r="9" fill="#e8a33d"/><circle cx="12" cy="12" r="6.5" fill="#ffd36b"/><path d="M8 14l1-5 3 3 3-3 1 5z" fill="#b9741f"/></g>',
     gem: '<g><path d="M5 9l3-4h8l3 4-7 11z" fill="#3fd7c8"/><path d="M5 9h14l-7 11z" fill="#1fa596"/><path d="M8 5l1 4h6l1-4" fill="#9ff4ea"/></g>',
+    essence: '<g><path d="M12 2l6 8-6 12-6-12z" fill="#ff7a2a"/><path d="M12 2l6 8-6 3-6-3z" fill="#ffd36b"/><path d="M12 13l6-3-6 12z" fill="#c0392b"/></g>',
     might: '<g><path d="M12 2l3 6 6 1-4.5 4.5 1 6.5L12 17l-5.5 3 1-6.5L3 9l6-1z" fill="#ff7a59"/></g>',
     vigor: '<g><path d="M13 2L5 13h6l-2 9 9-12h-6z" fill="#ffd36b"/></g>',
     clock: '<g fill="none" stroke="#f2e6cf" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></g>',
@@ -192,7 +193,7 @@ const ART = (() => {
 
   /* ---------- buildings (palette follows your home realm) ---------- */
   let P = { wall: '#d9d2c0', wall2: '#b3ab97', wall3: '#8a826e', roof: '#3d6fb3', cap: 'pitch', tree: 'oak', ground: ['#9cc46a', '#6f9a48', '#4f7a34'], water: '#4aa3c9', realm: 'greenhold' };
-  const setRealm = id => { const R = REALMS[id] || REALMS.greenhold; P = { ...R, realm: id }; };
+  const setRealm = (id, pal) => { const R = REALMS[id] || REALMS.greenhold; P = { ...R, ...(pal || {}), realm: id }; };
   const flag = (x, y, c = '#e8a33d') => `<path d="M${x} ${y}v-22" stroke="#5a3418" stroke-width="2"/><path class="wave" d="M${x} ${y - 22}l14 4-14 5z" fill="${c}"/>`;
   const crenel = (x, y, w, c) => { let s = ''; for (let i = x; i < x + w - 4; i += 8) s += `<rect x="${i}" y="${y - 5}" width="5" height="5" fill="${c || P.wall2}"/>`; return s; };
   const box = (x, y, w, h, top, side) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${top || P.wall}"/><rect x="${x}" y="${y + h - 6}" width="${w}" height="6" fill="${side || P.wall2}"/><rect x="${x + w - 8}" y="${y}" width="8" height="${h}" fill="#000" opacity=".08"/>`;

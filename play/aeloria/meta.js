@@ -45,6 +45,7 @@ const META = (() => {
     s.vip ??= 0; s.login ??= { i: 0, last: '' }; s.pass ??= { xp: 0, claimed: {} }; s.ach ??= {}; s.pity ??= 0; s.tokens ??= 0;
     s.harvest ??= {}; s.deals ??= { day: '', bought: [] }; s.free ??= ''; s.vipDay ??= ''; s.settings ??= { music: true, sfx: true };
     for (const k of RES) if (!Number.isFinite(s.res[k])) s.res[k] = 0; if (!Number.isFinite(s.gems)) s.gems = 0;
+    if (typeof LIVE !== 'undefined') LIVE.migrate(s);
     s.stats.builds ??= 0; s.stats.defWins ??= 0; s.stats.harvests ??= 0;
     return s;
   }
@@ -76,7 +77,7 @@ const META = (() => {
     let k, v;
     if (i === 'tax') { if (!taxReady()) return; k = 'gold'; v = Math.floor(rates().gold / 12 * (1 + vipLvl() * .03)); S.harvest.tax = now(); }
     else { i = +i; if (!ready(i)) return; k = BLD[S.fields[i].t].field; v = harvestVal(i); S.harvest[i] = now(); }
-    S.res[k] += v; S.stats.harvests++;
+    S.res[k] += v; S.stats.harvests++; LIVE.on('harvest', 1);
     const from = el ? FX.centerOf(el) : { x: innerWidth / 2, y: innerHeight / 2 };
     FX.fly(from, hud(k), ART.icon(k, 20), quiet ? 2 : 5); FX.text(from.x, from.y - 20, `+${fmt(v)}`, 'res');
     if (Math.random() < .04) { S.gems += 2; FX.fly(from, hud('gems'), ART.icon('gem', 20), 2); }
@@ -127,7 +128,7 @@ const META = (() => {
   function passHTML() {
     const tier = Math.min(PASS_TIERS, Math.floor(S.pass.xp / PASS_XP)), into = S.pass.xp % PASS_XP;
     const cells = Array.from({ length: PASS_TIERS }, (_, n) => { const t = n + 1, got = S.pass.claimed[t], can = t <= tier && !got; return `<div class="ptier ${got ? 'got' : ''} ${can ? 'ready' : ''} ${t % 10 === 0 ? 'big' : ''}" ${can ? `data-act="pass" data-t="${t}"` : ''}><small>${t}</small><div>${rewardHTML(passReward(t))}</div>${got ? '<i>✓</i>' : can ? '<em>Claim</em>' : ''}</div>`; }).join('');
-    return `<div class="card pass"><div class="phead"><div><h4>✦ Season Road · Dawn of Crowns</h4><p class="muted">Earn Season XP from everything you do: building, training, battles, harvests and quests.</p></div><div class="ptier-now">Tier <b>${tier}</b>/${PASS_TIERS}</div></div>${tier < PASS_TIERS ? bar(into / PASS_XP) + `<small class="muted">${into} / ${PASS_XP} XP to tier ${tier + 1}</small>` : ''}<div class="ptrack">${cells}</div></div>`;
+    return `<div class="card pass"><div class="phead"><div><h4>✦ Season Road · Dawn of Crowns</h4><p class="muted">Earn Season XP from everything you do: building, training, battles, harvests and quests.</p></div><div class="ptier-now">Tier <b>${tier}</b>/${PASS_TIERS}</div></div>${tier < PASS_TIERS ? bar(into / PASS_XP) + `<small class="muted">${into} / ${PASS_XP} XP to tier ${tier + 1}</small>` : ''}<div class="ptrack">${cells}</div>${LIVE.royalRow(tier)}</div>`;
   }
   function claimPass(t) { t = +t; const tier = Math.floor(S.pass.xp / PASS_XP); if (t > tier || S.pass.claimed[t]) return; S.pass.claimed[t] = 1; grant(passReward(t), `Season Road tier ${t}`); FX.sound('chest'); FX.burst(innerWidth / 2, innerHeight / 2, { n: 30, shape: 'star' }); render(); }
 
@@ -142,7 +143,7 @@ const META = (() => {
     else { if (S.tokens >= 10) S.tokens -= 10; else if (S.gems >= SUMMON.cost10) spendGems(SUMMON.cost10); else return toast('Not enough gems', 'bad'); }
     const res = Array.from({ length: n }, rollOne);
     if (n === 10 && !res.some(r => r.rar !== 'rare')) { const j = Math.floor(Math.random() * 10); res[j] = { id: pick(SUMMON.epic), rar: 'epic', n: SUMMON.shards.epic }; }
-    res.forEach(r => addShards(r.id, r.n)); xp(10 * n); save();
+    res.forEach(r => addShards(r.id, r.n)); xp(10 * n); LIVE.on('summon', n); save();
     reveal(res);
   }
   function reveal(res) {
@@ -211,10 +212,10 @@ const META = (() => {
   let sub = 'featured';
   const midnight = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return (d - new Date()) / 1000; };
   function renderStore() {
-    const tabs = [['featured', 'Featured'], ['summon', 'Crown Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
+    const tabs = [['featured', 'Featured'], ['offers', 'Offers'], ['summon', 'Crown Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['skins', 'City Skins'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
     const head = `<div class="store-head"><h2>Royal Bazaar</h2><div class="wallet"><span data-res="gems2">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b></span><span>${feather(18)}<b>${S.tokens}</b></span><span>${ART.icon('gold', 18)}<b>${fmt(S.res.gold)}</b></span></div></div>
       <div class="subtabs">${tabs.map(([k, n]) => `<button class="${sub === k ? 'on' : ''}" data-act="sub" data-s="${k}">${n}</button>`).join('')}</div>`;
-    return head + ({ featured, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub])();
+    return head + ({ featured, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab, offers: LIVE.offersTab, skins: LIVE.skinsTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub])();
   }
   function featured() {
     const freeOk = S.free !== today(), vipOk = vipLvl() > 0 && S.vipDay !== today();
@@ -225,7 +226,7 @@ const META = (() => {
     </div>
     <h3>Daily deals <small class="muted">refresh in ${fmtT(midnight())}</small></h3>
     <div class="deals">${deals().map(d => { const got = S.deals.bought.includes(d.i); return `<div class="deal ${got ? 'sold' : ''}">${d.off < 100 ? `<span class="off">-${d.off}%</span>` : '<span class="off teal">Gold</span>'}<h4>${d.name}</h4><div class="rws">${rewardHTML({ items: d.items })}</div>${got ? '<span class="muted">Sold out today</span>' : `<button class="btn gold" data-act="deal" data-i="${d.i}">${d.gems ? ART.icon('gem', 14) + ' ' + d.gems : ART.icon('gold', 14) + ' ' + fmt(d.gold)}</button>`}</div>`; }).join('')}</div>
-    <div class="grid2"><div class="card offer" data-act="sub" data-s="chests">${chestSVG('#ffd36b', 56)}<div><h4>Royal Chest</h4><p class="muted">Guaranteed hero shards</p></div></div><div class="card offer" data-act="logincal">${ART.icon('chest', 40)}<div><h4>Royal Courier</h4><p class="muted">Day ${S.login.i + 1} of 7</p></div></div></div>`;
+    ${LIVE.adButton('chest', 'Watch an ad: 15 gems')}<div class="grid2"><div class="card offer" data-act="sub" data-s="offers">${ART.icon('chest', 44)}<div><h4>Offers & Monthly Card</h4><p class="muted">Founder's Pack, Monthly Card, Royal Season track</p></div></div><div class="card offer" data-act="sub" data-s="chests">${chestSVG('#ffd36b', 56)}<div><h4>Royal Chest</h4><p class="muted">Guaranteed hero shards</p></div></div><div class="card offer" data-act="logincal">${ART.icon('chest', 40)}<div><h4>Royal Courier</h4><p class="muted">Day ${S.login.i + 1} of 7</p></div></div></div>`;
   }
   function summonTab() {
     const pityLeft = SUMMON.pity - S.pity;

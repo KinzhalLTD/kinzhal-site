@@ -350,3 +350,37 @@ dialog::backdrop{background:#05030acc;backdrop-filter:blur(3px)}
 .st-skip{position:absolute;right:14px;top:calc(10vh + 8px);z-index:4;background:#0008;border:1px solid #fff4;border-radius:999px;color:#fff;padding:4px 12px;font-weight:700}
 .st-scene{position:absolute;inset:0}.st-scene .arena{animation:kenburns 14s ease-out forwards}@keyframes kenburns{from{transform:scale(1.15)}to{transform:scale(1)}}
 .st-bg.over{background:linear-gradient(#05030a99,#05030a44 40%,#05030acc)}
+
+/* ---------- live features ---------- */
+.evchip{border:1px solid var(--ec);background:color-mix(in srgb,var(--ec) 18%,#0008);color:#fff;border-radius:8px;padding:2px 9px;font-size:12px;font-weight:800}
+.card.event{border-color:var(--ec)!important;background:linear-gradient(160deg,color-mix(in srgb,var(--ec) 22%,var(--panel)),var(--panel))!important}
+.evk{font:800 10.5px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--ec)}
+.evtiers{display:flex;gap:7px;overflow-x:auto;padding:6px 2px}
+.event details{margin-top:6px}.event summary{cursor:pointer;color:var(--gold2);font-weight:800}
+.forge .gear{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.gslot{background:#0005;border:1.5px solid #5a8ac9;border-radius:12px;padding:6px 4px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}
+.gslot.q0{border-color:#857f77}.gslot.q1{border-color:#5a8ac9}.gslot.q2{border-color:var(--epic)}.gslot.q3,.gslot.q4{border-color:#ffd36b;box-shadow:0 0 10px #ffd36b55}
+.gslot .gi{font-size:22px}.gslot b{font-size:12px}.gslot small{font-size:10.5px;color:var(--ink2)}.gslot em{font-size:10px;font-style:normal;color:var(--ink2)}
+@media(max-width:480px){.forge .gear{grid-template-columns:repeat(2,1fr)}}
+.arena-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.arena-top>div:nth-child(2){flex:1}
+.tierb{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;font:900 13px var(--display);color:#140f22;background:radial-gradient(circle at 35% 30%,#fff,var(--tc) 60%,#3a2a4a);box-shadow:0 0 20px var(--tc)}
+.squadrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.squadrow .portrait{border-radius:10px}
+.opps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px}
+.opp{background:var(--frame);border:1.5px solid transparent;border-radius:16px;padding:10px}.ohead{display:flex;justify-content:space-between;gap:6px;margin-bottom:6px}.ohead small{font-weight:800}
+.oh{position:relative}.oh i{position:absolute;right:-2px;bottom:-2px;background:#140f22;border:1px solid var(--gold);color:var(--gold2);font:800 10px var(--body);font-style:normal;border-radius:6px;padding:0 4px}
+.arenacard{background:linear-gradient(90deg,#5a1f2acc,#1d1530),var(--panel)!important}
+.big-delta{font:900 24px var(--display)}.big-delta.up{color:var(--good)}.big-delta.down{color:var(--red)}
+.offer-big{position:relative;display:flex;align-items:center;gap:14px;border-radius:18px;padding:14px;margin-bottom:12px;border:2px solid #ffd36b88;background:linear-gradient(110deg,#4a2a10,#1d1530 70%);overflow:hidden}
+.offer-big h3{margin:4px 0!important;color:var(--gold2)!important;font-size:19px!important}.offer-big p{margin:4px 0}
+.offer-big.founder{background:radial-gradient(circle at 15% 50%,#ffd36b55,transparent 45%),linear-gradient(110deg,#5a2f8a,#1d1530 70%);border-color:#ffd36b;box-shadow:0 0 26px #ffd36b44}
+.offer-big.card-o{background:linear-gradient(110deg,#1c5a6a,#1d1530 70%);border-color:#3fd7c8}
+.offer-big.royal{background:linear-gradient(110deg,#5a3a10,#1d1530 70%)}
+.offer-big.milestone{border-color:#ff7a59}
+.ob-art .portrait{border-radius:16px;border:3px solid #ffd36b}
+.tag2{display:inline-block;background:var(--red);color:#fff;font-weight:900;font-size:11px;border-radius:6px;padding:1px 8px}
+.offer-big .rws{display:flex;flex-wrap:wrap}
+.royalrow{display:flex;gap:7px;overflow-x:auto;padding:4px 2px 6px;align-items:stretch}
+.royalrow .rlabel{flex:none;writing-mode:vertical-rl;transform:rotate(180deg);font:900 11px var(--display);color:var(--gold2);text-align:center}
+.ptier.royal{background:linear-gradient(#4a3010,#2a1f44);border-color:#ffd36b66}.royalrow.locked .ptier{opacity:.6}.ptier .lk{position:absolute;top:2px;right:6px;font-style:normal}
+.skin .swatches{display:flex;gap:4px;margin:4px 0}.skin .swatches i{width:18px;height:18px;border-radius:50%;border:2px solid #fff4}
+.adbtn{background:linear-gradient(#2f9c5e,#1c6a3e)!important;border-color:#6fe39a!important}
