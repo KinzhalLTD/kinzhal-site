@@ -670,3 +670,23 @@ label.bt.auto{min-height:36px;display:inline-flex;align-items:center;gap:6px;cur
 @media(min-width:700px){.beasts{grid-template-columns:repeat(5,minmax(0,1fr))}}
 .cutin.fig{align-items:flex-end;padding-bottom:22vh}.cutin.fig .band{position:relative;z-index:2;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--c) 80%,#000) 55%,#140f22f2 85%,transparent)}
 .cutin.fig .ct b{text-shadow:0 0 18px var(--c),0 3px 0 #000,0 0 6px #000}.cutin .cfig{height:min(54vh,460px);left:-10%;bottom:16vh;z-index:1}
+
+/* ---- hero collection: full-body cards ---- */
+.heroes.figs{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.hfig{position:relative;height:178px;border-radius:16px;overflow:hidden;padding:0;border:1.5px solid #ffffff22;background:radial-gradient(ellipse at 50% 92%,color-mix(in srgb,var(--rc) 60%,transparent),transparent 62%),linear-gradient(#2a2350,#0d0819);display:flex;align-items:flex-end;justify-content:center;text-align:center;transition:transform .15s;box-shadow:0 6px 14px #0008}
+.hfig:active{transform:scale(.96)}
+.hfig img{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);height:128px;width:auto;max-width:115%;object-fit:contain;filter:drop-shadow(0 4px 6px #000c);transition:transform .25s}
+.hfig:hover img{transform:translateX(-50%) translateY(-4px) scale(1.04)}
+.hf-info{position:relative;z-index:1;width:100%;padding:16px 4px 6px;background:linear-gradient(transparent,#0b0818ee 40%);display:flex;flex-direction:column;align-items:center;gap:1px}
+.hf-info b{font-size:13px;line-height:1.1}.hf-info small{font-size:10.5px;color:var(--ink2)}
+.hfig .stars{font-size:11px;color:#ffd36b;letter-spacing:.5px}.hfig .stars i{font-style:normal;color:#ffffff30}
+.hfig .rtag{position:absolute;top:5px;left:5px;z-index:2}
+.sqtag,.uptag{position:absolute;top:5px;right:5px;z-index:2;font-size:9.5px;font-weight:900;border-radius:6px;padding:1px 5px}.sqtag{background:var(--teal);color:#05302c}
+.uptag{top:auto;bottom:52px;right:6px;background:#6fe39a;color:#0b3a22;font-size:13px;border-radius:50%;width:22px;height:22px;display:grid;place-items:center;padding:0;animation:bob .7s ease-in-out infinite alternate}
+.hfig.r-legendary{border-color:#ffd36b;box-shadow:0 0 0 1px #ffd36b,0 0 16px #ffd36b55,0 6px 14px #0008}.hfig.r-epic{border-color:#b48cff99}
+.hfig.insq{box-shadow:0 0 0 2px var(--teal),0 0 16px #3fd7c866}
+.hfig.locked img{filter:brightness(.15) saturate(0) drop-shadow(0 0 4px #ffffff33)}.hfig.locked.can img{filter:brightness(.45) saturate(.4) drop-shadow(0 0 8px #6fe39a)}
+.shardbar{position:relative;width:84%;height:12px;border-radius:6px;background:#0008;overflow:hidden;margin-top:2px}.shardbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#9b7bff,#ffd36b)}.shardbar em{position:relative;font-style:normal;font-size:9px;font-weight:800;line-height:12px}
+/* hero moment colours by realm */
+.spot.hm{background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--rc) 55%,transparent),#05030df0 62%)}
+.joined .jfig{height:72px;width:auto;margin:-14px 0 -4px;filter:drop-shadow(0 4px 6px #000a)}

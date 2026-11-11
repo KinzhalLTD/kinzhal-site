@@ -792,9 +792,11 @@ function renderArmy() {
 /* ======================= Heroes tab ======================= */
 function renderHeroes() {
   const owned = HEROES.filter(h => S.heroes[h.id] && S.heroes[h.id].stars > 0), rest = HEROES.filter(h => !owned.includes(h));
-  const card = h => { const st = S.heroes[h.id] || { lvl: 0, stars: 0, shards: 0 }; const own = st.stars > 0; return `<button class="hero r-${h.rarity} ${own ? '' : 'dim'} ${S.squad.includes(h.id) ? 'insq' : ''}" data-act="hero" data-id="${h.id}"><span class="rtag">${h.rarity}</span>${ART.portrait(h, 92)}<b>${h.name}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small><span class="stars">${own ? '★'.repeat(st.stars) : `${st.shards}/${STAR_SHARDS[1]} shards`}</span></button>`; };
+  const card = h => { const st = S.heroes[h.id] || { lvl: 0, stars: 0, shards: 0 }; const own = st.stars > 0, fig = ART.asset('champions', h.id), need = STAR_SHARDS[st.stars + 1], ready = need && st.shards >= need;
+    if (!fig) return `<button class="hero r-${h.rarity} ${own ? '' : 'dim'} ${S.squad.includes(h.id) ? 'insq' : ''}" data-act="hero" data-id="${h.id}"><span class="rtag">${h.rarity}</span>${ART.portrait(h, 92)}<b>${h.name}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small><span class="stars">${own ? '★'.repeat(st.stars) : `${st.shards}/${STAR_SHARDS[1]} shards`}</span></button>`;
+    return `<button class="hfig r-${h.rarity} ${own ? '' : 'locked'} ${S.squad.includes(h.id) ? 'insq' : ''} ${ready ? 'can' : ''}" style="--rc:${(REALMS[h.realm] || {}).color || '#7a4fb3'}" data-act="hero" data-id="${h.id}"><span class="rtag">${h.rarity}</span>${S.squad.includes(h.id) ? '<span class="sqtag">Squad</span>' : ''}${ready ? '<span class="uptag">⬆</span>' : ''}<img src="${fig}" alt="" loading="lazy"><span class="hf-info"><b>${shortName(h.id)}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small>${own ? `<span class="stars">${'★'.repeat(st.stars)}<i>${'★'.repeat(5 - st.stars)}</i></span>` : `<span class="shardbar"><i style="width:${Math.min(100, st.shards / STAR_SHARDS[1] * 100)}%"></i><em>${st.shards}/${STAR_SHARDS[1]}</em></span>`}</span></button>`; };
   return `<h2>Heroes</h2><div class="squad"><span>Squad</span>${[0, 1, 2].map(i => S.squad[i] ? `<span class="slot">${ART.portrait(HERO[S.squad[i]], 44)}</span>` : '<span class="slot empty">+</span>').join('')}<span class="muted">Squad leads your armies: +${(squadBonus() * 100).toFixed(1)}% troop ATK${(() => { const l = LIVE.synergy(S.squad.filter(id => S.heroes[id] && S.heroes[id].stars)).label; return l ? ` · <b class="good">${l}</b>` : ''; })()}</span></div>
-  <div class="heroes">${owned.map(card).join('')}${rest.map(card).join('')}</div>
+  <div class="heroes figs">${owned.map(card).join('')}${rest.map(card).join('')}</div>
   <div class="card stagecard"><div><h3>${ART.icon('vigor', 18)} Story Campaign</h3><p class="muted">Follow the story across the six realms of Aeloria. Each stage costs 6 Vigor. Vigor: <b>${S.vigor}</b> / ${vigorMax()}</p></div><button class="btn gold" data-act="stages">Open campaign</button></div>
   <div class="card stagecard arenacard"><div><h3>⚔ Arena of Crowns</h3><p class="muted">Duel other lords' hero squads. Climb from Bronze to Champion, earn Glory and daily gems. Tickets today: <b>${S.arena.day === today() ? S.arena.tickets : 5}</b></p></div><button class="btn gold" data-act="arena">Enter Arena</button></div>`;
 }
@@ -816,6 +818,16 @@ function openHero(id) {
   <button class="btn" data-act="tutor" data-id="${id}">${ART.icon('gold', 14)} ${fmt(tutor)} Tutor (+${fmt(xpNeed * .5)} XP)</button>` : ''}</div>`);
 }
 const xpFor = l => Math.floor(120 * Math.pow(Math.max(1, l), 1.55));
+// Full-screen moment for a hero growing stronger: their full-body art rises in a burst of light.
+function heroMoment(id, word, sub) { setTimeout(() => heroMomentNow(id, word, sub), 0); }
+function heroMomentNow(id, word, sub) {
+  const h = HERO[id], fig = ART.asset('champions', id); if (!fig) { FX.banner(word, `${esc(h.name)} · ${sub}`, { art: ART.portrait(h, 110) }); return; }
+  const reopen = sheet().open; closeSheet();
+  const el = document.createElement('div'); el.className = 'spot hm r-' + h.rarity; el.style.setProperty('--rc', (REALMS[h.realm] || {}).color || '#7a4fb3');
+  el.innerHTML = `<i class="sp-rays"></i><img src="${fig}" alt=""><div><small>${word}</small><b>${esc(h.name)}</b><span>${sub}</span></div>`;
+  document.body.appendChild(el); FX.sound(word === 'LEVEL UP' ? 'done' : 'legend'); setTimeout(() => { const c = FX.centerOf(el.querySelector('img')); FX.burst(c.x, c.y, { n: 70, shape: 'star', size: 6, speed: 10, ring: '#ffd36b', life: 1.4 }); }, 350);
+  let gone = false; const close = () => { if (gone) return; gone = true; el.classList.add('out'); setTimeout(() => { el.remove(); if (reopen && tab === 'heroes') openHero(id); }, 400); }; el.addEventListener('click', close); setTimeout(close, 2600);
+}
 function heroXP(id, xp) {
   const h = S.heroes[id]; if (!h || !h.stars) return;
   h.xp += xp; while (h.lvl < heroCap() && h.xp >= xpFor(h.lvl)) { h.xp -= xpFor(h.lvl); h.lvl++; }
@@ -1113,7 +1125,7 @@ function endFight(win) {
     give(r);
     const nextKey = n < 6 ? `${ch}-${n + 1}` : ch < CHAPTERS.length ? `${ch + 1}-1` : null;
     const mvp = f.heroes.reduce((a, b) => (b.dmg || 0) > (a.dmg || 0) ? b : a, f.heroes[0]), mvpArt = mvp && ART.asset('champions', mvp.hero.id);
-    html = `<div class="res-rays"></div>${mvpArt ? `<div class="mvp"><img src="${mvpArt}" alt=""><span><b>MVP</b>${esc(mvp.name)} · ${fmt(mvp.dmg || 0)} damage</span></div>` : ''}<h2 class="win">Victory</h2>${f.joined ? `<div class="joined">${ART.portrait(HERO[f.joined], 64)}<div><small>New hero</small><b>${HERO[f.joined].name} joins your court!</b></div></div>` : ''}<div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
+    html = `<div class="res-rays"></div>${mvpArt ? `<div class="mvp"><img src="${mvpArt}" alt=""><span><b>MVP</b>${esc(mvp.name)} · ${fmt(mvp.dmg || 0)} damage</span></div>` : ''}<h2 class="win">Victory</h2>${f.joined ? `<div class="joined">${ART.asset('champions', f.joined) ? `<img class="jfig" src="${ART.asset('champions', f.joined)}" alt="">` : ART.portrait(HERO[f.joined], 64)}<div><small>New hero</small><b>${HERO[f.joined].name} joins your court!</b></div></div>` : ''}<div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
       <div class="rheroes">${f.heroes.map(h => `<div>${ART.portrait(h.hero, 54)}<small>Lv ${S.heroes[h.id].lvl}</small><em>+${xp} XP</em></div>`).join('')}</div>
       <div class="rskill"><span><b>${f.perfects || 0}</b>Perfect casts</span><span><b>${f.breaks || 0}</b>Charges broken</span><span><b>${f.bestChain ? '×' + (f.bestChain + 1) : '–'}</b>Best chain</span></div>
       ${f.streakTxt ? `<div class="streak">${f.streakTxt}</div>` : ''}<div class="rloot">${META.rewardHTML(r)}</div>
@@ -1463,10 +1475,10 @@ function onAct(e) {
     case 'heal': healAll(); break;
     case 'trade': trade(d.a, d.b); break;
     case 'hero': openHero(d.id); break;
-    case 'star': { const h = S.heroes[d.id], need = STAR_SHARDS[h.stars + 1]; if (h.shards >= need) { h.shards -= need; h.stars++; if (!h.lvl) h.lvl = 1; burst(); sfx('win'); toast(`${HERO[d.id].name} ${h.stars === 1 ? 'joined your court!' : 'reached ' + h.stars + ' stars'}`, 'good'); } render(); openHero(d.id); break; }
+    case 'star': { const h = S.heroes[d.id], need = STAR_SHARDS[h.stars + 1]; if (h.shards >= need) { h.shards -= need; h.stars++; if (!h.lvl) h.lvl = 1; sfx('win'); heroMoment(d.id, h.stars === 1 ? 'NEW HERO' : 'STAR UP', h.stars === 1 ? `${HERO[d.id].title} joins your court` : `${'★'.repeat(h.stars)} · stronger in every stat`); } render(); openHero(d.id); break; }
     case 'squad': { const i = S.squad.indexOf(d.id); if (i >= 0) S.squad.splice(i, 1); else { if (S.squad.length >= 3) S.squad.shift(); S.squad.push(d.id); } render(); openHero(d.id); break; }
-    case 'tome': if (S.items.scroll) { S.items.scroll--; heroXP(d.id, 600); sfx('done'); render(); openHero(d.id); } break;
-    case 'tutor': { const h = S.heroes[d.id], c = Math.floor(150 * h.lvl * h.lvl); if (h.lvl >= heroCap()) { toast('Raise the Hall of Heroes to lift the level cap', 'bad'); break; } if (S.res.gold < c) { toast('Not enough Gold', 'bad'); break; } S.res.gold -= c; heroXP(d.id, xpFor(h.lvl) * .5); sfx('done'); render(); openHero(d.id); break; }
+    case 'tome': if (S.items.scroll) { S.items.scroll--; const l0 = S.heroes[d.id].lvl; heroXP(d.id, 600); sfx('done'); render(); openHero(d.id); if (S.heroes[d.id].lvl > l0) heroMoment(d.id, 'LEVEL UP', `Level ${l0} → ${S.heroes[d.id].lvl}`); } break;
+    case 'tutor': { const h = S.heroes[d.id], c = Math.floor(150 * h.lvl * h.lvl); if (h.lvl >= heroCap()) { toast('Raise the Hall of Heroes to lift the level cap', 'bad'); break; } if (S.res.gold < c) { toast('Not enough Gold', 'bad'); break; } S.res.gold -= c; const l0 = h.lvl; heroXP(d.id, xpFor(h.lvl) * .5); sfx('done'); render(); openHero(d.id); if (h.lvl > l0) heroMoment(d.id, 'LEVEL UP', `Level ${l0} → ${h.lvl}`); break; }
     case 'stages': openStages(); break;
     case 'bestiary': openBestiary(); break;
     case 'beastclaim': { S.bestiaryClaimed ??= {}; const k = d.k; if ((S.bestiary || {})[k] && !S.bestiaryClaimed[k]) { S.bestiaryClaimed[k] = 1; give({ gems: 20, essence: 5 }, `${FOES[k].name} entered in the Bestiary`); FX.sound('coin'); } openBestiary(); break; }
