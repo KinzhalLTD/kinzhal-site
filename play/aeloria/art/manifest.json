@@ -17,7 +17,9 @@
   "foes": {
     "hollow": "foes/hollow.png",
     "warlord": "foes/warlord.png",
-    "ghoul": "foes/ghoul.png"
+    "ghoul": "foes/ghoul.png",
+    "hound": "foes/hound.png",
+    "raider": "foes/raider.png"
   },
   "key": {
     "chapter1": "key/chapter1.png",
