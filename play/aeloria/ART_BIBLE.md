@@ -1,27 +1,50 @@
 # Aeloria: Age of Crowns — Art Bible and AI prompts
 
-The game already ships with code-drawn art for every hero, enemy, building and the world map. Painted art replaces it **without code changes**:
+The game already ships with code-drawn art for every hero, enemy, building and map. Painted or rendered art replaces it **without code changes**:
 
-1. Generate an image with the prompt below (Midjourney, DALL·E, Stable Diffusion, Leonardo, Firefly…).
-2. Export it as a **square WebP, 512×512** (1024×1024 source is ideal), named exactly as listed.
+1. Generate an image with a prompt below (Midjourney, DALL·E, Stable Diffusion, Leonardo, Firefly…).
+2. Export at the listed size as **WebP**, named exactly as listed.
 3. Put it in `play/aeloria/art/heroes/`, `art/foes/` or `art/key/`.
-4. Add it to `play/aeloria/art/manifest.json`, for example:
+4. List it in `play/aeloria/art/manifest.json`, for example:
 ```json
-{ "heroes": { "astrid": "heroes/astrid.webp" }, "foes": { "hollow": "foes/hollow.webp" }, "key": { "title": "key/title.webp" } }
+{
+  "heroes": { "astrid": "heroes/astrid.webp" },
+  "foes": { "hollow": "foes/hollow.webp" },
+  "key": { "title": "key/title.webp", "chapter1": "key/chapter1.webp" }
+}
 ```
 Anything not listed keeps its code-drawn art, so you can replace images one at a time.
 
-## Rights and store rules
-- Use a generator whose terms let you use the output commercially, and keep the prompt and date for each file.
-- Never prompt with the name of an existing game, studio, film or living artist. The prompts below describe the look in plain words on purpose.
-- Review every image for hands, faces and accidental text before shipping. Apple and Google reject store screenshots with misleading art.
+| Slot | Used for | Size |
+|---|---|---|
+| `heroes/<id>.webp` | hero portraits everywhere (cards, battle, story) | 1024×1024 → export 512×512 |
+| `foes/<kind>.webp` | enemy portraits in battle and story | 1024×1024 → export 512×512 |
+| `key/chapter1.webp` … `chapter6.webp` | battle and story backgrounds | 2560×1440, keep the centre clear |
+| `key/title.webp` | title screen | 2560×1440 |
 
-## Global style
-- **Look:** painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark.
-- **Negative prompt (where supported):** text, letters, logo, watermark, signature, frame, border, extra fingers, deformed hands, blurry face, cropped head, multiple characters, modern clothing, photo, 3d render.
-- **Framing:** head and shoulders, character centred, eyes on the upper third, weapon visible. Leave 6% padding on every side; the game rounds the corners.
-- **Consistency:** generate one hero you like first, then reuse it as a style reference (`--sref`, image prompt or IP-Adapter) for all others. Keep the same light direction.
-- **Diversity:** heroes come from six cultures. Keep skin tones, features and costumes respectful and specific, not stereotyped. Avoid sacred symbols.
+## Prompt structure
+Every prompt below follows the same order, so results stay consistent:
+
+```
+[Subject + specific details], [Environment + atmosphere],
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+[precise lighting description],
+[camera: lens + angle + DOF],
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+**Negative prompt** (where supported): blurry, over-smoothed, plastic skin, cartoon, anime, low detail, flat lighting, overexposed, text, watermark, logo, signature, frame, deformed hands, extra fingers, cropped head, multiple characters, modern clothing.
+
+### Rules that keep the set consistent
+- **Make one reference first.** Generate Astrid until she is right, then use her as the image/style reference (`--sref` in Midjourney, image prompt or IP-Adapter elsewhere) for every other hero, with the same technical tags.
+- **Be precise about light.** Each prompt names the key, fill and rim source and their colours. Keep that wording; it matters more than any other part.
+- **Same camera for every portrait:** 85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred. Portraits are cropped square and shown small, so the face must sit in the upper-middle third.
+- **Don't name existing games, studios, films or living artists.** "Unreal Engine 5" and "Lumen" describe a rendering look and are fine.
+- **Check every image** for hands, faces, extra limbs and accidental text before shipping. Keep each prompt, seed and date for your records, and use a generator whose terms allow commercial use.
+- **Respect cultures.** Heroes come from six cultures; keep features, skin tones and costumes specific and respectful, never caricatured, and avoid sacred symbols.
+
+### Matching the rest of the game
+Photoreal portraits next to the code-drawn city and map will look mixed. For a fully consistent AAA look, also produce the six chapter backgrounds below, and plan a later pass on city buildings and the world map in the same style.
 
 ## Realm palettes
 | Realm | Mood | Key colours |
@@ -36,96 +59,427 @@ Anything not listed keeps its code-drawn art, so you can replace images one at a
 
 ## Heroes — `art/heroes/<id>.webp`
 ### Astrid Frostmane — Shieldmaiden of the North
-- File: `heroes/astrid.webp` · Realm: Frostmark · rare Tank
-- Story: Youngest jarl-daughter of Frostmark, who held the Hrim Pass for nine days with forty shields. She does not retreat; she advances in a different direction.
-- **Prompt:** young Nordic shieldmaiden, fair skin, long golden braids, steel winged helm, blue-grey fur-trimmed armour, round painted shield and bearded axe, determined grin, snowy fjord behind, background tinted #5f8fbf, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/astrid.webp` · Frostmark · rare Tank
+
+```
+Young Nordic shieldmaiden, fair weathered skin with cold-flushed cheeks, long golden braids threaded with iron rings, steel winged helm with hammered rivets, blue-grey wool and wolf-fur mantle, round painted linden shield with iron boss, bearded axe on her shoulder, fierce confident grin,
+snowy fjord cliff at dawn, drifting snowflakes, distant longhouses with chimney smoke,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+cold blue dawn key light from upper left, warm amber rim light from a distant bonfire, soft snow-scattered fill, breath vapour catching the light,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Sigrun Runeseer — Keeper of the Frozen Runes
-- File: `heroes/sigrun.webp` · Realm: Frostmark · epic Mage
-- Story: She has read the ice for seventy winters and remembers every name the Hollow King has stolen. The runes on her staff hum when ash is near.
-- **Prompt:** elderly rune-seer woman, pale skin, flowing silver-white hair under a deep blue hood, glowing ice-blue eyes, staff carved with glowing frost runes, aurora sky behind, background tinted #5f8fbf, subtle magical glow, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/sigrun.webp` · Frostmark · epic Mage
+
+```
+Elderly rune-seer woman, pale lined skin, long silver-white hair under a deep indigo wool hood, eyes glowing faint ice-blue, carved birch staff with runes glowing cyan, bone and silver amulets,
+frozen standing stones under a green aurora, light snowfall, mist hugging the ground,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+cool aurora light from above, cyan glow from the rune staff lighting her face from below, deep blue shadows, faint god rays through mist,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Sir Aldric Valebrand — Knight-Commander of the Oak
-- File: `heroes/aldric.webp` · Realm: Greenhold · rare Warrior
-- Story: Last knight of the burned Valewood order. He carries his grandmother's blade and a promise: no village will burn while he still stands.
-- **Prompt:** Black knight-commander in his forties, dark brown skin, short black hair and neat beard, polished steel plate with blue and gold oak-leaf tabard, longsword, burning forest behind him, background tinted #4f8a3c, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/aldric.webp` · Greenhold · rare Warrior
+
+```
+Black knight-commander in his forties, dark brown skin, short black hair, neatly trimmed beard with grey at the chin, polished steel plate armour with dents and scratches, blue tabard embroidered with a golden oak leaf, longsword held upright,
+edge of a burning oak forest, embers and ash drifting, smoke columns behind,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+warm orange firelight key from the right, cool overcast daylight fill from the left, glinting ray-traced specular highlights on steel, embers backlighting the silhouette,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Elowen Thornwhisper — Druid of the Old Oaks
-- File: `heroes/elowen.webp` · Realm: Greenhold · rare Support
-- Story: Raised by the oldest oak in Greenhold, Elowen speaks to roots and rain. She is gentle with everyone except those who set forests on fire.
-- **Prompt:** young druid woman, freckled fair skin, long wavy copper-red hair, wreath of oak leaves and tiny pink flowers, green robes, living branch staff with glowing seed, ancient oaks behind, background tinted #4f8a3c, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/elowen.webp` · Greenhold · rare Support
+
+```
+Young druid woman, freckled fair skin, long wavy copper-red hair, wreath of oak leaves and tiny pink blossoms, moss-green linen robes with gold embroidery, living branch staff sprouting leaves with a glowing seed,
+ancient oak grove with moss-covered roots, floating pollen and fireflies,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+soft late-afternoon sunlight filtering through leaves as volumetric god rays, warm green bounce light, golden glow from the seed on her face,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Rania Sunarrow — Archer of the Amber Dunes
-- File: `heroes/rania.webp` · Realm: Amber Sultanate · rare Ranged
-- Story: A caravan guard who can split a date at three hundred paces. She joined you because the Ashen Court stole her caravan, and she wants every camel back.
-- **Prompt:** young desert archer woman, warm brown skin, teal headscarf over dark hair, crimson and gold leather armour, recurve bow drawn, golden dunes and a caravan at sunset behind, background tinted #d9822b, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/rania.webp` · Amber Sultanate · rare Ranged
+
+```
+Young desert archer woman, warm brown skin, teal headscarf over dark hair, crimson and gold tooled leather armour, recurve bow drawn with a fletched arrow, kohl-lined focused eyes,
+golden dunes at sunset with a camel caravan silhouetted on the ridge, blowing sand,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+low golden-hour sun as warm key from the left, hot orange rim light, sand particles glowing in the backlight, gentle sky-blue fill,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Layla Nightveil — The Kinzhal Blade
-- File: `heroes/layla.webp` · Realm: Amber Sultanate · epic Assassin
-- Story: Nobody knows her real name. The Sultanate's enemies know only her twin daggers, and the silence they leave behind.
-- **Prompt:** mysterious assassin woman, olive-brown skin, dark violet hood and face mask, only golden eyes visible, twin curved daggers, moonlit domed rooftops behind, background tinted #d9822b, subtle magical glow, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/layla.webp` · Amber Sultanate · epic Assassin
+
+```
+Mysterious assassin woman, olive-brown skin, dark violet hood and fine silk face mask, only golden eyes visible, twin curved daggers with engraved blades, layered dark leather with silver clasps,
+moonlit domed rooftops of a desert city, lanterns far below, thin haze,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+cold silver moonlight key from above, warm lantern bounce from below, eyes catching a small specular highlight, deep velvet shadows,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Emira Saqr — The Falcon Queen
-- File: `heroes/saqr.webp` · Realm: Amber Sultanate · legendary Mage
-- Story: Sovereign of the Amber Sultanate, who rides the wind with a thousand falcons. She once wore a shard of the Sunspire Crown, and she wants it back.
-- **Prompt:** regal queen of a desert sultanate, brown skin, long black hair, ornate golden crown with ruby, purple and gold royal robes, a golden falcon on her arm, swirling falcons and sunset behind, background tinted #d9822b, radiant golden aura, heroic low angle, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/saqr.webp` · Amber Sultanate · legendary Mage
+
+```
+Regal queen of a desert sultanate, brown skin, long black hair, ornate gold crown set with rubies and turquoise, purple and gold brocade robes, a golden falcon perched on her gloved arm, calm commanding gaze, radiant heroic presence,
+palace balcony above a sunset desert city, a flock of falcons circling, warm dust in the air,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+rich golden sunset key light from behind-left, warm bounce from gold fabric, luminous rim light on the falcon feathers, subtle volumetric haze,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Lian Jadewind — Sage of the Thousand Petals
-- File: `heroes/lian.webp` · Realm: Jade Dominion · legendary Mage
-- Story: The youngest Grand Sage in the Dominion's history. With one folded fan she can turn a typhoon, or an argument.
-- **Prompt:** young East Asian grand sage woman, black hair in an elegant bun with jade hairpins, flowing jade-green and cream silk robes, folding fan raised, cherry blossom petals swirling in wind, misty terraced mountains behind, background tinted #2f9c7a, radiant golden aura, heroic low angle, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/lian.webp` · Jade Dominion · legendary Mage
+
+```
+Young East Asian grand sage woman, black hair in an elegant bun with jade hairpins, flowing jade-green and cream silk robes with embroidered cranes, folding paper fan raised, serene smile, radiant heroic presence,
+misty terraced mountains with a pagoda, cherry blossom petals swirling in the wind,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+soft diffused morning light through mist, pale pink bounce from blossoms, jade glow on silk, gentle volumetric light shafts,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Hiro Ironpetal — Blade of the Lantern Guard
-- File: `heroes/hiro.webp` · Realm: Jade Dominion · epic Warrior
-- Story: Captain of the Lantern Guard, sworn to protect the Jade Court. He paints a cherry blossom on his armour for every life he saves.
-- **Prompt:** East Asian lantern guard captain, black hair in a topknot, crimson lamellar armour with painted cherry blossoms, long single-edged blade, glowing paper lanterns in mist behind, background tinted #2f9c7a, subtle magical glow, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/hiro.webp` · Jade Dominion · epic Warrior
+
+```
+East Asian lantern guard captain, black hair in a topknot, strong jaw, crimson lamellar armour laced with silk cords and painted with cherry blossoms, long single-edged blade half drawn,
+night street of paper lanterns in drifting fog, wet stone underfoot,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+warm red-orange lantern light from several sides, cool blue moon rim light, ray-traced reflections in wet stone, glow on the blade edge,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Kaimana Tidecaller — Navigator of the Coral Isles
-- File: `heroes/kaimana.webp` · Realm: Coral Isles · rare Support
-- Story: She steers by stars and swells and has never lost a ship. When she sings, the sea itself seems to listen.
-- **Prompt:** Polynesian navigator woman, brown skin, big curly black hair with a red hibiscus flower, shell necklace, turquoise wrap, coral trident, ocean waves and stars behind, background tinted #1fb3c9, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/kaimana.webp` · Coral Isles · rare Support
+
+```
+Polynesian navigator woman, warm brown skin, big curly black hair with a red hibiscus flower, shell and bone necklace, turquoise tapa-patterned wrap, coral trident, warm determined smile,
+deck of a double-hulled voyaging canoe at twilight, ocean swells, the first stars appearing,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+warm twilight sky key light, teal ocean bounce from below, soft starlight rim, sea spray catching light,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Tama Reefbreaker — Guardian of the Outer Reef
-- File: `heroes/tama.webp` · Realm: Coral Isles · rare Tank
-- Story: The strongest man on any island, and the gentlest. His tattoos tell the story of every storm he has stood against.
-- **Prompt:** huge Polynesian guardian man, brown skin, black hair tied back, beard, traditional tattoo patterns on arms and chest, coral war club, gentle smile, crashing reef surf behind, background tinted #1fb3c9, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/tama.webp` · Coral Isles · rare Tank
+
+```
+Huge Polynesian guardian man, brown skin, black hair tied back, thick beard, traditional tattoo patterns across shoulders and chest, coral-studded war club, gentle steady smile,
+reef shoreline with crashing surf and wet black volcanic rock,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+bright tropical midday sun as hard key, turquoise water bounce, glistening wet skin with subsurface scattering, spray backlit as volumetric mist,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Amara Sunforge — Artificer of the Red Earth
-- File: `heroes/amara.webp` · Realm: Sunveldt · epic Engineer
-- Story: Master of the great forges of Sunveldt. Her inventions are loud, brilliant and only occasionally on fire.
-- **Prompt:** West African inventor woman, deep brown skin, voluminous natural afro with brass goggles, orange leather apron and gold-trim armour, brass hand cannon, red-earth forge city behind, background tinted #c9902b, subtle magical glow, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/amara.webp` · Sunveldt · epic Engineer
+
+```
+West African inventor woman, deep brown skin, voluminous natural afro held by brass goggles, orange leather apron over gold-trimmed armour, brass hand cannon with glowing vents, confident grin,
+red-earth forge city with smoking chimneys, sparks raining from a foundry,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange forge glow key from below-right, cool daylight fill from above, sparks as bokeh, brass with ray-traced specular highlights,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ### Kofi Swiftmane — Lion Rider of Sunveldt
-- File: `heroes/kofi.webp` · Realm: Sunveldt · rare Warrior
-- Story: He raised his lion, Zuri, from a cub. Together they have outrun wildfire, warbands and, once, an entire Ashen legion.
-- **Prompt:** East African lion rider man, deep brown skin, long locs, short beard, gold-trimmed savanna leather armour, spear, a great maned lion beside him, golden savanna and acacia trees behind, background tinted #c9902b, painted high-fantasy character portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+File `heroes/kofi.webp` · Sunveldt · rare Warrior
+
+```
+East African lion rider man, deep brown skin, long locs tied back, short beard, gold-trimmed savanna leather armour, long spear, a great maned lion beside him,
+golden savanna with acacia trees and a dust storm on the horizon,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+low warm sunset key from the side, long shadows, golden rim light through the lion's mane, dust particles glowing in volumetric light,
+85mm portrait lens, eye level, head-and-shoulders framing centred with headroom, shallow depth of field f/2, background softly blurred,
+highly detailed PBR materials, subsurface scattering on skin, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
 
 ## Enemies — `art/foes/<kind>.webp`
-- **Ash Ghoul** (`foes/ghoul.webp`): ash ghoul, hunched grey humanoid made of ash and cinders, glowing orange ember eyes, cracked skin with lava glow, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Cinder Hound** (`foes/hound.webp`): cinder hound, wolf-like beast of charcoal with glowing ember cracks, smoking jaws, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Ashsworn Raider** (`foes/raider.webp`): ashsworn raider, bandit soldier with ash-grey mask and dark armour, red glowing eyes, notched sword, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Dune Stalker** (`foes/stalker.webp`): dune stalker, giant armoured desert scorpion corrupted by ash, ember-tipped stinger, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Ember Wraith** (`foes/wraith.webp`): ember wraith, floating flame spirit in tattered dark robes, crown of fire, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Frost Troll** (`foes/troll.webp`): frost troll, huge pale-blue troll with icicle tusks and ash-stained fur, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Lantern Phantom** (`foes/phantom.webp`): lantern phantom, haunted red paper lantern with a ghostly face, trailing smoke, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Tide Serpent** (`foes/serpent.webp`): tide serpent, teal sea serpent with golden fins and ember eyes rising from waves, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Slag Golem** (`foes/golem.webp`): slag golem, hulking construct of black rock and molten lava seams, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Cinder Warlord** (`foes/warlord.webp`): Grask the Cinder Warlord, massive armoured brute with horned helm, ember-cracked armour, huge cleaver, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Queen of Mirages** (`foes/queen.webp`): the Queen of Mirages, ethereal veiled sorceress shimmering with mirror shards, violet light, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Ashbound Wyrm** (`foes/wyrm.webp`): Hrimfang the Ashbound Wyrm, white frost dragon bound in ash-black chains, pained glowing eyes, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Lantern-Smoke Lord** (`foes/lantern.webp`): the Lantern-Smoke Lord, tall robed figure with a giant glowing lantern for a head, smoke swirling, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **Cinder Leviathan** (`foes/kraken.webp`): the Cinder Leviathan, colossal kraken with a single burning eye, ember-lit tentacles from a dark sea, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
-- **The Hollow King** (`foes/hollow.webp`): the Hollow King, gaunt crowned figure in black robes, cracked dark crown, empty eye sockets with violet light, ash drifting, dark smoky background with drifting embers, menacing but readable at small size, painted high-fantasy creature portrait, semi-realistic stylised proportions, rich painterly brushwork, dramatic rim lighting, warm key light from upper left, cinematic depth of field, clean readable silhouette, premium mobile strategy game splash art quality, highly detailed costume, no text, no logo, no watermark
+Shared environment, lighting and camera for all enemies: *dark scorched battlefield, drifting embers and smoke, ash falling like snow*; *hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette*; *50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field*.
 
-## Key art — `art/key/`
-- **title.webp** (1920×1080, shown behind the title screen): the golden Sunspire tower at dawn in the centre of a vast fantasy continent; snowy northern mountains, green oak forests, golden dunes, jade terraced hills, turquoise islands and a savanna all visible around it; banners of six realms; dramatic sky; epic scale, painterly, no text.
-- **Store icon** (1024×1024): a golden crown over a radiant sun on a navy shield, bold silhouette, readable at 64 px, no text.
-- **Store screenshots:** take them from the game itself after the painted heroes are in.
+### Ash Ghoul
+File `foes/ghoul.webp`
 
-## Chapters and bosses (for loading screens or trailers)
-1. **Ash in the Valewood** — Greenhold; boss: Grask the Cinder Warlord.
-2. **The Mirage Road** — Amber Sultanate; boss: The Queen of Mirages.
-3. **The Silent Fjords** — Frostmark; boss: Hrimfang, the Ashbound Wyrm.
-4. **Lanterns in the Mist** — Jade Dominion; boss: The Lantern-Smoke Lord.
-5. **Tides of Cinder** — Coral Isles; boss: The Cinder Leviathan.
-6. **The Hollow Throne** — the Sunspire; boss: The Hollow King.
+```
+Ash ghoul, hunched gaunt humanoid made of compacted ash and cinders, cracked grey skin with glowing orange lava veins, ember eyes, ragged burnt cloth,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Cinder Hound
+File `foes/hound.webp`
+
+```
+Cinder hound, wolf-sized beast of charcoal with glowing ember cracks along the spine, smoking jaws and sparks dripping from its teeth,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Ashsworn Raider
+File `foes/raider.webp`
+
+```
+Ashsworn raider, bandit soldier in scorched leather and ash-grey cloth mask, red glowing eyes, notched sword, burnt banner on his back,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Dune Stalker
+File `foes/stalker.webp`
+
+```
+Dune stalker, giant armoured desert scorpion corrupted by ash, cracked carapace with molten seams, ember-tipped stinger raised,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Ember Wraith
+File `foes/wraith.webp`
+
+```
+Ember wraith, floating spirit in tattered black robes with a crown of living fire, face hidden in shadow except for burning eyes,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Frost Troll
+File `foes/troll.webp`
+
+```
+Frost troll, huge pale-blue troll with icicle tusks, matted ash-stained white fur, frost crystals on the skin,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Lantern Phantom
+File `foes/phantom.webp`
+
+```
+Lantern phantom, a haunted red paper lantern with a ghostly face inside, trailing coils of grey smoke,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Tide Serpent
+File `foes/serpent.webp`
+
+```
+Tide serpent, teal sea serpent with golden fins and ember eyes, rising from black waves with water streaming off its scales,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Slag Golem
+File `foes/golem.webp`
+
+```
+Slag golem, hulking construct of black volcanic rock held together by molten lava seams, glowing core in its chest,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Cinder Warlord
+File `foes/warlord.webp`
+
+```
+Grask the Cinder Warlord, massive armoured brute with a horned helm, ember-cracked black plate, a huge cleaver glowing red at the edge,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Queen of Mirages
+File `foes/queen.webp`
+
+```
+The Queen of Mirages, ethereal veiled sorceress shimmering with floating mirror shards, half-transparent violet silks,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Ashbound Wyrm
+File `foes/wyrm.webp`
+
+```
+Hrimfang the Ashbound Wyrm, white frost dragon bound in ash-black chains, pained glowing eyes, frost breath leaking between its teeth,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Lantern-Smoke Lord
+File `foes/lantern.webp`
+
+```
+The Lantern-Smoke Lord, tall robed figure with a giant glowing paper lantern for a head, smoke swirling around his sleeves,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Cinder Leviathan
+File `foes/kraken.webp`
+
+```
+The Cinder Leviathan, colossal kraken with a single burning eye, ember-lit tentacles rising from a dark stormy sea,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### The Hollow King
+File `foes/hollow.webp`
+
+```
+The Hollow King, gaunt crowned figure in tattered black robes, cracked dark-gold crown, empty eye sockets glowing violet, ash drifting from his fingers,
+dark scorched battlefield, drifting embers and smoke, ash falling like snow,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+hot orange ember light from below as key, cold blue-grey moonlight rim from behind, volumetric smoke catching the light, high-contrast menacing silhouette,
+50mm lens, slight low angle, subject centred and filling most of the frame, shallow depth of field,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+## Chapter backgrounds — `art/key/chapter<N>.webp`
+Battles and story cutscenes draw characters over the centre, so keep the middle third calm and put detail at the edges and horizon.
+
+### Chapter 1 · Ash in the Valewood
+File `key/chapter1.webp` (2560×1440)
+
+```
+Ancient oak forest of Greenhold half-consumed by spreading grey ash, a ruined knightly chapel among the trees, embers floating, no characters,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+late afternoon sun through smoke as volumetric god rays, warm firelight on the right, cool green shadow on the left,
+24mm wide lens, eye level, deep focus with strong depth layering, empty open ground in the centre of the frame,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Chapter 2 · The Mirage Road
+File `key/chapter2.webp` (2560×1440)
+
+```
+Vast golden desert with a shimmering false oasis and a broken caravan road, distant domed city on the horizon, no characters,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+harsh setting sun low on the horizon, heat-haze mirage, long violet shadows across the dunes,
+24mm wide lens, eye level, deep focus with strong depth layering, empty open ground in the centre of the frame,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Chapter 3 · The Silent Fjords
+File `key/chapter3.webp` (2560×1440)
+
+```
+Frozen fjord with silent longhouses and a colossal chained dragon skeleton in the ice, grey ash mixed with snowfall, no characters,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+cold blue overcast light, green aurora breaking through clouds, lantern glow from one longhouse window,
+24mm wide lens, eye level, deep focus with strong depth layering, empty open ground in the centre of the frame,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Chapter 4 · Lanterns in the Mist
+File `key/chapter4.webp` (2560×1440)
+
+```
+Misty mountain city of the Jade Dominion with terraced rooftops and thousands of floating paper lanterns, smoke creeping through the streets, no characters,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+soft dusk light, warm red lantern glow everywhere, pale cyan mist with volumetric light shafts,
+24mm wide lens, eye level, deep focus with strong depth layering, empty open ground in the centre of the frame,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Chapter 5 · Tides of Cinder
+File `key/chapter5.webp` (2560×1440)
+
+```
+Tropical island archipelago with a coral reef and outrigger canoes, a dark storm with ember-lit clouds rolling over the sea, no characters,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+stormy twilight, orange glow under the clouds, lightning rim light, turquoise water lit from below,
+24mm wide lens, eye level, deep focus with strong depth layering, empty open ground in the centre of the frame,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+### Chapter 6 · The Hollow Throne
+File `key/chapter6.webp` (2560×1440)
+
+```
+The Sunspire, a colossal golden tower at the heart of the continent, its plaza covered in ash, a throne of cracked gold at the top of vast stairs, no characters,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+dramatic dusk with violet and crimson sky, a single beam of golden light breaking through onto the throne, heavy volumetric dust,
+24mm wide lens, eye level, deep focus with strong depth layering, empty open ground in the centre of the frame,
+highly detailed PBR materials, realistic wear and micro-details, 8K, ultra sharp, cinematic color grading
+```
+
+## Title screen — `art/key/title.webp`
+```
+The golden Sunspire tower rising from the centre of a vast fantasy continent, snowy northern mountains, green oak forests, golden dunes, jade terraced hills, turquoise islands and a savanna all visible around it, six realm banners on the plaza below, no text,
+photorealistic AAA game graphics, Unreal Engine 5 cinematic render, Lumen global illumination, Nanite geometry, ray-traced reflections and shadows, volumetric lighting,
+sunrise breaking behind the tower as the key light, golden god rays fanning across the land, cool blue shadows in the valleys, atmospheric haze for depth,
+24mm wide lens, slight low angle, deep focus, epic scale,
+highly detailed PBR materials, 8K, ultra sharp, cinematic color grading
+```
+
+## Store icon (1024×1024)
+```
+A golden crown above a radiant sun on a navy-blue heraldic shield, polished gold with fine engraving and small rubies, centred bold silhouette readable at 64 px, no text,
+photorealistic AAA game asset, Unreal Engine 5, ray-traced specular highlights,
+studio three-point lighting with soft warm key and cool rim, dark purple gradient background,
+85mm lens, straight-on, everything in focus,
+highly detailed PBR materials, 8K, ultra sharp
+```

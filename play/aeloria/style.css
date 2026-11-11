@@ -384,3 +384,4 @@ dialog::backdrop{background:#05030acc;backdrop-filter:blur(3px)}
 .ptier.royal{background:linear-gradient(#4a3010,#2a1f44);border-color:#ffd36b66}.royalrow.locked .ptier{opacity:.6}.ptier .lk{position:absolute;top:2px;right:6px;font-style:normal}
 .skin .swatches{display:flex;gap:4px;margin:4px 0}.skin .swatches i{width:18px;height:18px;border-radius:50%;border:2px solid #fff4}
 .adbtn{background:linear-gradient(#2f9c5e,#1c6a3e)!important;border-color:#6fe39a!important}
+.painted-bg{object-fit:cover}

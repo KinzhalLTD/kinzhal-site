@@ -829,6 +829,7 @@ const ARENA = {
   sunspire: { sky: ['#1b0f26', '#7a4fb3'], far: '#3a2a4a', mid: '#4a3a3a', near: '#6a5a4a', sun: '#ffd36b', deco: 'spire' }
 };
 function arenaSVG(ch) {
+  const painted = ART.keyUrl('chapter' + ch); if (painted) return `<img class="arena painted-bg" src="${painted}" alt="" decoding="async">`;
   const C = CHAPTERS[ch - 1], A = ARENA[C.realm] || ARENA.greenhold, u = 'ar' + ch;
   const deco = A.deco === 'spire' ? '<g fill="#2a1f33"><path d="M180 330l20-200 20 200z"/><path d="M140 330h120v-30H140z"/></g><path d="M200 130l6 60h-12z" fill="#ffd36b" opacity=".7"/>'
     : A.deco === 'pine' ? '<g fill="#3a5a6a">' + [30, 90, 330, 370].map((x, i) => `<path d="M${x} ${400 - i % 2 * 20}l-26 0 26-80 26 80z"/>`).join('') + '</g><g fill="#fff" opacity=".8"><path d="M20 260l50-90 50 90z" fill="#c9d6e3"/><path d="M280 270l60-110 60 110z" fill="#c9d6e3"/><path d="M50 205l20-35 20 35-10-6-10 8z"/><path d="M322 190l18-30 18 30-9-5-9 7z"/></g>'
