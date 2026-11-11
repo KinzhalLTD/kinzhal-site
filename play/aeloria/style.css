@@ -690,3 +690,27 @@ label.bt.auto{min-height:36px;display:inline-flex;align-items:center;gap:6px;cur
 /* hero moment colours by realm */
 .spot.hm{background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--rc) 55%,transparent),#05030df0 62%)}
 .joined .jfig{height:72px;width:auto;margin:-14px 0 -4px;filter:drop-shadow(0 4px 6px #000a)}
+
+/* ---- story scenes with full-body figures ---- */
+.st-fig{position:absolute;bottom:0;height:min(64vh,560px);width:auto;max-width:62vw;object-fit:contain;transition:filter .35s,opacity .35s,transform .35s;filter:drop-shadow(0 0 22px color-mix(in srgb,var(--c) 70%,transparent)) drop-shadow(0 14px 22px #000)}
+.st-fig.l{left:-4%}.st-fig.r{right:-4%;transform:scaleX(-1)}
+.st-fig.stdim{filter:brightness(.38) saturate(.5) drop-shadow(0 10px 18px #000);opacity:.9}
+.st-fig.l.stdim{transform:translateX(-8%) scale(.94)}.st-fig.r.stdim{transform:scaleX(-1) translateX(-8%) scale(.94)}
+.st-fig.l.enter{animation:figl .55s cubic-bezier(.2,1.2,.4,1)}.st-fig.r.enter{animation:figr .55s cubic-bezier(.2,1.2,.4,1)}
+@keyframes figl{from{transform:translateX(-40%);opacity:0}}@keyframes figr{from{transform:scaleX(-1) translateX(-40%);opacity:0}}
+.story .st-art{padding:0;overflow:hidden}
+@media(prefers-reduced-motion:reduce){.st-fig.enter{animation:none}}
+/* ---- title screen line-up ---- */
+#introTap{background:radial-gradient(circle at 50% 40%,#3a2a6bcc,#05030df2 72%)}
+#introTap>*:not(.tapline){position:relative;z-index:1}
+.tapline{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.tapline .tl-boss{position:absolute;left:50%;top:2%;height:58%;transform:translateX(-50%);opacity:.32;filter:drop-shadow(0 0 30px #9b4dff) blur(.5px);animation:tlboss 6s ease-in-out infinite alternate}
+@keyframes tlboss{to{transform:translateX(-50%) scale(1.04);opacity:.42}}
+.tapline .tl-h{position:absolute;bottom:-2%;left:calc(50% + (var(--i) - 2) * min(21vw,170px));transform:translateX(-50%) scale(calc(1 - var(--o) * .12));transform-origin:bottom;height:min(50vh,400px);filter:brightness(calc(1 - var(--o) * .22)) drop-shadow(0 0 18px #e8a33d66) drop-shadow(0 10px 18px #000);animation:tlh 1s cubic-bezier(.2,1.2,.4,1) both;animation-delay:calc(.15s + var(--o) * .18s);z-index:calc(5 - var(--o))}
+@keyframes tlh{from{opacity:0;translate:0 60px}}
+#introTap .tapgo{position:relative;z-index:6;background:#05030dcc;border-radius:999px;padding:6px 18px}
+@media(prefers-reduced-motion:reduce){.tapline *{animation:none!important}}
+.tapline .tl-h{height:min(38vh,320px)}
+.tapline::after{content:"";position:absolute;left:0;right:0;top:22%;height:46%;background:radial-gradient(ellipse at 50% 50%,#05030de6,#05030d00 70%)}
+#introTap{justify-content:flex-start;padding-top:14vh}
+#introTap .tapgo{margin-top:8px}

@@ -866,12 +866,18 @@ function speakerInfo(sp) {
 function playStory(lines, title, onDone, ch) {
   if (!lines || !lines.length) return onDone && onDone();
   closeSheet();
-  const ov = document.createElement('div'); ov.className = 'story'; let i = 0, typing = null, full = '';
+  const ov = document.createElement('div'); ov.className = 'story'; let i = 0, typing = null, full = '', lastSp = null; const slots = {};
   ov.innerHTML = `${ch ? `<div class="st-scene">${arenaSVG(ch)}</div>` : ART.keyUrl('epic') ? `<div class="st-scene"><img class="arena painted-bg" src="${ART.keyUrl('epic')}" alt=""></div>` : ''}<div class="st-bg ${ch || ART.keyUrl('epic') ? 'over' : ''}"></div><i class="lb top"></i><i class="lb bot"></i>${title ? `<div class="st-title">${title}</div>` : ''}<div class="st-art"></div><div class="st-box"><b class="st-name"></b><p class="st-text"></p><span class="st-next">▼</span></div><button class="st-skip">Skip ›</button>`;
   document.body.appendChild(ov); FX.setMood('cine');
   const show = () => {
     const [sp, raw] = lines[i], info = speakerInfo(sp); full = raw.replace(/\{name\}/g, S.name);
-    ov.querySelector('.st-art').innerHTML = info.art ? `<div class="st-portrait ${info.side}" style="--c:${info.color || '#e8a33d'}">${info.art}</div>` : '';
+    // full-body figures face each other across the scene: the speaker lit and forward, the other side dimmed
+    const fig = HERO[sp] ? ART.asset('champions', sp) : FOES[sp] ? ART.asset('fiends', sp) : null;
+    if (fig) {
+      const side = FOES[sp] ? 'r' : 'l'; slots[side] = { sp, fig, c: info.color || '#e8a33d' };
+      ov.querySelector('.st-art').innerHTML = ['l', 'r'].map(k => slots[k] ? `<img class="st-fig ${k} ${k === side ? 'stact' : 'stdim'} ${k === side && slots[k].sp !== lastSp ? 'enter' : ''}" style="--c:${slots[k].c}" src="${slots[k].fig}" alt="">` : '').join('');
+    } else ov.querySelector('.st-art').innerHTML = info.art ? `<div class="st-portrait ${info.side}" style="--c:${info.color || '#e8a33d'}">${info.art}</div>` : '';
+    lastSp = sp;
     ov.querySelector('.st-name').textContent = info.name; ov.querySelector('.st-box').classList.toggle('narr', !info.name);
     const tx = ov.querySelector('.st-text'); tx.textContent = ''; let k = 0; clearInterval(typing);
     typing = setInterval(() => { tx.textContent = full.slice(0, ++k); if (k % 3 === 0) FX.sound('tick'); if (k >= full.length) { clearInterval(typing); typing = null; } }, 22);
@@ -1629,7 +1635,15 @@ function playIntro(onDone) {
 
 function boot() {
   const REALM_ART = { greenhold: 'chapter1', amber: 'chapter2', frostmark: 'chapter3', jade: 'chapter4', coral: 'chapter5', sunveldt: 'sunveldt' };
+function titleLineup() {
+  const t = $('#introTap'); if (!t || t.querySelector('.tapline') || !ART.asset('champions', 'arthur')) return;
+  const ids = ['astrid', 'antarah', 'arthur', 'saqr', 'lian'], boss = ART.asset('fiends', 'hollow');
+  const d = document.createElement('div'); d.className = 'tapline'; d.setAttribute('aria-hidden', 'true');
+  d.innerHTML = (boss ? `<img class="tl-boss" src="${boss}" alt="">` : '') + ids.map((id, i) => `<img class="tl-h" style="--i:${i};--o:${Math.abs(i - 2)}" src="${ART.asset('champions', id)}" alt="">`).join('');
+  t.prepend(d);
+}
 function paintIntro(realm) {
+  titleLineup();
   const k = ART.keyUrl(realm ? REALM_ART[realm] : 'title') || ART.keyUrl('title'), el = $('#intro'); if (!k || !el) return;
   el.style.background = `linear-gradient(#05030d55,#05030dbb),url(${k}) center/cover`; const c = $('#introCv'); if (c) c.style.opacity = 0;
   document.querySelectorAll('#realms .realm').forEach(b => { const u = ART.keyUrl(REALM_ART[b.dataset.r]); if (u) b.style.background = `linear-gradient(#0b081866,#0b0818e0),url(${u}) center/cover`; });
