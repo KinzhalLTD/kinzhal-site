@@ -10,11 +10,14 @@
     "lian": "heroes/lian.png",
     "hiro": "heroes/hiro.png",
     "kaimana": "heroes/kaimana.png",
-    "tama": "heroes/tama.png"
+    "tama": "heroes/tama.png",
+    "amara": "heroes/amara.png",
+    "kofi": "heroes/kofi.png"
   },
   "foes": {},
   "key": {
-    "chapter1": "key/chapter1.png"
+    "chapter1": "key/chapter1.png",
+    "chapter2": "key/chapter2.png"
   },
   "music": {},
   "sfx": {}
