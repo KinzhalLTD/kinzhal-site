@@ -46,7 +46,8 @@ const BLD = {
   mine:      { name: 'Iron Mine', desc: 'Produces Iron for weapons and armour.', base: 7, cost: { grain: 150, timber: 120 }, max: 20, field: 'ore' }
 };
 const INNER = { citadel: [500, 305], market: [500, 168], mews: [372, 218], embassy: [628, 218], barracks: [258, 292], academy: [742, 292], infirmary: [352, 368], vault: [648, 368], tower: [432, 432], wall: [568, 432] };
-const FIELD_POS = [[70, 96], [214, 52], [664, 30], [790, 78], [330, 668], [70, 420], [166, 470], [262, 522], [356, 576], [104, 572], [212, 640], [646, 570], [742, 520], [840, 466], [930, 414], [810, 620]];
+const FIELD_POS = [[70, 96], [214, 52], [664, 30], [790, 78], [330, 668], [70, 420], [166, 470], [262, 522], [356, 576], [104, 572], [212, 640], [646, 570], [742, 520], [840, 466], [930, 414], [810, 620], [-170, 640], [-40, 770], [130, 870], [560, 905], [730, 840], [1010, 800], [1180, 660], [1260, 150]];
+const LANDMARKS = { arena: [-250, 350, 'Arena of Crowns'], bazaar: [1265, 440, 'Grand Bazaar'], forge: [1000, -120, 'Great Forge'], altar: [110, -140, 'Crown Altar'] };
 const FIELD_TYPES = ['farm', 'lumber', 'quarry', 'mine'];
 
 /* ---------- troops ---------- */

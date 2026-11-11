@@ -17,7 +17,7 @@ function newState(name, color, realm) {
     v: 1, name, color, realm: realm || 'greenhold', created: now(), last: now(),
     res: { grain: 6000, timber: 6000, stone: 4000, ore: 1500, gold: 3000 }, gems: 300,
     b: { citadel: 1, barracks: 1, mews: 1, academy: 0, infirmary: 0, vault: 0, tower: 0, wall: 0, embassy: 0, market: 0 },
-    fields: Array(16).fill(null),
+    fields: Array(24).fill(null),
     queue: [], builderUntil: 0,
     troops: { inf1: 60, rng1: 40, cav1: 20 }, wounded: {}, training: null,
     tech: {}, rq: null,
@@ -259,7 +259,7 @@ function addShards(id, n) { const h = S.heroes[id]; if (h) h.shards += n; else S
 /* ======================= building ======================= */
 const lvlOf = key => key[0] === 'f' && key !== 'farm' ? (S.fields[+key.slice(1)]?.l || 0) : S.b[key] || 0;
 const idOf = key => key[0] === 'f' && key !== 'farm' ? S.fields[+key.slice(1)]?.t : key;
-const openPlots = () => Math.min(16, 4 + S.b.citadel * 2);
+const openPlots = () => Math.min(FIELD_POS.length, 4 + S.b.citadel * 2);
 const builders = () => 1 + (S.builderUntil > now() ? 1 : 0);
 const inQueue = key => S.queue.find(q => q.key === key);
 function upgradeCheck(key, typeForEmpty) {
@@ -529,6 +529,9 @@ function tick() {
   if (!S.incoming && S.b.citadel >= 4 && t >= S.raidAt) { if (S.shieldUntil > t) scheduleRaid(); else startRaid(); }
   if (S.incoming && t >= S.incoming.arrive) resolveRaid();
   LIVE.tick(dt);
+  // a treasure caravan passes the gates now and then: a small surprise for whoever is watching the city
+  if (!caravan && t >= (S.caravanAt || (S.caravanAt = t + 45000))) { if (S.caravanDay !== today()) { S.caravanDay = today(); S.caravanN = 0; } if (S.caravanN < 30 && paintedCity()) { caravan = { until: t + 36000 }; if (tab === 'city') { toast('✨ A treasure caravan is passing your gates: tap it!', 'good'); sfx('coin'); } } else S.caravanAt = t + 600000; }
+  if (caravan && t > caravan.until) { caravan = null; S.caravanAt = t + (80 + Math.random() * 80) * 1000; }
   // house chatter
   if (Math.random() < dt / 45) { S.house.chat.push({ from: pick(HOUSE_NAMES), t: pick(HOUSE_CHAT), at: t }); S.house.chat = S.house.chat.slice(-30); }
   if (Math.random() < dt / 70 && S.house.requests.length < 6) S.house.requests.push({ from: pick(HOUSE_NAMES), what: pick(['Citadel', 'Barracks', 'Ramparts', 'Smelting', 'Date Farm', 'Infirmary']) });
@@ -545,7 +548,7 @@ function produce(dt) {
 const sfx = k => FX.sound(k);
 
 /* ======================= UI helpers ======================= */
-function toast(msg, kind = '') { const el = document.createElement('div'); el.className = 'toast ' + kind; el.innerHTML = msg; $('#toasts').appendChild(el); setTimeout(() => el.classList.add('out'), 2600); setTimeout(() => el.remove(), 3100); }
+function toast(msg, kind = '') { const box = $('#toasts'); [...box.children].filter(c => c.innerHTML === msg).forEach(c => c.remove()); while (box.children.length >= 3) box.firstChild.remove(); const el = document.createElement('div'); el.className = 'toast ' + kind; el.innerHTML = msg; $('#toasts').appendChild(el); setTimeout(() => el.classList.add('out'), 2600); setTimeout(() => el.remove(), 3100); }
 function floatNote(msg) { const el = document.createElement('div'); el.className = 'float-note'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 1800); }
 function burst() { FX.confetti(); }
 function burstOld() { const c = document.createElement('div'); c.className = 'burst'; for (let i = 0; i < 28; i++) { const s = document.createElement('i'); s.style.setProperty('--a', (i * 360 / 28) + 'deg'); s.style.setProperty('--d', (90 + Math.random() * 120) + 'px'); s.style.background = pick(['#ffd36b', '#3fd7c8', '#ff7a59', '#f2e6cf']); c.appendChild(s); } document.body.appendChild(c); setTimeout(() => c.remove(), 1200); }
@@ -564,7 +567,7 @@ function renderHud() {
     `<div class="res gem" data-res="gems" data-act="sub" data-s="gems">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b><span class="plus">+</span></div>`;
   $('#mailDot').hidden = !S.unread; $('#mailDot').textContent = S.unread;
   const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); const passReady = Math.min(30, Math.floor(S.pass.xp / 120)) > Object.keys(S.pass.claimed).length; $('#questDot').hidden = !(qd || now() >= S.chestAt || passReady);
-  $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0);
+  $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0 || (S.market || {}).spin !== today());
   const shield = S.shieldUntil > now();
   $('#status').innerHTML = (S.incoming ? `<button class="alert" data-act="incoming">⚠ ${esc(S.incoming.name)} attacks in ${fmtT((S.incoming.arrive - now()) / 1000)}</button>` : '') +
     (shield ? `<span class="veil">${ART.icon('shield', 14)} Ward ${fmtT((S.shieldUntil - now()) / 1000)}</span>` : '') +
@@ -623,13 +626,14 @@ function cityUiRender() { const n = META.readyCount(); $('#cityUi').innerHTML = 
 // Size the painted city in pixels from the real viewport: it always fills the view with no bands, and pans sideways on phones.
 function fitCity(recentre) {
   const cv = $('#cityView'), sv = $('#citySvg'); if (!cv || !sv || !paintedCity()) return; const w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
-  const z = fitCity.z || 1, sw = Math.ceil(Math.max(w, h * 1120 / 784) * z), sh = Math.ceil(sw * 784 / 1120);
+  const z = CITY_Z[fitCity.zi || 0], sw = Math.ceil(Math.max(w, h * 1840 / 1288) * z), sh = Math.ceil(sw * 1288 / 1840);
   if (!$('#cityZoom')) { const b = document.createElement('button'); b.id = 'cityZoom'; b.dataset.act = 'czoom'; b.title = 'Zoom the city'; cv.after(b); }
-  $('#cityZoom').textContent = z > 1 ? '－' : '＋';
+  $('#cityZoom').textContent = (fitCity.zi || 0) === 1 ? '－' : '＋';
   sv.style.setProperty('width', sw + 'px', 'important'); sv.style.setProperty('height', sh + 'px', 'important');
-  if (recentre || fitCity.w !== w || fitCity.h !== h) requestAnimationFrame(() => { cv.scrollLeft = (sw - w) / 2; cv.scrollTop = Math.max(0, (sh - h) * .45); });
+  if (recentre || fitCity.w !== w || fitCity.h !== h) requestAnimationFrame(() => { cv.scrollLeft = sw * .5 - w / 2; cv.scrollTop = Math.max(0, sh * .47 - h / 2); });
   fitCity.w = w; fitCity.h = h;
 }
+const CITY_Z = [1.64, 2.5, 1];
 addEventListener('resize', () => fitCity());
 // Drifting cloud shadows and birds so the painted city does not sit perfectly still.
 function cityLife() {
@@ -641,7 +645,7 @@ function renderCity() {
   if (use3D()) { const h = $('#city3d'); if (CITY3D.init(h)) { $('#cityView').hidden = true; h.hidden = tab !== 'city'; CITY3D.setActive(tab === 'city'); CITY3D.sync(); cityUiRender(); return; } window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = tab !== 'city'; }
   const cv = $('#cityView');
   if (!$('#cityDyn')) {
-    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="${paintedCity() ? '-60 -45 1120 784' : '0 0 1000 700'}" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g>${paintedCity() ? cityLife() : ''}<g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" x="-60" y="-45" width="1120" height="784" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" x="-60" y="-45" width="1120" height="784" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
+    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="${paintedCity() ? '-420 -300 1840 1288' : '0 0 1000 700'}" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}${paintedCity() ? cityScenery() : ''}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g>${paintedCity() ? cityLife() : ''}<g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" x="-420" y="-300" width="1840" height="1288" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" x="-420" y="-300" width="1840" height="1288" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
     cv.style.background = paintedCity() ? '#0b0818' : ART.P.ground[2]; fitCity(true);
   }
   const items = [];
@@ -655,12 +659,18 @@ function renderCity() {
     if (i >= open) { items.push({ y, html: `<g class="bld locked" transform="translate(${x} ${y})" data-act="lockedfield">${ART.building('empty')}<text y="28" text-anchor="middle" class="lbl">🔒</text></g>` }); return; }
     items.push({ y, html: `<g class="bld" data-act="field" data-i="${i}" transform="translate(${x} ${y})">${f ? ART.building(f.t, f.l) : ART.building('empty')}${q ? scaffold(30) : ''}${f && f.l ? `<g transform="translate(0 20)"><circle r="10" fill="#140f22d9" stroke="#e8a33d88"/><text y="4" text-anchor="middle">${f.l}</text></g>` : ''}</g>` });
   });
+  if (paintedCity()) for (const [id, [x, y, nm]] of Object.entries(LANDMARKS)) {
+    const u = ART.asset('landmark', id); if (!u) continue; const dot = id === 'arena' ? S.arena && S.arena.tickets > 0 : id === 'bazaar' ? (S.market || {}).spin !== today() || S.free !== today() : id === 'altar' ? S.tokens > 0 : false, w = nm.length * 8.6 + 22;
+    items.push({ y, html: `<g class="bld lmk" data-act="landmark" data-id="${id}" transform="translate(${x} ${y})"><ellipse cx="0" cy="6" rx="96" ry="26" fill="#0005"/><image href="${u}" x="-110" y="-172" width="220" height="200"/></g>`, lab: `<g class="bld-lab lmk" data-act="landmark" data-id="${id}" transform="translate(${x} ${y + 40})"><rect x="${-w / 2}" y="-12" width="${w}" height="24" rx="12" fill="#2a1508f0" stroke="#ffd36b"/><text y="5" text-anchor="middle" style="fill:#ffe08a">${nm}</text>${dot ? `<circle cx="${w / 2 - 2}" cy="-11" r="8" fill="#e5484d" stroke="#fff" stroke-width="1.5"/><text x="${w / 2 - 2}" y="-6.500" text-anchor="middle" style="font-size:11px;font-weight:900">!</text>` : ''}</g>` });
+  }
   items.sort((a, b) => a.y - b.y);
   const banner = paintedCity() ? '' : `<g transform="translate(500 92)"><path d="M0 0v-40" stroke="#5a3418" stroke-width="3"/><path class="wave" d="M0-40h40l-8 9 8 9H0z" fill="${S.color}"/></g>`;
   const troopsN = troopCount(S.troops);
   const camp = troopsN ? `<g transform="translate(560 540)" class="bld" data-act="tab" data-tab="army">${Array.from({ length: Math.min(6, Math.ceil(troopsN / 150)) }, (_, i) => `<g transform="translate(${(i % 3) * 30} ${Math.floor(i / 3) * 22})"><path d="M-10 10l10-18 10 18z" fill="#f2ede4"/><path d="M0-8v-6" stroke="#5a3418"/><path class="wave" d="M0-14l6 2-6 2z" fill="${S.color}"/></g>`).join('')}<text x="30" y="56" text-anchor="middle" class="lbl">${fmt(troopsN)} troops</text></g>` : '';
-  $('#cityDyn').innerHTML = banner + items.map(i => i.html).join('') + camp + items.map(i => i.lab || '').join('');
-  $('#cityTop').innerHTML = META.bubbles();
+  // replace the SVG only when it changed, so a tap is never lost to the 3-second refresh
+  const dyn = banner + items.map(i => i.html).join('') + camp + items.map(i => i.lab || '').join(''), top = META.bubbles() + caravanSvg();
+  if ($('#cityDyn')._h !== dyn) { $('#cityDyn').innerHTML = dyn; $('#cityDyn')._h = dyn; }
+  if ($('#cityTop')._h !== top) { $('#cityTop').innerHTML = top; $('#cityTop')._h = top; }
   cityLight(); fitCity();
   const n = META.readyCount();
   $('#cityUi').innerHTML = META.guide() + (n >= 2 ? `<button class="collect" data-act="harvestall">${ART.icon('crate', 18)} Collect all <b>${n}</b></button>` : '');
@@ -1071,7 +1081,8 @@ function endFight(win) {
     const fallen = f.heroes.filter(h => h.hp <= 0).length, first = !S.stages[f.key]; stars = 3 - Math.min(2, fallen);
     S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++; META.xp(15); LIVE.on('stage', 1); S.essence += 2 + Math.floor(idx / 3);
     const xp = 100 + idx * 45; f.heroes.forEach(h => heroXP(h.id, xp));
-    r = { gold: 200 + idx * 120 + (f.perfects || 0) * 40 + (f.breaks || 0) * 60 }; if (first) r.gems = 10 + idx * 2;
+    S.streak = (S.streak || 0) + 1; const sb = Math.min(5, S.streak - 1) * .1; f.streakTxt = S.streak > 1 ? `🔥 Win streak ×${S.streak}${sb ? ` · +${Math.round(sb * 100)}% gold` : ''}` : '';
+    r = { gold: Math.round((200 + idx * 120 + (f.perfects || 0) * 40 + (f.breaks || 0) * 60) * (1 + sb)) }; if (first) r.gems = 10 + idx * 2;
     S.stats.perfects = (S.stats.perfects || 0) + (f.perfects || 0); S.stats.breaks = (S.stats.breaks || 0) + (f.breaks || 0);
     const sh = STAGE_SHARD[f.key]; if (sh && (first || Math.random() < .5)) r.shards = { [sh]: first ? 5 : 1 + Math.floor(Math.random() * 2) };
     else if (Math.random() < .3) r.shards = { [pick(HEROES).id]: 1 };
@@ -1083,12 +1094,12 @@ function endFight(win) {
     html = `<div class="res-rays"></div><h2 class="win">Victory</h2>${f.joined ? `<div class="joined">${ART.portrait(HERO[f.joined], 64)}<div><small>New hero</small><b>${HERO[f.joined].name} joins your court!</b></div></div>` : ''}<div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
       <div class="rheroes">${f.heroes.map(h => `<div>${ART.portrait(h.hero, 54)}<small>Lv ${S.heroes[h.id].lvl}</small><em>+${xp} XP</em></div>`).join('')}</div>
       <div class="rskill"><span><b>${f.perfects || 0}</b>Perfect casts</span><span><b>${f.breaks || 0}</b>Charges broken</span><span><b>${f.bestChain ? '×' + (f.bestChain + 1) : '–'}</b>Best chain</span></div>
-      <div class="rloot">${META.rewardHTML(r)}</div>
+      ${f.streakTxt ? `<div class="streak">${f.streakTxt}</div>` : ''}<div class="rloot">${META.rewardHTML(r)}</div>
       <div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn" data-act="retry">Retry</button>${nextKey ? `<button class="btn gold" data-act="nextstage" data-key="${nextKey}">Next stage ›</button>` : ''}</div>`;
     FX.sound('win'); setTimeout(() => FX.confetti(), 300);
     [0, 1, 2].forEach(i => i < stars && setTimeout(() => FX.sound('coin'), 700 + i * 300));
   } else {
-    html = `<h2 class="loss">Defeat</h2><p>Your squad was overwhelmed.</p><div class="tips"><p>⬆ Level heroes with Tomes or Tutors in the Hall of Heroes</p><p>★ Raise stars with shards from Trials and the Crown Summon</p><p>⇄ Try a squad with a Tank, a healer and a damage dealer</p></div><div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn gold" data-act="retry">Retry</button><button class="btn" data-act="sub" data-s="summon">Summon heroes</button></div>`;
+    S.streak = 0; html = `<h2 class="loss">Defeat</h2><p>Your squad was overwhelmed.</p><div class="tips"><p>⬆ Level heroes with Tomes or Tutors in the Hall of Heroes</p><p>★ Raise stars with shards from Trials and the Crown Summon</p><p>⇄ Try a squad with a Tank, a healer and a damage dealer</p></div><div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn gold" data-act="retry">Retry</button><button class="btn" data-act="sub" data-s="summon">Summon heroes</button></div>`;
     FX.sound('loss');
   }
   const box = document.createElement('div'); box.className = 'result ' + (win ? 'won' : 'lost'); box.innerHTML = html;
@@ -1362,11 +1373,33 @@ function openTab(t) {
   if (t === 'world') { if (!openTab.centered) { centerOn(S.home.x, S.home.y); openTab.centered = true; } requestAnimationFrame(mapLoop); }
   render();
 }
-function render() {
+function render(auto) {
   renderHud(); renderQueues();
   if (tab === 'city') renderCity();
   const P = { army: renderArmy, heroes: renderHeroes, research: renderResearch, quests: renderQuests, house: renderHouse, bag: renderBag, store: META.renderStore, arena: LIVE.renderArena }[tab];
-  if (P) { const y = $('#panel').scrollTop; $('#panel').innerHTML = P(); $('#panel').scrollTop = y; }
+  if (!P) return;
+  // Only touch the panel when its content really changed, never under a finger, and keep every scroll position.
+  const pn = $('#panel'), html = P(), same = pn._tab === tab; if (same && pn._html === html) return; if (auto && (pDown || META.busy())) return;
+  const y = pn.scrollTop, sx = {}, cnt = {}, keyOf = e => { const c = e.className || e.tagName; cnt[c] = (cnt[c] || 0) + 1; return c + '#' + cnt[c]; };
+  if (same) pn.querySelectorAll('*').forEach(e => { const k = keyOf(e); if (e.scrollLeft > 0) sx[k] = e.scrollLeft; });
+  pn.innerHTML = html; pn._html = html; pn._tab = tab; pn.scrollTop = same ? y : 0;
+  for (const k in cnt) delete cnt[k];
+  if (same) pn.querySelectorAll('*').forEach(e => { const k = keyOf(e); if (sx[k]) e.scrollLeft = sx[k]; });
+  else pn.querySelectorAll('.ptrack').forEach(tr => { const r = tr.querySelector('.ptier.ready') || tr.querySelector('.ptier:not(.got)'); if (r) tr.scrollLeft = r.offsetLeft - tr.offsetLeft - 24; });
+}
+let pDown = false; addEventListener('pointerdown', () => { pDown = true; }, true); for (const ev of ['pointerup', 'pointercancel']) addEventListener(ev, () => setTimeout(() => { pDown = false; }, 350), true);
+let caravan = null;
+function caravanSvg() { const u = caravan && ART.asset('landmark', 'caravan'); return u ? `<g class="caravan" data-act="caravan"><g class="cv-move"><circle r="74" cy="-52" fill="url(#lglow)"/><image href="${u}" x="-72" y="-124" width="144" height="148"/><g class="cv-tap" transform="translate(0 -142)"><rect x="-34" y="-13" width="68" height="24" rx="12" fill="#ffd36b" stroke="#7a4a12" stroke-width="2"/><text y="5" text-anchor="middle" style="fill:#2c1604;font-weight:900;font-size:14px">TAP!</text></g></g></g>` : ''; }
+// Scenery scattered over the wider realm (deterministic per realm), keeping clear of the walls, plots and landmarks.
+function cityScenery() {
+  if (cityScenery.r === S.realm && cityScenery.h) return cityScenery.h; let seed = 7 + S.realm.length * 131; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const keep = [...FIELD_POS, ...Object.values(LANDMARKS)], out = [], snow = S.realm === 'frostmark';
+  for (let i = 0; i < 400 && out.length < 54; i++) {
+    const x = -400 + rnd() * 1800, y = -270 + rnd() * 1240, inCore = x > -150 && x < 1150 && y > -90 && y < 800; if (inCore || keep.some(([kx, ky]) => Math.hypot(kx - x, (ky - y) * 1.3) < 150) || out.some(o => Math.hypot(o.x - x, o.y - y) < 95)) continue;
+    const r = rnd(), edge = y < -150 || x < -330 || x > 1330, k = edge && r < .5 ? (snow ? 'snowmount' : 'mount') : r < .12 ? 'village' : r < .2 ? 'shrine' : r < .42 ? 'herbs' : 'trees', z = { mount: 230, snowmount: 230, village: 130, shrine: 84, herbs: 70, trees: 120 }[k] * (.85 + rnd() * .3);
+    const u = ART.asset('map', k); if (u) out.push({ x, y, h: `<image href="${u}" x="${(x - z / 2).toFixed(0)}" y="${(y - z * .8).toFixed(0)}" width="${z.toFixed(0)}" height="${z.toFixed(0)}"/>` });
+  }
+  cityScenery.r = S.realm; return cityScenery.h = `<g id="cityScene" pointer-events="none">${out.sort((a, b) => a.y - b.y).map(o => o.h).join('')}<rect x="-420" y="-300" width="1840" height="1288" fill="url(#cvig)"/></g>`;
 }
 
 /* ======================= events ======================= */
@@ -1396,7 +1429,9 @@ function onAct(e) {
     case 'stages': openStages(); break;
     case 'stage': startStage(d.key); break;
     case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && !fight.timing && now() >= fight.pauseUntil) timedCast(u); break; }
-    case 'czoom': { const cv = $('#cityView'), fx = (cv.scrollLeft + cv.clientWidth / 2) / cv.scrollWidth, fy = (cv.scrollTop + cv.clientHeight / 2) / cv.scrollHeight; fitCity.z = (fitCity.z || 1) > 1 ? 1 : 1.5; fitCity.w = cv.clientWidth; fitCity.h = cv.clientHeight; fitCity(); requestAnimationFrame(() => { cv.scrollLeft = fx * cv.scrollWidth - cv.clientWidth / 2; cv.scrollTop = fy * cv.scrollHeight - cv.clientHeight / 2; }); sfx('click'); break; }
+    case 'landmark': sfx('click'); if (d.id === 'arena') openTab('arena'); else if (d.id === 'bazaar') META.act('sub', { s: 'market' }); else if (d.id === 'altar') META.act('sub', { s: 'summon' }); else { openTab('heroes'); toast('Open a hero to forge their gear with Ember Essence'); } break;
+    case 'caravan': if (caravan) { caravan = null; S.caravanN = (S.caravanN || 0) + 1; S.caravanAt = now() + (80 + Math.random() * 80) * 1000; const L = Math.max(1, S.b.citadel), r = Math.random(), rw = r < .4 ? { gold: 400 * L } : r < .75 ? { [pick(['grain', 'timber', 'stone', 'ore'])]: 2500 * L } : r < .9 ? { gems: 10 } : r < .98 ? { items: { sp5: 1 } } : { gems: 50 }; give(rw, 'Treasure caravan'); FX.confetti(); FX.sound('chest'); META.xp(3); render(); } break;
+    case 'czoom': { const cv = $('#cityView'), fx = (cv.scrollLeft + cv.clientWidth / 2) / cv.scrollWidth, fy = (cv.scrollTop + cv.clientHeight / 2) / cv.scrollHeight; fitCity.zi = ((fitCity.zi || 0) + 1) % CITY_Z.length; fitCity.w = cv.clientWidth; fitCity.h = cv.clientHeight; fitCity(); requestAnimationFrame(() => { cv.scrollLeft = fx * cv.scrollWidth - cv.clientWidth / 2; cv.scrollTop = fy * cv.scrollHeight - cv.clientHeight / 2; }); sfx('click'); break; }
     case 'target': if (fight && !fight.over) { const u = fight.foes.find(h => h.id === d.id); if (u && u.hp > 0) { fight.target = u.id; sfx('click'); updFight(); } } break;
     case 'auto': break;
     case 'closefight': { const oc = fight && fight.outro; leaveFight(); render(); if (oc) chapterStory(oc, 'outro', () => { if (oc === CHAPTERS.length) FX.banner('Aeloria Restored', 'The Hollow King is defeated. Now claim the Sunspire Throne on the World map.', { art: ART.emblem(120) }); openStages(); }); else openStages(); break; }
@@ -1465,7 +1500,7 @@ function start() {
   if (away > 120) toast(`Welcome back! Your realm worked for ${fmtT(away)} while you were away.`, 'good');
   openTab('city');
   setTimeout(() => META.loginPopup(), start.fromIntro ? 2500 : 900);
-  setInterval(() => { tick(); renderHud(); renderQueues(); if (tab !== 'city' && tab !== 'world' && !$('#panel').contains(document.activeElement) && Math.floor(now() / 1000) % 2 === 0) render(); }, 500);
+  setInterval(() => { tick(); renderHud(); renderQueues(); if (tab !== 'city' && tab !== 'world' && !$('#panel').contains(document.activeElement) && Math.floor(now() / 1000) % 2 === 0) render(true); }, 500);
   setInterval(() => { if (tab === 'city' && !document.querySelector('.reveal')) renderCity(); save(); }, 3000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
   window.addEventListener('pagehide', save);

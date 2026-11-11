@@ -164,5 +164,12 @@
     "hound": "army/hound.webp",
     "brute": "army/brute.webp",
     "wraith": "army/wraith.webp"
+  },
+  "landmark": {
+    "arena": "landmark/arena.webp",
+    "bazaar": "landmark/bazaar.webp",
+    "forge": "landmark/forge.webp",
+    "altar": "landmark/altar.webp",
+    "caravan": "landmark/caravan.webp"
   }
 }

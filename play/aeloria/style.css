@@ -540,3 +540,22 @@ body.painted-ui .res,.res{display:grid;grid-template-columns:auto minmax(0,1fr);
 .bld-lab rect{filter:drop-shadow(0 2px 2px #0008)}
 .res.gem{grid-template-columns:auto minmax(0,1fr)}.res.gem .ic{grid-row:span 2}.res.gem .plus{grid-column:2;justify-self:start;font-size:9px;line-height:1.2;padding:0 5px}
 @media(max-width:420px){.res small{font-size:8px;letter-spacing:-.03em}.res{padding:3px 3px 3px 3px}}
+
+/* ---- notifications sit below the HUD and never stack past three ---- */
+#toasts{top:calc(150px + var(--safe-t))}
+/* ---- wider city: landmarks, caravan ---- */
+.bld.lmk image{filter:drop-shadow(0 6px 8px #0009)}.bld-lab.lmk text{font-weight:800}
+.caravan{cursor:pointer}.cv-move{animation:cvroad 36s linear forwards}@keyframes cvroad{from{transform:translate(1080px,610px)}to{transform:translate(120px,950px)}}
+.caravan image{animation:cvbob .5s ease-in-out infinite alternate;filter:drop-shadow(0 6px 6px #0008)}@keyframes cvbob{to{transform:translateY(-4px)}}
+.cv-tap{animation:cvtap .6s ease-in-out infinite alternate}@keyframes cvtap{to{transform:translate(0,-150px)}}
+.cshadow{animation-name:cdrift2}@keyframes cdrift2{from{transform:translate(-300px,0)}to{transform:translate(2300px,160px)}}
+.cbird{animation-name:cfly2}@keyframes cfly2{from{transform:translate(-420px,0)}to{transform:translate(1700px,-120px)}}
+/* ---- market: wheel of fortune ---- */
+.wheelcard{text-align:center}.wheelwrap{position:relative;width:260px;height:260px;margin:14px auto 12px}
+.wheel{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#3b2e66 0 45deg,#6b3d1a 0 90deg,#1c6f73 0 135deg,#3b2e66 0 180deg,#6b3d1a 0 225deg,#1c6f73 0 270deg,#3b2e66 0 315deg,#b3433a 0 360deg);border:6px solid #ffd36b;box-shadow:0 0 0 3px #7a4a12,0 0 30px #ffb84066,inset 0 0 30px #000a}
+.wheel span{position:absolute;left:50%;top:50%;width:76px;margin:-14px 0 0 -38px;display:flex;justify-content:center;transform:rotate(var(--a)) translateY(-86px);font-size:11px;font-weight:800}
+.wheel span>*{transform:scale(.86)}
+.wptr{position:absolute;left:50%;top:-12px;margin-left:-13px;border:13px solid transparent;border-top:24px solid #ffd36b;z-index:2;filter:drop-shadow(0 3px 2px #000)}
+.whub{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:radial-gradient(#fff0b0,#eda83a 60%,#7a4a12);display:grid;place-items:center;color:#2c1604;font-size:20px;box-shadow:0 3px 8px #000a}
+.deal small{display:block;margin-top:3px;font-size:11px}
+.streak{margin:6px auto;display:inline-block;background:linear-gradient(#ff7a2a,#c0392b);color:#fff;font-weight:900;border-radius:999px;padding:4px 14px;box-shadow:0 0 16px #ff7a2a88;animation:bob .8s ease-in-out infinite alternate}

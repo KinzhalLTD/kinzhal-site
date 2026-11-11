@@ -249,7 +249,9 @@ const ART = (() => {
 
   /* ---------- city ground per realm ---------- */
   const cityBg = () => {
-    { const c = MAN.city && MAN.city[P.realm]; if (c) return `<image href="art/${c}" x="-119" y="-55" width="1235" height="823" preserveAspectRatio="none"/>`; }
+    { const c = MAN.city && MAN.city[P.realm]; if (c) { const gt = MAN.ground && MAN.ground[{ frostmark: 'snow', amber: 'sand', sunveldt: 'sand' }[P.realm] || 'grass'];
+      // the painted city sits in the middle of a wider realm: tiled ground beyond it, the painting feathered into it
+      return `<defs><pattern id="cgnd" width="320" height="320" patternUnits="userSpaceOnUse"><image href="art/${gt}" width="320" height="320" preserveAspectRatio="none"/></pattern><filter id="cfe" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="34"/></filter><mask id="cmask" maskUnits="userSpaceOnUse" x="-119" y="-55" width="1235" height="823"><rect x="-55" y="9" width="1107" height="695" rx="80" fill="#fff" filter="url(#cfe)"/></mask><radialGradient id="cvig" cx=".5" cy=".47" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#05030d" stop-opacity=".55"/></radialGradient></defs><rect x="-420" y="-300" width="1840" height="1288" fill="url(#cgnd)"/><image href="art/${c}" x="-119" y="-55" width="1235" height="823" preserveAspectRatio="none" mask="url(#cmask)"/>`; } }
     const g = P.ground, u = uid('c'), GT = { frostmark: 'snow', amber: 'sand', sunveldt: 'sand' }, gt = MAN.ground && MAN.ground[GT[P.realm] || 'grass'], st = MAN.ground && MAN.ground.stone;
     const texture = {
       amber: `<path d="M0 30c20-12 40-12 80 0" stroke="${g[2]}" stroke-width="2" fill="none" opacity=".4"/>`,

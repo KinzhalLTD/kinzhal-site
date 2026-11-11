@@ -46,7 +46,7 @@ const META = (() => {
     s.harvest ??= {}; s.deals ??= { day: '', bought: [] }; s.free ??= ''; s.vipDay ??= ''; s.settings ??= { music: true, sfx: true };
     for (const k of RES) if (!Number.isFinite(s.res[k])) s.res[k] = 0; if (!Number.isFinite(s.gems)) s.gems = 0;
     if (typeof LIVE !== 'undefined') LIVE.migrate(s);
-    s.stats.builds ??= 0; s.stats.defWins ??= 0; s.stats.harvests ??= 0;
+    s.stats.builds ??= 0; while (s.fields.length < 24) s.fields.push(null); s.stats.defWins ??= 0; s.stats.harvests ??= 0;
     return s;
   }
   const hud = k => document.querySelector(`[data-res="${k}"]`);
@@ -212,11 +212,29 @@ const META = (() => {
   let sub = 'featured';
   const midnight = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return (d - new Date()) / 1000; };
   function renderStore() {
-    const tabs = [['featured', 'Featured'], ['offers', 'Offers'], ['summon', 'Crown Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['skins', 'City Skins'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
+    const tabs = [['featured', 'Featured'], ['market', 'Market'], ['offers', 'Offers'], ['summon', 'Crown Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['skins', 'City Skins'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
     const head = `<div class="store-head"><h2>Royal Bazaar</h2><div class="wallet"><span data-res="gems2">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b></span><span>${feather(18)}<b>${S.tokens}</b></span><span>${ART.icon('gold', 18)}<b>${fmt(S.res.gold)}</b></span></div></div>
       <div class="subtabs">${tabs.map(([k, n]) => `<button class="${sub === k ? 'on' : ''}" data-act="sub" data-s="${k}">${n}</button>`).join('')}</div>`;
-    return head + ({ featured, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab, offers: LIVE.offersTab, skins: LIVE.skinsTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub])();
+    return head + ({ featured, market: marketTab, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab, offers: LIVE.offersTab, skins: LIVE.skinsTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub])();
   }
+  /* ---------- Market: stalls paid in Gold, and one free spin of the wheel a day ---------- */
+  const MARKET = [['grain', 'Grain wagon'], ['timber', 'Timber cart'], ['stone', 'Stone sledge'], ['ore', 'Iron ingots']].map(([k, n]) => ({ id: k, name: n, max: 5, gold: L => 500 * L, r: L => ({ [k]: 4000 * L }) })).concat([
+    { id: 'sp5', name: 'Hourglass bundle', max: 3, gold: () => 2500, r: () => ({ items: { sp5: 3 } }) }, { id: 'scroll', name: "Scholar's tome", max: 2, gold: () => 3000, r: () => ({ items: { scroll: 1 } }) }, { id: 'vigor', name: 'Elixir of Vigor', max: 2, gold: () => 4000, r: () => ({ items: { vigor: 1 } }) }]);
+  const WHEEL = [{ gems: 20 }, { gold: 3000 }, { items: { sp5: 2 } }, { gems: 50 }, { items: { crate: 1 } }, { items: { vigor: 1 } }, { items: { sp60: 1 } }, { gems: 120 }];
+  const mk = () => { S.market ??= { day: '', bought: {}, spin: '' }; if (S.market.day !== today()) { S.market.day = today(); S.market.bought = {}; } return S.market; };
+  let spinning = false, wheelRot = 0;
+  function marketTab() {
+    const m = mk(), L = Math.max(1, S.b.citadel), free = m.spin !== today(), hrs = Math.max(1, Math.ceil(midnight() / 3600));
+    return `<div class="card wheelcard"><h4>✦ Wheel of Fortune</h4><p class="muted">One free spin every day. All eight prizes are equally likely.</p><div class="wheelwrap"><i class="wptr"></i><div class="wheel" id="wheel" style="transform:rotate(${wheelRot}deg)">${WHEEL.map((w, i) => `<span style="--a:${i * 45 + 22.5}deg">${rewardHTML(w)}</span>`).join('')}</div><b class="whub">★</b></div>${free ? '<button class="btn gold wide" data-act="spin">Spin free</button>' : `<p class="muted center">Next free spin in about ${hrs}h</p>`}</div>
+    <h3>Market stalls <small class="muted">paid in Gold · restock in about ${hrs}h</small></h3><div class="deals">${MARKET.map(it => { const left = it.max - (m.bought[it.id] || 0), price = it.gold(L); return `<div class="deal ${left ? '' : 'sold'}"><span class="off teal">Gold</span><h4>${it.name}</h4><div class="rws">${rewardHTML(it.r(L))}</div>${left ? `<button class="btn gold" data-act="mbuy" data-id="${it.id}">${ART.icon('gold', 14)} ${fmt(price)}</button><small class="muted">${left} left today</small>` : '<span class="muted">Sold out today</span>'}</div>`; }).join('')}</div>`;
+  }
+  function spin() {
+    const m = mk(), el = document.getElementById('wheel'); if (spinning || m.spin === today() || !el) return; spinning = true; m.spin = today();
+    const i = Math.floor(Math.random() * WHEEL.length), txt = give(WHEEL[i]); wheelRot = wheelRot - (wheelRot % 360) + 360 * 6 + (360 - (i * 45 + 22.5));
+    el.style.transition = 'transform 4.2s cubic-bezier(.12,.75,.1,1)'; el.style.transform = `rotate(${wheelRot}deg)`; let n = 0; const tk = setInterval(() => { FX.sound('tick'); if (++n > 26) clearInterval(tk); }, 150);
+    setTimeout(() => { spinning = false; toast(`Wheel of Fortune: ${txt}`, 'good'); FX.confetti(); FX.sound('chest'); render(); }, 4400);
+  }
+  function buyMarket(id) { const m = mk(), it = MARKET.find(x => x.id === id), L = Math.max(1, S.b.citadel); if (!it || (m.bought[id] || 0) >= it.max) return; const price = it.gold(L); if (S.res.gold < price) return toast('Not enough Gold', 'bad'); S.res.gold -= price; m.bought[id] = (m.bought[id] || 0) + 1; give(it.r(L), it.name); FX.sound('coin'); render(); }
   function featured() {
     const freeOk = S.free !== today(), vipOk = vipLvl() > 0 && S.vipDay !== today();
     return `<div class="hero-banner" data-act="sub" data-s="summon"><div class="hb-art">${ART.portrait(HERO[featuredId()], 130)}</div><div class="hb-txt"><small>Featured legend</small><h3>${HERO[featuredId()].name}, ${HERO[featuredId()].title}</h3><p>Summon now · 4% legendary · guaranteed within ${SUMMON.pity} summons</p><span class="btn gold">Summon</span></div></div>
@@ -264,6 +282,8 @@ const META = (() => {
       case 'summon': summon(+d.n); return true;
       case 'openchest': openChestKind(d.k); return true;
       case 'deal': buyDeal(+d.i); return true;
+      case 'spin': spin(); return true;
+      case 'mbuy': buyMarket(d.id); return true;
       case 'pack': buyPack(d.id); return true;
       case 'freegift': freeGift(); return true;
       case 'vipchest': vipChest(); return true;
@@ -278,5 +298,5 @@ const META = (() => {
     }
     return false;
   }
-  return { migrate, xp, grant, bubbles, readyCount, guide, loginPopup, achHTML, passHTML, renderStore, act, feather, rewardHTML, vipLvl };
+  return { busy: () => spinning, migrate, xp, grant, bubbles, readyCount, guide, loginPopup, achHTML, passHTML, renderStore, act, feather, rewardHTML, vipLvl };
 })();
