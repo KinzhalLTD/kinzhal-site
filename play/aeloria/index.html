@@ -33,6 +33,7 @@
   </header>
   <main id="main">
     <div id="cityView"></div>
+    <div id="city3d" hidden></div>
     <div id="cityUi"></div>
     <div id="worldView" hidden><canvas id="map"></canvas><div class="mapbtns"><button class="btn" data-act="home">My city</button></div></div>
     <div id="panel" hidden></div>
@@ -74,5 +75,7 @@
 <script src="meta.js"></script>
 <script src="live.js"></script>
 <script src="game.js"></script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module" src="city3d.js"></script>
 </body>
 </html>

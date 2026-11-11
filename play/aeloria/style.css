@@ -385,3 +385,15 @@ dialog::backdrop{background:#05030acc;backdrop-filter:blur(3px)}
 .skin .swatches{display:flex;gap:4px;margin:4px 0}.skin .swatches i{width:18px;height:18px;border-radius:50%;border:2px solid #fff4}
 .adbtn{background:linear-gradient(#2f9c5e,#1c6a3e)!important;border-color:#6fe39a!important}
 .painted-bg{object-fit:cover}
+
+/* ---------- 3D city ---------- */
+#city3d{position:absolute;inset:0;overflow:hidden;background:#9fc3e6}
+.c3canvas{display:block;touch-action:none;cursor:grab}
+.c3ui{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.c3l{position:absolute;left:0;top:0;pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:3px;background:#140f22d9;border:1px solid #e8a33d77;border-radius:999px;padding:1px 9px;font:700 11.5px var(--body);color:#f8eedb;white-space:nowrap;box-shadow:0 3px 8px #0008;will-change:transform}
+.c3l.sm{padding:0 7px;min-width:22px;justify-content:center;border-radius:11px}.c3l.lock{opacity:.6}
+.c3l:hover{border-color:var(--gold2);background:#2a1f44ee}
+.c3hammer{animation:hammer .6s ease-in-out infinite alternate;display:inline-block}
+.c3up{color:#0b3a22;background:#6fe39a;border-radius:50%;width:15px;height:15px;display:grid;place-items:center;font-size:9px;animation:bobt .8s ease-in-out infinite alternate}
+.c3b{position:absolute;left:0;top:0;pointer-events:auto;cursor:pointer;width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#fff3d6);border:3px solid var(--gold);display:grid;place-items:center;box-shadow:0 6px 14px #0007,0 0 14px #ffd36b88;animation:none}
+.c3b::after{content:"";position:absolute;bottom:-8px;left:50%;margin-left:-6px;border:6px solid transparent;border-top-color:var(--gold)}

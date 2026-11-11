@@ -216,7 +216,7 @@ const LIVE = (() => {
     founder: { name: "Founder's Crown", gems: 0, pal: { wall: '#f2ede4', wall2: '#d8cfbf', wall3: '#b0a58f', roof: '#2b4a8a' } }
   };
   const skinPal = () => (SKINS[S.skin] || {}).pal || {};
-  function applySkin() { ART.setRealm(S.realm, skinPal()); $('#cityView').innerHTML = ''; if (tab === 'city') renderCity(); }
+  function applySkin() { ART.setRealm(S.realm, skinPal()); $('#cityView').innerHTML = ''; if (window.CITY3D) CITY3D.rebuild(); if (tab === 'city') renderCity(); }
   function checkMilestones() {
     const want = [[5, 'pack5'], [10, 'pack10'], [15, 'pack15']].filter(([c]) => S.b.citadel >= c).map(([, p]) => p);
     if (Object.values(S.heroes).some(h => h.stars && HERO[Object.keys(S.heroes).find(k => S.heroes[k] === h)]?.rarity === 'legendary')) want.push('legend');

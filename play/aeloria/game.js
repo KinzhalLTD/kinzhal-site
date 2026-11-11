@@ -613,7 +613,13 @@ function cityLanterns() {
   const pts = [...Object.values(INNER), ...FIELD_POS.slice(0, 6)].map(([x, y]) => [x + 26, y - 6]);
   return pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="17" fill="url(#lglow)"/><circle cx="${x}" cy="${y}" r="3" fill="#ffe7a8"/>`).join('');
 }
+const use3D = () => !!(window.CITY3D && CITY3D.ok !== undefined && S.settings.gfx3d !== false && !window.CITY3D_FAIL);
+window.CITY3D_PICK = d => { if (d.act === 'bld') openBuilding(d.key); else if (d.act === 'field') openField(+d.i); };
+window.addEventListener('city3dready', () => { if (S && tab === 'city') { $('#cityView').innerHTML = ''; render(); } });
+window.addEventListener('city3dlost', () => { window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = false; if (S && tab === 'city') renderCity(); });
+function cityUiRender() { const n = META.readyCount(); $('#cityUi').innerHTML = META.guide() + (n >= 2 ? `<button class="collect" data-act="harvestall">${ART.icon('crate', 18)} Collect all <b>${n}</b></button>` : ''); }
 function renderCity() {
+  if (use3D()) { const h = $('#city3d'); if (CITY3D.init(h)) { $('#cityView').hidden = true; h.hidden = tab !== 'city'; CITY3D.setActive(tab === 'city'); CITY3D.sync(); cityUiRender(); return; } window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = tab !== 'city'; }
   const cv = $('#cityView');
   if (!$('#cityDyn')) {
     cv.innerHTML = `<svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" width="1000" height="700" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" width="1000" height="700" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
@@ -649,7 +655,7 @@ function cityLight() {
 }
 function buildFx(q) {
   if (tab !== 'city') return;
-  const el = q.key[0] === 'f' ? document.querySelector(`[data-act=field][data-i="${q.key.slice(1)}"]`) : document.querySelector(`#cityDyn [data-key="${q.key}"]`);
+  const el = q.key[0] === 'f' ? document.querySelector(`#city3d [data-act=field][data-i="${q.key.slice(1)}"], [data-act=field][data-i="${q.key.slice(1)}"]`) : document.querySelector(`#city3d [data-key="${q.key}"], #cityDyn [data-key="${q.key}"]`);
   if (!el) return; const c = FX.centerOf(el);
   FX.burst(c.x, c.y, { n: 40, shape: 'star', size: 5, speed: 7, ring: '#ffd36b', life: 1.1 }); FX.text(c.x, c.y - 40, `Level ${q.to}!`, 'lvl');
 }
@@ -1196,7 +1202,7 @@ function openTab(t) {
   tab = t; closeSheet();
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   FX.setMood(t === 'world' ? 'world' : 'city'); $('#cityUi').hidden = t !== 'city';
-  $('#cityView').hidden = t !== 'city'; $('#worldView').hidden = t !== 'world'; $('#panel').hidden = t === 'city' || t === 'world'; $('#main').classList.toggle('panel-open', t !== 'city' && t !== 'world');
+  $('#cityView').hidden = t !== 'city' || use3D(); $('#city3d').hidden = t !== 'city' || !use3D(); if (window.CITY3D && CITY3D.ok) CITY3D.setActive(t === 'city' && use3D()); $('#worldView').hidden = t !== 'world'; $('#panel').hidden = t === 'city' || t === 'world'; $('#main').classList.toggle('panel-open', t !== 'city' && t !== 'world');
   if (t === 'world') { if (!openTab.centered) { centerOn(S.home.x, S.home.y); openTab.centered = true; } requestAnimationFrame(mapLoop); }
   render();
 }
@@ -1261,6 +1267,7 @@ function onAct(e) {
     case 'incoming': openSheet('Incoming attack!', `<p><b>${esc(S.incoming.name)}</b> marches with about ${fmt(troopCount(S.incoming.troops) * (S.b.tower >= 3 ? 1 : 1.1))} troops. Arrives in ${fmtT((S.incoming.arrive - now()) / 1000)}.</p><p>Your defenders: ${fmt(troopCount(S.troops))} troops, Ramparts ${S.b.wall}.</p>${S.items.shield ? '<button class="btn gold" data-act="use" data-i="shield">Raise Aegis Ward</button>' : `<button class="btn gold" data-act="buy" data-i="shield">${ART.icon('gem', 12)} ${ITEMS.shield.gems} Buy Aegis Ward</button>`}`); break;
     case 'mute': { const on = !(S.settings.music || S.settings.sfx); S.settings.music = on; S.settings.sfx = on; FX.music(on); FX.setSfx(on); el.textContent = on ? '🔊' : '🔇'; break; }
     case 'menu': openMenu(); break;
+    case 'gfx3d': S.settings.gfx3d = S.settings.gfx3d === false; $('#cityView').innerHTML = ''; if (!use3D() && window.CITY3D && CITY3D.ok) CITY3D.setActive(false); openTab('city'); break;
     case 'reset': if (!el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Tap again to erase this realm'; el.classList.add('gold'); break; } try { localStorage.removeItem(SAVE_KEY); } catch (x) { } location.reload(); break;
     case 'close': closeSheet(); break;
     case 'music': S.settings.music = !S.settings.music; FX.music(S.settings.music); openMenu(); break;
@@ -1278,7 +1285,7 @@ function onInput(e) {
 function openMenu() {
   openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">${REALMS[S.realm].name} · ${REALMS[S.realm].bonusText} · Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
   <div class="card"><h4>How to play</h4><ul class="howto"><li>Upgrade fields to grow Grain, Timber, Stone and Iron. The Citadel caps everything else.</li><li>Train troops in the Barracks. Spearmen › Cavalry › Archers › Spearmen.</li><li>On the World map, explore the fog, gather resources, destroy Ashen outposts and scout Ash-sworn lords.</li><li>Lead heroes through the Story Campaign across six realms to earn XP, shards and new heroes. Your squad boosts every army.</li><li>From Citadel 4 rivals may raid you. Watch the warning, raise an Aegis Ward, or fight back.</li><li>Final goal: break the garrison of the Sunspire Throne at the heart of Aeloria.</li></ul></div>
-  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="notify">🔔 Enable notifications</button><button class="btn" data-act="logincal">📅 Royal Courier</button></div></div>
+  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="notify">🔔 Enable notifications</button><button class="btn" data-act="gfx3d">🏰 3D city: ${S.settings.gfx3d === false ? 'Off' : 'On'}</button><button class="btn" data-act="logincal">📅 Royal Courier</button></div></div>
   <p class="muted">Progress is saved in this browser.</p><button class="btn" data-act="reset">Start a new realm</button>`);
 }
 
