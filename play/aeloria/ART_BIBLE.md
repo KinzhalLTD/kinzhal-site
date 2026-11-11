@@ -483,3 +483,15 @@ studio three-point lighting with soft warm key and cool rim, dark purple gradien
 85mm lens, straight-on, everything in focus,
 highly detailed PBR materials, 8K, ultra sharp
 ```
+
+## Extra art slots (manifest keys)
+Beyond `heroes`, `foes`, `key` and `buildings`, the manifest also accepts:
+
+| Key | Ids | Used for |
+|---|---|---|
+| `map` | `camp`, `throne`, `grain`, `timber`, `stonepit`, `ore` (round markers); `village`, `trees`, `herbs`, `shrine` (transparent scenery sprites) | world map |
+| `ground` | `grass`, `sand`, `snow`, `stone` (seamless tiles) | 3D city terrain and courtyard |
+| `ui` | `button`, `frame`, `tab`, `plaque` (transparent, cropped tight) | gold buttons, building frame, tab bar, resource counters |
+| `fx` | `fire`, `rune`, `slash`, `rays` (on black, blended additively) | hero skill effects in battle |
+| `troops` | `inf`, `rng`, `cav`, `sie` | troop icons everywhere |
+| `key` | `title`, `epic` | title screen, story cutscene backdrop |

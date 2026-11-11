@@ -807,7 +807,7 @@ function playStory(lines, title, onDone, ch) {
   if (!lines || !lines.length) return onDone && onDone();
   closeSheet();
   const ov = document.createElement('div'); ov.className = 'story'; let i = 0, typing = null, full = '';
-  ov.innerHTML = `${ch ? `<div class="st-scene">${arenaSVG(ch)}</div>` : ''}<div class="st-bg ${ch ? 'over' : ''}"></div><i class="lb top"></i><i class="lb bot"></i>${title ? `<div class="st-title">${title}</div>` : ''}<div class="st-art"></div><div class="st-box"><b class="st-name"></b><p class="st-text"></p><span class="st-next">▼</span></div><button class="st-skip">Skip ›</button>`;
+  ov.innerHTML = `${ch ? `<div class="st-scene">${arenaSVG(ch)}</div>` : ART.keyUrl('epic') ? `<div class="st-scene"><img class="arena painted-bg" src="${ART.keyUrl('epic')}" alt=""></div>` : ''}<div class="st-bg ${ch || ART.keyUrl('epic') ? 'over' : ''}"></div><i class="lb top"></i><i class="lb bot"></i>${title ? `<div class="st-title">${title}</div>` : ''}<div class="st-art"></div><div class="st-box"><b class="st-name"></b><p class="st-text"></p><span class="st-next">▼</span></div><button class="st-skip">Skip ›</button>`;
   document.body.appendChild(ov); FX.setMood('cine');
   const show = () => {
     const [sp, raw] = lines[i], info = speakerInfo(sp); full = raw.replace(/\{name\}/g, S.name);
@@ -922,6 +922,14 @@ function lunge(side, u, target) {
   el.animate([{ transform: 'none' }, { transform: `translateY(${dir * 46}px) scale(1.08)`, offset: .45 }, { transform: 'none' }], { duration: 300 / sp, easing: 'cubic-bezier(.3,0,.3,1)' });
   return 130 / sp;
 }
+const SKILL_FX = { aoe: 'fire', stun: 'rune', single: 'slash', crit: 'slash', heal: 'rays', shield: 'rune', buff: 'rays' };
+function skillFx(kind) {
+  const url = ART.asset('fx', SKILL_FX[kind]), b = $('#battle'); if (!url || !b) return;
+  const side = kind === 'heal' || kind === 'shield' || kind === 'buff' ? 'mine' : 'foes', row = b.querySelector('.row.' + side); if (!row) return;
+  const r = row.getBoundingClientRect(), im = document.createElement('img'); im.className = 'skfx ' + SKILL_FX[kind]; im.src = url; im.alt = '';
+  const sz = Math.max(r.height * 1.9, Math.min(r.width, 420)); im.style.cssText = `left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;width:${sz}px;height:${sz}px`;
+  document.body.appendChild(im); setTimeout(() => im.remove(), 900);
+}
 function castSkill(u) {
   const f = fight, sk = u.hero.skill, atk = u.atk * (f.buff ? 1.4 : 1); u.en = 0;
   FX.cutIn(ART.portrait(u.hero, 150), u.hero.name, sk.name, u.hero.look.bg);
@@ -936,6 +944,7 @@ function castSkill(u) {
   else if (sk.kind === 'buff') f.buff = 3;
   setTimeout(() => {
     if (!fight) return;
+    skillFx(sk.kind);
     const big = (els, colors) => els.forEach(el => { const c = FX.centerOf(el); FX.burst(c.x, c.y, { n: 40, shape: 'star', size: 5, speed: 8, colors, ring: colors[0], life: 1 }); });
     const foeEls = [...document.querySelectorAll('#battle .row.foes .unit')], mine = [...document.querySelectorAll('#battle .row.mine .unit:not(.dead)')];
     if (sk.kind === 'aoe' || sk.kind === 'stun') { big(foeEls, sk.kind === 'stun' ? ['#c9b8e8', '#e3c08a', '#fff'] : ['#ffd36b', '#ff7a59', '#fff']); FX.shake($('#battle'), 14, 420); }
@@ -1069,6 +1078,15 @@ function medallion(ctx, id, x, y, r, rim) {
   ctx.strokeStyle = rim; ctx.lineWidth = Math.max(2, r * .09); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
   return true;
 }
+const NODE_ART = { grain: 'grain', timber: 'timber', stone: 'stonepit', ore: 'ore' }, NODE_RIM = { grain: '#ffd36b', timber: '#7fc46a', stone: '#c9d6e3', ore: '#6fb6ff' };
+// Painted scenery (villages, groves, herbs, shrines) scattered deterministically on free land tiles.
+function mapSprite(ctx, id, x, y, size) {
+  const url = ART.asset('map', id); if (!url) return false;
+  let im = MAPIMG[id]; if (!im) { im = MAPIMG[id] = new Image(); im.onload = () => { mapDirty = true; }; im.src = url; }
+  if (!im.complete || !im.naturalWidth) return false;
+  ctx.drawImage(im, x - size / 2, y - size / 2, size, size); return true;
+}
+function decorAt(x, y) { const h = ((x * 73856093) ^ (y * 19349663) ^ 0x5bd1e995) >>> 0; const r = h % 1000; return r < 6 ? 'shrine' : r < 28 ? 'village' : r < 75 ? 'herbs' : r < 150 ? 'trees' : null; }
 function drawMap() {
   const c = $('#map'); if (!c || c.offsetParent === null || !TERR) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1), w = c.clientWidth, h = c.clientHeight;
@@ -1093,11 +1111,15 @@ function drawMap() {
     ctx.fillStyle = '#fff'; ctx.font = `900 ${Math.max(9, 10 * cam.z)}px Cairo,sans-serif`; ctx.textAlign = 'center'; ctx.fillText(m.kind === 'gather' ? '⛏' : m.kind === 'attack' ? '⚔' : '👁', mx, my + 4 * cam.z);
   }
   if (S.incoming) { const o = S.world.find(q => q.id === S.incoming.from); if (o) { const p = clamp(1 - (S.incoming.arrive - t) / ((60 + S.b.tower * 15) * 1000), 0, 1); const a = { x: (o.x + .5) * s - cam.x, y: (o.y + .5) * s - cam.y }, b = { x: (S.home.x + .5) * s - cam.x, y: (S.home.y + .5) * s - cam.y }; ctx.strokeStyle = '#ff2b2b'; ctx.lineWidth = 3; ctx.setLineDash([10, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#ff2b2b'; ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p, a.y + (b.y - a.y) * p, 9, 0, 7); ctx.fill(); } }
+  if (cam.z > .45 && ART.asset('map', 'trees')) {
+    const occ = new Set(); for (const o of S.world) if (!o.dead) occ.add(o.x + ',' + o.y); occ.add(S.home.x + ',' + S.home.y);
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const d = decorAt(x, y); if (!d || !isLand(x, y) || !seen(x, y) || occ.has(x + ',' + y)) continue; mapSprite(ctx, d, (x + .5) * s - cam.x, (y + .5) * s - cam.y, s * (d === 'village' || d === 'shrine' ? .95 : .8)); }
+  }
   // objects (only where explored)
   for (const o of S.world) {
     if (o.dead || o.x < x0 - 2 || o.x > x1 + 2 || o.y < y0 - 2 || o.y > y1 + 2 || !seen(o.x, o.y)) continue;
     const px = (o.x + .5) * s - cam.x, py = (o.y + .5) * s - cam.y;
-    if (o.kind === 'node') { ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .95) label('Lv ' + o.lvl, px, py + s * .42, '#140f22b8', 10); }
+    if (o.kind === 'node') { if (!medallion(ctx, NODE_ART[o.res], px, py, s * .36, NODE_RIM[o.res] || '#ffd36b')) ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .95) label('Lv ' + o.lvl, px, py + s * .42, '#140f22b8', 10); }
     else if (o.kind === 'camp') { if (!medallion(ctx, 'camp', px, py, s * .42, '#ff5e3a')) ART.mapPaint.camp(ctx, px, py, s, o.lvl); if (cam.z > .7) label('Outpost ' + o.lvl, px, py + s * .42, '#6a1f1fe0', 10); }
     else if (o.kind === 'city') { ART.mapPaint.city(ctx, px, py, s * 1.15, o.color, o.realm); if (cam.z > .4) label(o.name, px, py + s * .5, '#140f22e0'); }
     else if (o.kind === 'boss') { LIVE.drawBoss(ctx, px, py, s, o, t); label('World Boss · Lv ' + o.lvl, px, py + s * .7, '#7a1f1ae6', 11); }
@@ -1372,7 +1394,7 @@ function playIntro(onDone) {
 }
 
 function boot() {
-  window.addEventListener('artready', () => { const k = ART.keyUrl('title'); if (k) { $('#introTap').style.background = `linear-gradient(#05030d66,#05030dcc),url(${k}) center/cover`; } if (S && document.querySelector('#app')) render(); FX.music(); });
+  window.addEventListener('artready', () => { document.body.classList.toggle('painted-ui', !!ART.asset('ui', 'button')); if (window.CITY3D && CITY3D.retex) CITY3D.retex(); const k = ART.keyUrl('title'); if (k) { $('#introTap').style.background = `linear-gradient(#05030d66,#05030dcc),url(${k}) center/cover`; } if (S && document.querySelector('#app')) render(); FX.music(); });
   S = load();
   if (S) { start(); return; }
   const colors = ['#e8a33d', '#3fd7c8', '#b3433a', '#9b7bff', '#3e8a4a', '#ff7a59'];

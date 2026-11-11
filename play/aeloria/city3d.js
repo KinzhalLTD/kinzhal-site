@@ -163,6 +163,14 @@ function forest(P, avoid) {
 /* ---------------- terrain, walls, water, sky ---------------- */
 function noise2(x, z) { return Math.sin(x * .07 + Math.sin(z * .05) * 2) * .5 + Math.sin(z * .09 + x * .03) * .35 + Math.sin((x + z) * .21) * .15; }
 function heightAt(x, z) { const d = Math.max(Math.abs(x), Math.abs(z)); const k = THREE.MathUtils.smoothstep(d, 34, 90); return k * (noise2(x, z) * 2.2 + 1) + THREE.MathUtils.smoothstep(d, 80, 130) * 9; }
+const GROUND_TEX = { frostmark: 'snow', amber: 'sand', sunveldt: 'sand' }, texLoader = new THREE.TextureLoader();
+const artUrl = (k, id) => (typeof ART !== 'undefined' && ART.asset) ? ART.asset(k, id) : null;
+function paintTex(mesh, id, rep) {
+  const url = artUrl('ground', id); if (!url || mesh.userData.tex === url) return; mesh.userData.tex = url;
+  texLoader.load(url, t => { t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 4; mesh.material.map = t; if (mesh.userData.tint) mesh.material.color.set(mesh.userData.tint); mesh.material.needsUpdate = true; });
+}
+let groundMesh, yardMesh, groundId = 'grass';
+function retex() { if (groundMesh) paintTex(groundMesh, groundId, 56); if (yardMesh) paintTex(yardMesh, 'stone', 7); }
 function makeGround(P) {
   const geo = new THREE.PlaneGeometry(320, 320, 160, 160); geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position, cols = new Float32Array(pos.count * 3), c0 = new THREE.Color(P.ground[0]), c1 = new THREE.Color(P.ground[1]), c2 = new THREE.Color(P.ground[2]), c = new THREE.Color();
@@ -173,14 +181,14 @@ function makeGround(P) {
     c.multiplyScalar(P.realm === 'frostmark' ? .86 : .93); cols.set([c.r, c.g, c.b], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3)); geo.computeVertexNormals();
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95 })); m.receiveShadow = true; return m;
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95 })); m.receiveShadow = true; m.userData.tint = '#e8e8e8'; groundMesh = m; groundId = GROUND_TEX[P.realm] || 'grass'; paintTex(m, groundId, 56); return m;
 }
 function makeCourtyard(P) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 512; const x = cv.getContext('2d');
   x.fillStyle = P.wall; x.fillRect(0, 0, 512, 512); const base = new THREE.Color(P.wall);
   for (let yy = 0; yy < 512; yy += 32) for (let xx = (yy / 32) % 2 * 16; xx < 512; xx += 32) { const k = .82 + Math.random() * .2; x.fillStyle = `rgb(${base.r * 255 * k | 0},${base.g * 255 * k | 0},${base.b * 255 * k | 0})`; x.fillRect(xx + 1, yy + 1, 30, 30); }
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5, 5); t.anisotropy = 4;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(48, 48), new THREE.MeshStandardMaterial({ map: t, roughness: .92 })); m.rotation.x = -Math.PI / 2; m.position.y = .03; m.receiveShadow = true; return m;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(48, 48), new THREE.MeshStandardMaterial({ map: t, roughness: .92 })); m.rotation.x = -Math.PI / 2; m.position.y = .03; m.receiveShadow = true; m.userData.tint = new THREE.Color(P.wall).lerp(new THREE.Color('#ffffff'), .45).getStyle(); yardMesh = m; paintTex(m, 'stone', 7); return m;
 }
 function makeWalls(P) {
   const g = new THREE.Group(), w = mat(P.wall2), w3 = mat(P.wall3), L = 2 * SC;
@@ -399,7 +407,7 @@ function loop(now) {
 }
 let dragging = false; const drag0 = () => dragging;
 
-window.CITY3D = {
+window.CITY3D = { retex,
   init(container) { if (failed) return false; if (renderer) return true; const ok = init(container); if (!ok) failed = true; return ok; },
   sync, setActive(v) { active = v && !failed; if (active) { last = performance.now(); resize(); } }, get ok() { return !!renderer && !failed; }, rebuild() { built = false; sig = ''; }, tier
 };

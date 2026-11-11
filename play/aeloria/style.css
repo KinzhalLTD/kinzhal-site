@@ -398,3 +398,21 @@ dialog::backdrop{background:#05030acc;backdrop-filter:blur(3px)}
 .c3b{position:absolute;left:0;top:0;pointer-events:auto;cursor:pointer;width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#fff3d6);border:3px solid var(--gold);display:grid;place-items:center;box-shadow:0 6px 14px #0007,0 0 14px #ffd36b88;animation:none}
 .c3b::after{content:"";position:absolute;bottom:-8px;left:50%;margin-left:-6px;border:6px solid transparent;border-top-color:var(--gold)}
 .bpaint{flex:none;border-radius:16px;border:2px solid #e8a33d88;object-fit:cover;box-shadow:0 6px 16px #0008}
+
+/* ---------- Painted art overrides (art/manifest.json: ui, troops, fx) ---------- */
+.tpaint{position:relative;display:inline-block;flex:none;border-radius:22%;overflow:hidden;border:2px solid #b3433a;box-shadow:0 2px 6px #000a;vertical-align:middle}
+.tpaint.t2{border-color:#4f8fd6}.tpaint.t3{border-color:#b98bff;box-shadow:0 0 10px #9b7bff88}
+.tpaint img{width:100%;height:100%;object-fit:cover;display:block}
+.tpaint i{position:absolute;right:2px;top:0;font:900 10px var(--body);font-style:normal;color:#ffd36b;text-shadow:0 1px 2px #000,0 0 3px #000}
+.skfx{position:fixed;z-index:130;pointer-events:none;mix-blend-mode:screen;filter:brightness(1.5) saturate(1.3);transform:translate(-50%,-50%) scale(.3);animation:skfx .85s cubic-bezier(.15,.9,.3,1) forwards}
+.skfx.rune{animation-name:skfxspin}.skfx.slash{animation-duration:.55s}
+@keyframes skfx{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}15%{opacity:1}60%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.25)}}
+@keyframes skfxspin{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(0)}15%{opacity:1}60%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.15) rotate(140deg)}}
+@media(prefers-reduced-motion:reduce){.skfx{animation-duration:.01s}}
+body.painted-ui .btn.gold{background:none;border:solid transparent;border-width:9px 20px;border-image:url(art/ui/button.png) 30% 22% fill/9px 20px stretch;padding:3px 6px;box-shadow:none;filter:drop-shadow(0 3px 3px #000a)}
+body.painted-ui .btn.gold.sm{border-width:7px 15px;border-image-width:7px 15px;padding:1px 3px}
+body.painted-ui .btn.gold::after{left:-60%;border-radius:0;mix-blend-mode:overlay}
+body.painted-ui nav.tabs{background:#0a0614;border-top:10px solid transparent;border-image:url(art/ui/tab.png) 30% 14% 0 fill/10px 26px 0 stretch;box-shadow:0 -6px 18px #000c}
+body.painted-ui .res{background:none;border:solid transparent;border-width:5px 13px;border-image:url(art/ui/plaque.png) 32% 22% fill/5px 13px stretch;padding:0 2px;box-shadow:none}
+body.painted-ui .bpaint{border:9px solid transparent;border-image:url(art/ui/frame.png) 17% /9px stretch;border-radius:0;background:#0b0818;box-shadow:none;filter:drop-shadow(0 6px 10px #000a)}
+body.painted-ui nav.tabs{padding-left:8px;padding-right:8px}

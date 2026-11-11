@@ -53,6 +53,7 @@ const ART = (() => {
     sie: c => `<rect x="8" y="40" width="44" height="7" rx="2" fill="#7e4a22"/><circle cx="16" cy="50" r="7" fill="#5a3418"/><circle cx="44" cy="50" r="7" fill="#5a3418"/><circle cx="16" cy="50" r="2" fill="#e8a33d"/><circle cx="44" cy="50" r="2" fill="#e8a33d"/><path d="M20 40l10-26 10 26" fill="none" stroke="#9c5f2e" stroke-width="3"/><path d="M12 30L48 8" stroke="#9c5f2e" stroke-width="4"/><circle cx="12" cy="30" r="5" fill="#857f77"/><path d="M48 8l4 10" stroke="${c}" stroke-width="2"/>`
   };
   const troop = (type, tier, s = 56) => {
+    const tp = asset('troops', type); if (tp) return `<span class="tpaint t${tier}" style="width:${s}px;height:${s}px"><img src="${tp}" alt="" loading="lazy"><i>${'I'.repeat(tier)}</i></span>`;
     const c = ['#b3433a', '#2f5a8a', '#7a4fb3'][tier - 1] || '#b3433a';
     return `<svg width="${s}" height="${s}" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="32" r="28" fill="#1d1530"/>${TROOP_ART[type](c)}<text x="54" y="14" font-size="11" font-weight="800" fill="#ffd36b" text-anchor="end">${'I'.repeat(tier)}</text></svg>`;
   };

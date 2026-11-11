@@ -37,7 +37,9 @@
     "chapter3": "key/chapter3.png",
     "chapter4": "key/chapter4.png",
     "chapter5": "key/chapter5.png",
-    "chapter6": "key/chapter6.png"
+    "chapter6": "key/chapter6.png",
+    "title": "key/title.png",
+    "epic": "key/epic.png"
   },
   "music": {},
   "sfx": {},
@@ -49,7 +51,48 @@
     "infirmary": "buildings/infirmary.png",
     "vault": "buildings/vault.png",
     "tower": "buildings/tower.png",
-    "wall": "buildings/wall.png"
+    "wall": "buildings/wall.png",
+    "market": "buildings/market.png",
+    "embassy": "buildings/embassy.png",
+    "farm": "buildings/farm.png",
+    "lumber": "buildings/lumber.png",
+    "quarry": "buildings/quarry.png",
+    "mine": "buildings/mine.png"
   },
-  "map": {}
+  "map": {
+    "camp": "map/camp.png",
+    "throne": "map/throne.png",
+    "village": "map/village.png",
+    "trees": "map/trees.png",
+    "herbs": "map/herbs.png",
+    "shrine": "map/shrine.png",
+    "grain": "map/grain.png",
+    "timber": "map/timber.png",
+    "stonepit": "map/stonepit.png",
+    "ore": "map/ore.png"
+  },
+  "ground": {
+    "grass": "ground/grass.png",
+    "sand": "ground/sand.png",
+    "snow": "ground/snow.png",
+    "stone": "ground/stone.png"
+  },
+  "fx": {
+    "fire": "fx/fire.png",
+    "rune": "fx/rune.png",
+    "slash": "fx/slash.png",
+    "rays": "fx/rays.png"
+  },
+  "troops": {
+    "inf": "troops/inf.png",
+    "rng": "troops/rng.png",
+    "cav": "troops/cav.png",
+    "sie": "troops/sie.png"
+  },
+  "ui": {
+    "button": "ui/button.png",
+    "frame": "ui/frame.png",
+    "tab": "ui/tab.png",
+    "plaque": "ui/plaque.png"
+  }
 }
