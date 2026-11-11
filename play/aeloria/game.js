@@ -560,7 +560,7 @@ function renderHud() {
   const mt = might(); $('#hudName').textContent = S.name; $('#hudMight').innerHTML = `${ART.icon('might', 14)} ${fmt(mt)} <span class="vipchip" data-act="sub" data-s="vip">VIP ${vipLvl()}</span>`;
   if (renderHud.m && mt > renderHud.m) { const c = FX.centerOf($('#hudMight')); FX.text(c.x + 30, c.y + 10, `+${fmt(mt - renderHud.m)} Might`, 'might'); $('#hudMight').classList.remove('gain'); void $('#hudMight').offsetWidth; $('#hudMight').classList.add('gain'); }
   renderHud.m = mt;
-  $('#hudRes').innerHTML = RES.map(k => `<div class="res ${S.res[k] >= c ? 'full' : ''}" data-res="${k}" title="${RNAME[k]}: ${fmt(r[k])}/h, storage ${fmt(c)}">${ART.icon(k, 18)}<b>${fmt(S.res[k])}</b><small class="${r[k] < 0 ? 'neg' : ''}">${r[k] >= 0 ? '+' : ''}${fmt(r[k])}/h</small></div>`).join('') +
+  $('#hudRes').innerHTML = RES.map(k => `<div class="res ${S.res[k] >= c ? 'full' : ''}" data-res="${k}" title="${RNAME[k]}: ${fmt(r[k])}/h, storage ${fmt(c)}">${ART.icon(k, 18)}<b>${fmt(S.res[k]).replace(/^(\d{3})\.\d+([KMB])$/, '$1$2')}</b><small class="${r[k] < 0 ? 'neg' : ''}">${r[k] >= 0 ? '+' : ''}${fmt(r[k])}/h</small></div>`).join('') +
     `<div class="res gem" data-res="gems" data-act="sub" data-s="gems">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b><span class="plus">+</span></div>`;
   $('#mailDot').hidden = !S.unread; $('#mailDot').textContent = S.unread;
   const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); const passReady = Math.min(30, Math.floor(S.pass.xp / 120)) > Object.keys(S.pass.claimed).length; $('#questDot').hidden = !(qd || now() >= S.chestAt || passReady);
@@ -585,7 +585,7 @@ function renderQueues() {
     const end = m.state === 'out' ? m.arrive : m.state === 'gather' ? m.gend : m.back, st = m.state === 'out' ? m.start : m.state === 'gather' ? m.gstart : m.bstart;
     rows.push(`<div class="q march" data-act="march" data-id="${m.id}">${ART.icon(m.kind === 'gather' ? (m.res || 'crate') : m.kind === 'scout' || m.kind === 'explore' ? 'scroll' : 'might', 16)}<div><b>${{ gather: 'Gathering', attack: 'Attack', scout: 'Scout', explore: 'Exploring' }[m.kind]} · ${m.state === 'back' ? 'returning' : m.state === 'gather' ? 'gathering' : 'marching'}</b>${bar((t - st) / Math.max(1, end - st), 'teal')}<small>${fmtT((end - t) / 1000)}</small></div></div>`);
   }
-  $('#queues').innerHTML = rows.join('');
+  $('#queues').innerHTML = rows.filter(r => tab === 'city' || !r.includes('q idle')).join('');
 }
 
 /* ======================= City view ======================= */
@@ -623,17 +623,25 @@ function cityUiRender() { const n = META.readyCount(); $('#cityUi').innerHTML = 
 // Size the painted city in pixels from the real viewport: it always fills the view with no bands, and pans sideways on phones.
 function fitCity(recentre) {
   const cv = $('#cityView'), sv = $('#citySvg'); if (!cv || !sv || !paintedCity()) return; const w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
-  const sw = Math.ceil(Math.max(w, h * 1120 / 784)), sh = Math.ceil(sw * 784 / 1120);
+  const z = fitCity.z || 1, sw = Math.ceil(Math.max(w, h * 1120 / 784) * z), sh = Math.ceil(sw * 784 / 1120);
+  if (!$('#cityZoom')) { const b = document.createElement('button'); b.id = 'cityZoom'; b.dataset.act = 'czoom'; b.title = 'Zoom the city'; cv.after(b); }
+  $('#cityZoom').textContent = z > 1 ? '－' : '＋';
   sv.style.setProperty('width', sw + 'px', 'important'); sv.style.setProperty('height', sh + 'px', 'important');
   if (recentre || fitCity.w !== w || fitCity.h !== h) requestAnimationFrame(() => { cv.scrollLeft = (sw - w) / 2; cv.scrollTop = Math.max(0, (sh - h) * .45); });
   fitCity.w = w; fitCity.h = h;
 }
 addEventListener('resize', () => fitCity());
+// Drifting cloud shadows and birds so the painted city does not sit perfectly still.
+function cityLife() {
+  const cl = [[-200, 120, 190, 70, 70, 0], [-420, 430, 240, 90, 95, -30], [-300, 640, 170, 60, 80, -55]].map(([x, y, rx, ry, d, dl]) => `<ellipse class="cshadow" cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" style="animation-duration:${d}s;animation-delay:${dl}s"/>`).join('');
+  const bird = (x, y, d, dl, s) => `<g class="cbird" style="animation-duration:${d}s;animation-delay:${dl}s"><g transform="translate(${x} ${y}) scale(${s})"><path class="cwing" d="M-9-3Q-4-7 0 0Q4-7 9-3" fill="none" stroke="#1b1430" stroke-width="2.2" stroke-linecap="round"/></g></g>`;
+  return `<g id="cityLife" pointer-events="none">${cl}${bird(-80, 150, 38, 0, 1)}${bird(-110, 168, 38, -.6, .8)}${bird(-60, 172, 38, -1.1, .7)}${bird(-90, 520, 52, -20, .9)}${bird(-120, 505, 52, -20.7, .7)}</g>`;
+}
 function renderCity() {
   if (use3D()) { const h = $('#city3d'); if (CITY3D.init(h)) { $('#cityView').hidden = true; h.hidden = tab !== 'city'; CITY3D.setActive(tab === 'city'); CITY3D.sync(); cityUiRender(); return; } window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = tab !== 'city'; }
   const cv = $('#cityView');
   if (!$('#cityDyn')) {
-    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="${paintedCity() ? '-60 -45 1120 784' : '0 0 1000 700'}" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" x="-60" y="-45" width="1120" height="784" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" x="-60" y="-45" width="1120" height="784" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
+    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="${paintedCity() ? '-60 -45 1120 784' : '0 0 1000 700'}" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g>${paintedCity() ? cityLife() : ''}<g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" x="-60" y="-45" width="1120" height="784" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" x="-60" y="-45" width="1120" height="784" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
     cv.style.background = paintedCity() ? '#0b0818' : ART.P.ground[2]; fitCity(true);
   }
   const items = [];
@@ -1388,6 +1396,7 @@ function onAct(e) {
     case 'stages': openStages(); break;
     case 'stage': startStage(d.key); break;
     case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && !fight.timing && now() >= fight.pauseUntil) timedCast(u); break; }
+    case 'czoom': { const cv = $('#cityView'), fx = (cv.scrollLeft + cv.clientWidth / 2) / cv.scrollWidth, fy = (cv.scrollTop + cv.clientHeight / 2) / cv.scrollHeight; fitCity.z = (fitCity.z || 1) > 1 ? 1 : 1.5; fitCity.w = cv.clientWidth; fitCity.h = cv.clientHeight; fitCity(); requestAnimationFrame(() => { cv.scrollLeft = fx * cv.scrollWidth - cv.clientWidth / 2; cv.scrollTop = fy * cv.scrollHeight - cv.clientHeight / 2; }); sfx('click'); break; }
     case 'target': if (fight && !fight.over) { const u = fight.foes.find(h => h.id === d.id); if (u && u.hp > 0) { fight.target = u.id; sfx('click'); updFight(); } } break;
     case 'auto': break;
     case 'closefight': { const oc = fight && fight.outro; leaveFight(); render(); if (oc) chapterStory(oc, 'outro', () => { if (oc === CHAPTERS.length) FX.banner('Aeloria Restored', 'The Hollow King is defeated. Now claim the Sunspire Throne on the World map.', { art: ART.emblem(120) }); openStages(); }); else openStages(); break; }

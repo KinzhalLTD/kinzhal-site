@@ -495,3 +495,48 @@ body.painted-ui .bpaint{background:radial-gradient(circle at 50% 60%,#2a2350,#0b
 .bfield.army .unit b{font-size:11px;margin:3px 0 1px}.bfield.army .unit.boss{transform:none}
 .bfield.army .hint{margin-top:8px}
 @media(min-width:700px){.bfield.army .unit{width:96px}.bfield.army .unit .pf{width:80px;height:80px}}
+
+/* ================= UI pass: crafted buttons, tab bar, resource chips, city chrome ================= */
+/* buttons: one shape language (rounded 12px, bevelled, 40px touch height); gold = primary action */
+.btn,body.painted-ui .btn.gold{min-height:40px;padding:8px 16px;border-radius:12px;white-space:nowrap;font-size:14px;line-height:1.15;letter-spacing:.01em}
+.btn{background:linear-gradient(#3b2e66,#261c44);border:1px solid #6e58a0;color:#f3ecff;box-shadow:inset 0 1px #ffffff2e,inset 0 -2px #0000004d,0 3px 0 #0d0819,0 5px 10px #0006}
+.btn:active{transform:translateY(2px);box-shadow:inset 0 1px #ffffff2e,0 1px 0 #0d0819}
+body.painted-ui .btn.gold,.btn.gold{background:linear-gradient(#fff0b0 0,#ffd368 22%,#eda83a 58%,#c47a1c 100%);border:1px solid #7a4a12;border-image:none;color:#2c1604;text-shadow:0 1px #fff7;box-shadow:inset 0 0 0 1.5px #fff3c0cc,inset 0 -3px #9c5a12aa,0 3px 0 #5a3410,0 6px 14px #0008,0 0 16px #ffb84044;filter:none}
+body.painted-ui .btn.gold:active,.btn.gold:active{transform:translateY(2px);box-shadow:inset 0 0 0 1.5px #fff3c0cc,0 1px 0 #5a3410}
+body.painted-ui .btn.gold::after{mix-blend-mode:normal;border-radius:inherit}
+.btn.sm,body.painted-ui .btn.gold.sm{min-height:34px;padding:5px 13px;font-size:13px;border-width:1px}
+.btn.wide{min-height:46px;font-size:15.5px}.btn:disabled{filter:grayscale(.7);opacity:.55}
+.btn .ic,.btn img{flex:none}
+.mini{min-height:30px;padding:4px 10px;border-radius:9px;display:inline-flex;align-items:center;gap:4px;border-color:#6e58a0;background:linear-gradient(#3b2e66,#261c44);box-shadow:inset 0 1px #ffffff22,0 2px 0 #0d0819}
+.x{width:36px;height:36px;border-radius:50%;background:linear-gradient(#3b2e66,#1d1530);border:1px solid #8a72c0;box-shadow:inset 0 1px #ffffff2e,0 2px 0 #0d0819;font-size:15px;display:grid;place-items:center;flex:none}
+.hbtn{width:40px;height:38px;padding:0;display:grid;place-items:center;border-radius:11px;border-color:#6e58a0;box-shadow:inset 0 1px #ffffff2e,0 2px 0 #0d0819}
+.hud .hrow{gap:6px}
+@media(max-width:420px){.hbtn{width:36px;height:36px;padding:0}}
+/* tab bar: clean bar, bigger icons and labels, clear selected pill */
+body.painted-ui nav.tabs,nav.tabs{background:linear-gradient(#241843,#0d0819);border:0;border-top:2px solid #e8a33d;border-image:none;padding:4px 2px calc(4px + var(--safe-b));box-shadow:0 -8px 22px #000b}
+nav.tabs::before{display:none}
+nav.tabs button{padding:5px 0 4px;gap:3px;font:800 10.5px var(--body);color:#b9aad6;border-radius:12px;min-height:52px;justify-content:center}
+nav.tabs svg{width:27px;height:27px}
+nav.tabs button.on{color:#ffe08a;background:linear-gradient(#ffd36b2e,#ffd36b0a);box-shadow:inset 0 0 0 1px #ffd36b66}
+nav.tabs button.on svg{transform:translateY(-1px) scale(1.12)}
+nav.tabs button.on::after{bottom:auto;top:-6px;left:26%;right:26%;height:4px;border-radius:0 0 4px 4px}
+nav.tabs .dot{right:calc(50% - 24px);top:0}
+@media(max-width:420px){nav.tabs button{font-size:9.5px;letter-spacing:-.01em}nav.tabs svg{width:25px;height:25px}}
+/* resource chips: all six visible on a phone, no painted plaque squeezing the numbers */
+#hudRes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;overflow:visible}
+body.painted-ui .res,.res{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:3px;align-items:center;background:linear-gradient(#171029,#0e0919);border:1px solid #6b5630;border-image:none;border-radius:10px;padding:3px 5px 3px 4px;box-shadow:inset 0 1px #ffffff14,0 2px 0 #06040c;min-width:0}
+.res b{font-size:12.5px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:clip}.res small{font-size:9.5px;line-height:1.1;white-space:nowrap;overflow:hidden}
+.res.gem{grid-template-columns:auto minmax(0,1fr) auto;border-color:#3fd7c8aa}.res .plus{margin-left:0;padding:0 3px}
+@media(max-width:420px){.res .ic{width:16px!important;height:16px!important}.res b{font-size:11.5px}.res small{font-size:8.5px}}
+@media(min-width:700px){#hudRes{grid-template-columns:repeat(6,minmax(0,150px))}}
+/* city chrome: idle prompts become small pills, zoom button, ambient life */
+#queues{width:auto;max-width:210px;align-items:flex-start}
+.q.idle{padding:5px 10px 5px 7px;border-radius:999px;border-left-width:1px;border-color:#e8a33d99;width:max-content}.q.idle small{display:none}.q.idle b{font-size:11.5px}.q.idle::after{content:"›";color:var(--gold2);font-weight:900;margin-left:2px}
+#cityZoom{position:absolute;right:8px;top:8px;z-index:3;width:40px;height:40px;border-radius:50%;background:linear-gradient(#3b2e66,#1d1530);border:1px solid #e8a33d;color:#ffe08a;font-size:20px;font-weight:900;line-height:1;box-shadow:0 4px 12px #0009,inset 0 1px #ffffff2e}
+#cityView[hidden]~#cityZoom{display:none}
+.cshadow{fill:#0a1020;opacity:.16;filter:blur(18px);animation:cdrift linear infinite}@keyframes cdrift{to{transform:translate(1700px,120px)}}
+.cbird{animation:cfly linear infinite}@keyframes cfly{to{transform:translate(1350px,-90px)}}.cwing{animation:cflap .45s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}@keyframes cflap{to{transform:scaleY(.25)}}
+@media(prefers-reduced-motion:reduce){.cshadow,.cbird,.cwing{animation:none}}
+.bld-lab rect{filter:drop-shadow(0 2px 2px #0008)}
+.res.gem{grid-template-columns:auto minmax(0,1fr)}.res.gem .ic{grid-row:span 2}.res.gem .plus{grid-column:2;justify-self:start;font-size:9px;line-height:1.2;padding:0 5px}
+@media(max-width:420px){.res small{font-size:8px;letter-spacing:-.03em}.res{padding:3px 3px 3px 3px}}
