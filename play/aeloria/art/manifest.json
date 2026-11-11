@@ -25,7 +25,8 @@
     "stalker": "foes/stalker.png",
     "wraith": "foes/wraith.png",
     "troll": "foes/troll.png",
-    "lantern": "foes/lantern.png"
+    "lantern": "foes/lantern.png",
+    "kraken": "foes/kraken.png"
   },
   "key": {
     "chapter1": "key/chapter1.png",
