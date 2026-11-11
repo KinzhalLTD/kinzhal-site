@@ -620,12 +620,21 @@ window.CITY3D_PICK = d => { if (d.act === 'bld') openBuilding(d.key); else if (d
 window.addEventListener('city3dready', () => { if (S && tab === 'city') { $('#cityView').innerHTML = ''; render(); } });
 window.addEventListener('city3dlost', () => { window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = false; if (S && tab === 'city') renderCity(); });
 function cityUiRender() { const n = META.readyCount(); $('#cityUi').innerHTML = META.guide() + (n >= 2 ? `<button class="collect" data-act="harvestall">${ART.icon('crate', 18)} Collect all <b>${n}</b></button>` : ''); }
+// Size the painted city in pixels from the real viewport: it always fills the view with no bands, and pans sideways on phones.
+function fitCity(recentre) {
+  const cv = $('#cityView'), sv = $('#citySvg'); if (!cv || !sv || !paintedCity()) return; const w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
+  const sw = Math.ceil(Math.max(w, h * 1120 / 784)), sh = Math.ceil(sw * 784 / 1120);
+  sv.style.setProperty('width', sw + 'px', 'important'); sv.style.setProperty('height', sh + 'px', 'important');
+  if (recentre || fitCity.w !== w || fitCity.h !== h) requestAnimationFrame(() => { cv.scrollLeft = (sw - w) / 2; cv.scrollTop = Math.max(0, (sh - h) * .45); });
+  fitCity.w = w; fitCity.h = h;
+}
+addEventListener('resize', () => fitCity());
 function renderCity() {
   if (use3D()) { const h = $('#city3d'); if (CITY3D.init(h)) { $('#cityView').hidden = true; h.hidden = tab !== 'city'; CITY3D.setActive(tab === 'city'); CITY3D.sync(); cityUiRender(); return; } window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = tab !== 'city'; }
   const cv = $('#cityView');
   if (!$('#cityDyn')) {
-    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" width="1000" height="700" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" width="1000" height="700" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
-    cv.style.background = paintedCity() ? '#0b0818' : ART.P.ground[2]; requestAnimationFrame(() => { cv.scrollLeft = (cv.scrollWidth - cv.clientWidth) / 2; cv.scrollTop = Math.max(0, (cv.scrollHeight - cv.clientHeight) * .42); });
+    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="${paintedCity() ? '-60 -45 1120 784' : '0 0 1000 700'}" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" x="-60" y="-45" width="1120" height="784" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" x="-60" y="-45" width="1120" height="784" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
+    cv.style.background = paintedCity() ? '#0b0818' : ART.P.ground[2]; fitCity(true);
   }
   const items = [];
   for (const [id, [x, y]] of Object.entries(INNER)) {
@@ -644,7 +653,7 @@ function renderCity() {
   const camp = troopsN ? `<g transform="translate(560 540)" class="bld" data-act="tab" data-tab="army">${Array.from({ length: Math.min(6, Math.ceil(troopsN / 150)) }, (_, i) => `<g transform="translate(${(i % 3) * 30} ${Math.floor(i / 3) * 22})"><path d="M-10 10l10-18 10 18z" fill="#f2ede4"/><path d="M0-8v-6" stroke="#5a3418"/><path class="wave" d="M0-14l6 2-6 2z" fill="${S.color}"/></g>`).join('')}<text x="30" y="56" text-anchor="middle" class="lbl">${fmt(troopsN)} troops</text></g>` : '';
   $('#cityDyn').innerHTML = banner + items.map(i => i.html).join('') + camp + items.map(i => i.lab || '').join('');
   $('#cityTop').innerHTML = META.bubbles();
-  cityLight();
+  cityLight(); fitCity();
   const n = META.readyCount();
   $('#cityUi').innerHTML = META.guide() + (n >= 2 ? `<button class="collect" data-act="harvestall">${ART.icon('crate', 18)} Collect all <b>${n}</b></button>` : '');
 }
@@ -867,14 +876,16 @@ function buildFight() {
   const unit = (u, side) => `<div class="unit ${side === 'h' ? 'hero-u' : 'foe-u'} ${u.max > 2 * (f.foes[0]?.max || 0) && side === 'f' ? 'boss' : ''}" id="u-${side}-${u.id}" data-act="${side === 'h' ? 'cast' : 'target'}" data-id="${u.id}">
     <div class="pf">${side === 'h' || u.hero ? ART.portrait(u.hero, 88) : ART.enemy(u.kind, 88)}<span class="tapme">SKILL!</span></div><b>${esc(u.name)}</b>
     <div class="hpbar"><i class="trail"></i><i class="fill"></i></div>${side === 'h' ? '<div class="enbar"><i></i></div>' : ''}<div class="fx-st"></div></div>`;
-  $('#battle').innerHTML = `${arenaSVG(f.ch)}<div class="dust"></div><div class="bfield">
+  $('#battle').innerHTML = `${arenaSVG(f.ch)}<div class="dust"></div><div class="bfield army">
     <div class="btop"><button class="bt" data-act="retreat">✕</button><div class="stage-t">${f.mode === 'arena' ? `<small>Arena of Crowns</small><b>vs ${esc(f.opp.name)}</b>` : `<small>Chapter ${f.ch} · ${CHAPTERS[f.ch - 1].name}</small><b>Stage ${f.key}</b>`}</div><span id="bstat"></span><button class="bt" data-act="bspeed" id="bspeed">${f.speed}×</button><label class="bt auto"><input type="checkbox" data-act="auto" ${f.auto ? 'checked' : ''}>Auto</label></div>
     <div class="row foes">${f.foes.map(u => unit(u, 'f')).join('')}</div>
-    <div class="vs"><span>Turn <b id="bturn">1</b></span></div>
+    <div class="bfwrap"><canvas id="bfcv"></canvas><div class="vs"><span>Turn <b id="bturn">1</b></span></div></div>
     <div class="row mine">${f.heroes.map(u => unit(u, 'h')).join('')}</div>
     <p class="hint"></p></div><div class="stage-intro"><small>Hero Trials</small><b>Stage ${f.key}</b><span>Fight!</span></div>`;
   f.foes.forEach((u, i) => { u.cd = 2 + (i + f.n) % 3; u.wind = 0; }); f.perfects = 0; f.breaks = 0; f.bestChain = 0;
   updFight(); clashIntro(f);
+  BF.onTap = (side, u) => { if (side === 'f') { f.target = u.id; sfx('click'); updFight(); } else if (u.en >= 100 && !f.over && !f.auto && !f.timing && now() >= f.pauseUntil) timedCast(u); };
+  BF.start(f, $('#bfcv'));
 }
 const focusFoe = () => { const a = alive(fight.foes); return a.find(u => u.id === fight.target) || a[0]; };
 function callout(txt, cls = '') { const b = $('#battle'); if (!b) return; const n = document.createElement('div'); n.className = 'callout ' + cls; n.textContent = txt; b.appendChild(n); setTimeout(() => n.remove(), 950); }
@@ -943,7 +954,7 @@ function updFight() {
 const alive = a => a.filter(u => u.hp > 0);
 function hitFx(side, id, txt, cls = '', delay = 0) {
   setTimeout(() => {
-    const el = document.getElementById(`u-${side}-${id}`); if (!el) return;
+    const el = document.getElementById(`u-${side}-${id}`); if (!el) return; BF.hit(side, id, txt, cls);
     const n = document.createElement('span'); n.className = 'dmg ' + cls; n.textContent = txt; n.style.left = (35 + Math.random() * 30) + '%'; el.appendChild(n); setTimeout(() => n.remove(), 1000);
     if (cls !== 'heal') { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); const c = FX.centerOf(el); FX.burst(c.x, c.y - 10, { n: cls === 'crit' ? 22 : 9, shape: 'spark', size: 4, speed: cls === 'crit' ? 9 : 6, colors: cls === 'crit' ? ['#ffd36b', '#fff', '#ff7a59'] : ['#fff3c4', '#ffd36b'], g: .05, life: .45 }); }
     else { const c = FX.centerOf(el); FX.burst(c.x, c.y, { n: 12, colors: ['#6fe39a', '#c8ffd9'], g: -.08, speed: 2.5, life: .9 }); }
@@ -967,7 +978,8 @@ function dealTo(target, raw, side, delay = 0, critChance = .1) {
 function lunge(side, u, target) {
   const el = document.getElementById(`u-${side}-${u.id}`), tg = target && document.getElementById(`u-${side === 'h' ? 'f' : 'h'}-${target.id}`); if (!el) return 0;
   const ranged = side === 'h' && ['Ranged', 'Mage', 'Engineer', 'Support'].includes(u.hero.role);
-  const sp = fight.speed;
+  const sp = fight.speed; if (target) BF.attack(side, u, target);
+  if (BF.active) { el.animate([{ transform: 'none' }, { transform: 'scale(1.07)' }, { transform: 'none' }], { duration: 240 / sp }); if (ranged) FX.sound('arrow'); return (ranged ? 240 : 200) / sp; }
   if (ranged && tg) {
     const a = FX.centerOf(el), b = FX.centerOf(tg), p = document.createElement('div'); p.className = 'proj ' + u.hero.role.toLowerCase(); document.body.appendChild(p);
     const ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
@@ -982,9 +994,10 @@ function lunge(side, u, target) {
 const SKILL_FX = { aoe: 'fire', stun: 'rune', single: 'slash', crit: 'slash', heal: 'rays', shield: 'rune', buff: 'rays' };
 function skillFx(kind) {
   const url = ART.asset('fx', SKILL_FX[kind]), b = $('#battle'); if (!url || !b) return;
-  const side = kind === 'heal' || kind === 'shield' || kind === 'buff' ? 'mine' : 'foes', row = b.querySelector('.row.' + side); if (!row) return;
-  const r = row.getBoundingClientRect(), im = document.createElement('img'); im.className = 'skfx ' + SKILL_FX[kind]; im.src = url; im.alt = '';
-  const sz = Math.max(r.height * 1.9, Math.min(r.width, 420)); im.style.cssText = `left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;width:${sz}px;height:${sz}px`;
+  const side = kind === 'heal' || kind === 'shield' || kind === 'buff' ? 'mine' : 'foes', row = b.querySelector('#bfcv') || b.querySelector('.row.' + side); if (!row) return;
+  let r = row.getBoundingClientRect(); if (row.id === 'bfcv') r = { left: r.left + (side === 'foes' ? r.width * .5 : 0), top: r.top + r.height * .25, width: r.width * .5, height: r.height * .5 };
+  const im = document.createElement('img'); im.className = 'skfx ' + SKILL_FX[kind]; im.src = url; im.alt = '';
+  const sz = row.id === 'bfcv' ? Math.min(r.width * 1.5, r.height * 2) : Math.max(r.height * 1.9, Math.min(r.width, 420)); im.style.cssText = `left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;width:${sz}px;height:${sz}px`;
   document.body.appendChild(im); setTimeout(() => im.remove(), 900);
 }
 function castSkill(u, bonus = 1) {
@@ -1008,7 +1021,7 @@ function castSkill(u, bonus = 1) {
   if (hitSet.length) { alive(f.heroes).forEach(h => h.en = Math.min(100, h.en + 15)); setTimeout(() => { if (fight === f) { callout('CHARGE BROKEN!', 'brk'); FX.sound('coin'); } }, delay + 250); }
   setTimeout(() => {
     if (!fight) return;
-    skillFx(sk.kind);
+    skillFx(sk.kind); BF.skill(u, sk.kind);
     const big = (els, colors) => els.forEach(el => { const c = FX.centerOf(el); FX.burst(c.x, c.y, { n: 40, shape: 'star', size: 5, speed: 8, colors, ring: colors[0], life: 1 }); });
     const foeEls = [...document.querySelectorAll('#battle .row.foes .unit')], mine = [...document.querySelectorAll('#battle .row.mine .unit:not(.dead)')];
     if (sk.kind === 'aoe' || sk.kind === 'stun') { big(foeEls, sk.kind === 'stun' ? ['#c9b8e8', '#e3c08a', '#fff'] : ['#ffd36b', '#ff7a59', '#fff']); FX.shake($('#battle'), 14, 420); }
@@ -1042,7 +1055,7 @@ function fightLoop() {
   f.next = t + wait; setTimeout(updFight, wait * .8);
 }
 function endFight(win) {
-  const f = fight; if (f.over) return; f.over = true; clearInterval(f.timer);
+  const f = fight; if (f.over) return; f.over = true; clearInterval(f.timer); BF.end(win);
   if (f.mode === 'arena') return LIVE.endArena(f, win);
   const ch = f.ch, n = f.n, idx = (ch - 1) * 6 + n;
   let html, r = {}, stars = 0;
@@ -1076,7 +1089,7 @@ function endFight(win) {
   if (win && f.joined && STORY.legend && STORY.legend[f.joined]) setTimeout(() => { if (fight === f) playStory(STORY.legend[f.joined], HERO[f.joined].origin || 'A Legend Answers', null); }, 1500);
   save();
 }
-function leaveFight() { if (fight) { clearInterval(fight.timer); fight.over = true; } $('#battle').hidden = true; $('#battle').innerHTML = ''; fight = null; FX.setMood(tab === 'world' ? 'world' : 'city'); }
+function leaveFight() { BF.stop(); if (fight) { clearInterval(fight.timer); fight.over = true; } $('#battle').hidden = true; $('#battle').innerHTML = ''; fight = null; FX.setMood(tab === 'world' ? 'world' : 'city'); }
 
 /* ======================= Research tab ======================= */
 function renderResearch() {

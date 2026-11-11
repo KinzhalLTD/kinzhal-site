@@ -46,7 +46,7 @@ const BLD = {
   mine:      { name: 'Iron Mine', desc: 'Produces Iron for weapons and armour.', base: 7, cost: { grain: 150, timber: 120 }, max: 20, field: 'ore' }
 };
 const INNER = { citadel: [500, 305], market: [500, 168], mews: [372, 218], embassy: [628, 218], barracks: [258, 292], academy: [742, 292], infirmary: [352, 368], vault: [648, 368], tower: [432, 432], wall: [568, 432] };
-const FIELD_POS = [[86, 110], [228, 92], [370, 64], [640, 66], [760, 96], [70, 420], [166, 470], [262, 522], [356, 576], [104, 572], [212, 640], [646, 570], [742, 520], [840, 466], [930, 414], [810, 620]];
+const FIELD_POS = [[70, 96], [214, 52], [664, 30], [790, 78], [330, 668], [70, 420], [166, 470], [262, 522], [356, 576], [104, 572], [212, 640], [646, 570], [742, 520], [840, 466], [930, 414], [810, 620]];
 const FIELD_TYPES = ['farm', 'lumber', 'quarry', 'mine'];
 
 /* ---------- troops ---------- */

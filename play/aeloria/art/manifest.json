@@ -153,5 +153,16 @@
     "world": 88.42105263157895,
     "battle": 72.0,
     "boss": 67.5
+  },
+  "army": {
+    "foot": "army/foot.webp",
+    "archer": "army/archer.webp",
+    "cav": "army/cav.webp",
+    "mage": "army/mage.webp",
+    "raider": "army/raider.webp",
+    "ghoul": "army/ghoul.webp",
+    "hound": "army/hound.webp",
+    "brute": "army/brute.webp",
+    "wraith": "army/wraith.webp"
   }
 }
