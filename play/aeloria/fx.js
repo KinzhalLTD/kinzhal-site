@@ -135,11 +135,26 @@ const FX = (() => {
     chest: t => { noise(t, .3, 400, 1, .4); [784, 988, 1175, 1568].forEach((f, i) => tone(f, t + .25 + i * .06, .4, 'triangle', .18)); },
     legend: t => { [294, 392, 466, 587, 784].forEach((f, i) => tone(f, t + i * .09, .9, 'sawtooth', .09, sfxBus, 3000)); noise(t, 1.2, 3000, .5, .15); }
   };
-  function sound(k) { if (!sfxOn || !ac()) return; if (AC.state === 'suspended') AC.resume(); try { (SFX[k] || SFX.click)(AC.currentTime + .01); } catch (e) { } }
+  /* ---------- recorded music and sound files (art/manifest.json "music" / "sfx") ---------- */
+  const fileOf = (kind, id) => (typeof ART !== 'undefined' && ART.asset) ? ART.asset(kind, id) : null;
+  let track = null, trackUrl = null; const pool = {};
+  const fade = (el, to, ms, done) => { const from = el.volume, t0 = performance.now(); const step = () => { const k = Math.min(1, (performance.now() - t0) / ms); el.volume = from + (to - from) * k; if (k < 1) requestAnimationFrame(step); else done && done(); }; requestAnimationFrame(step); };
+  function syncFileMusic() {
+    const url = musicOn ? (fileOf('music', mood) || (mood === 'boss' ? fileOf('music', 'battle') : null)) : null;
+    if (url === trackUrl) return !!url;
+    if (track) { const old = track; fade(old, 0, 900, () => old.pause()); track = null; }
+    trackUrl = url; if (!url) return false;
+    track = new Audio(url); track.loop = mood !== 'victory'; track.volume = 0; track.play().then(() => fade(track, .55, 1400)).catch(() => { });
+    return true;
+  }
+  function sound(k) {
+    const f = sfxOn && fileOf('sfx', k);
+    if (f) { const p = pool[k] || (pool[k] = []); let a = p.find(x => x.paused || x.ended); if (!a && p.length < 4) { a = new Audio(f); p.push(a); } if (a) { a.currentTime = 0; a.volume = .7; a.play().catch(() => { }); } return; }
+    if (!sfxOn || !ac()) return; if (AC.state === 'suspended') AC.resume(); try { (SFX[k] || SFX.click)(AC.currentTime + .01); } catch (e) { } }
   // Hijaz on D: D Eb F# G A Bb C D
   const SCALE = [0, 1, 4, 5, 7, 8, 10, 12, 13, 16, 17, 19];
   const hz = (semi, base = 146.83) => base * Math.pow(2, semi / 12);
-  const MOODS = { city: { bpm: 84, perc: .5, density: .45 }, battle: { bpm: 118, perc: 1, density: .7 }, world: { bpm: 76, perc: .25, density: .35 }, cine: { bpm: 70, perc: .15, density: .3 } };
+  const MOODS = { city: { bpm: 84, perc: .5, density: .45 }, battle: { bpm: 118, perc: 1, density: .7 }, world: { bpm: 76, perc: .25, density: .35 }, cine: { bpm: 70, perc: .15, density: .3 }, boss: { bpm: 126, perc: 1, density: .75 } };
   function newPhrase() { let i = Math.floor(Math.random() * 5) + 2; phrase = []; for (let n = 0; n < 16; n++) { i = Math.max(0, Math.min(SCALE.length - 1, i + [-2, -1, -1, 0, 1, 1, 2][Math.floor(Math.random() * 7)])); phrase.push(Math.random() < MOODS[mood].density ? SCALE[i] : null); } phrase[15] = phrase[15] ?? SCALE[0]; }
   function schedule() {
     const M = MOODS[mood], spb = 60 / M.bpm / 2; // eighth notes
@@ -156,12 +171,13 @@ const FX = (() => {
   function music(on) {
     if (on !== undefined) musicOn = on;
     if (!ac()) return;
+    if (syncFileMusic()) { musicBus.gain.setTargetAtTime(0, AC.currentTime, .3); if (schedTimer) { clearInterval(schedTimer); schedTimer = null; } return; }
     if (AC.state === 'suspended') AC.resume();
     musicBus.gain.setTargetAtTime(musicOn ? .16 : 0, AC.currentTime, .4);
     if (musicOn && !schedTimer) { nextNote = AC.currentTime + .1; schedTimer = setInterval(schedule, 90); }
     if (!musicOn && schedTimer) { clearInterval(schedTimer); schedTimer = null; }
   }
-  function setMood(m) { if (MOODS[m] && m !== mood) { mood = m; phrase = []; } }
+  function setMood(m) { if (MOODS[m] && m !== mood) { mood = m; phrase = []; if (AC) music(); } }
   function setSfx(on) { sfxOn = on; if (AC) sfxBus.gain.value = on ? .5 : 0; }
 
   return { burst, confetti, fly, shake, banner, cutIn, text, sound, music, setMood, setSfx, centerOf, get musicOn() { return musicOn; }, get sfxOn() { return sfxOn; } };

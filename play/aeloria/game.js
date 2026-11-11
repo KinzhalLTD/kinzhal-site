@@ -850,7 +850,7 @@ function startStage(key, skipStory) {
   S.vigor -= 6; const [ch, n] = key.split('-').map(Number);
   const heroes = LIVE.squadUnits(squad);
   fight = { key, ch, n, heroes, foes: stageFoes(ch, n), turn: 0, buff: 0, shield: 0, auto: !!S.autoSkill, speed: S.fightSpeed || 1, over: false, q: [], next: now() + 1500, pauseUntil: 0 };
-  closeSheet(); const b = $('#battle'); b.hidden = false; buildFight(); FX.setMood('battle'); FX.sound('horn');
+  closeSheet(); const b = $('#battle'); b.hidden = false; buildFight(); FX.setMood(n === 6 ? 'boss' : 'battle'); FX.sound('horn');
   if (n === 6) setTimeout(() => FX.banner(`<span class="bossword">BOSS</span>${esc(CHAPTERS[ch - 1].boss.name)}`, `Chapter ${ch} · ${CHAPTERS[ch - 1].name}`, { cls: 'boss', ms: 1700, sound: 'alarm', art: ART.enemy(CHAPTERS[ch - 1].boss.kind, 110) }), 200);
   fight.timer = setInterval(fightLoop, 50);
 }
@@ -1354,7 +1354,7 @@ function playIntro(onDone) {
 }
 
 function boot() {
-  window.addEventListener('artready', () => { const k = ART.keyUrl('title'); if (k) { $('#introTap').style.background = `linear-gradient(#05030d66,#05030dcc),url(${k}) center/cover`; } if (S && document.querySelector('#app')) render(); });
+  window.addEventListener('artready', () => { const k = ART.keyUrl('title'); if (k) { $('#introTap').style.background = `linear-gradient(#05030d66,#05030dcc),url(${k}) center/cover`; } if (S && document.querySelector('#app')) render(); FX.music(); });
   S = load();
   if (S) { start(); return; }
   const colors = ['#e8a33d', '#3fd7c8', '#b3433a', '#9b7bff', '#3e8a4a', '#ff7a59'];
