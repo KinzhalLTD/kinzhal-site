@@ -597,3 +597,20 @@ nav.tabs.v2 .nbattle i img{width:56px;height:56px}
 .dchest.ready{border-color:#ffd36b;animation:ready .6s infinite alternate;cursor:pointer}.dchest.got{opacity:.5;filter:grayscale(.6)}
 .dlist{display:grid;gap:4px}.drow{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 8px;border-radius:9px;background:#0003}.drow span{flex:1}.drow b{font-size:12px;color:var(--ink2)}.drow em{font-style:normal;font-weight:900;color:var(--gold2);font-size:12px}
 .drow.done{color:var(--good)}.drow.done b{color:var(--good)}
+
+/* ================= performance pass ================= */
+/* animate only transform/opacity: the gold-button sheen used to move `left` (layout on every frame for every button) */
+.btn.gold::after,body.painted-ui .btn.gold::after{left:0;width:40%;transform:translateX(-160%) skewX(-20deg);animation:sheen2 3s infinite;will-change:transform}
+@keyframes sheen2{0%,60%{transform:translateX(-160%) skewX(-20deg)}100%{transform:translateX(340%) skewX(-20deg)}}
+.dust{inset:-300px 0 0 -300px;animation:dustmv 12s linear infinite;will-change:transform}@keyframes dustmv{to{transform:translate(300px,60px)}}
+dialog::backdrop{backdrop-filter:none;background:#05030ad9}
+/* painted city: no per-sprite filters or blend modes inside the big SVG; ambient life runs on its own layers */
+#cityView.painted .bld image,#cityView.painted .bubble,.bld.lmk image,.caravan image,.bld-lab rect{filter:none}
+#cityView.painted #warmA,#cityView.painted #nightA{mix-blend-mode:normal!important}
+#cityFx{position:absolute;left:0;top:0;pointer-events:none;overflow:hidden;contain:strict}
+#cityFx .cshadow{position:absolute;left:-30%;aspect-ratio:2.6;border-radius:50%;background:radial-gradient(closest-side,#0a102038,#0a102000);opacity:1;filter:none;animation:cdrift3 linear infinite;will-change:transform}
+@keyframes cdrift3{to{transform:translate(520%,30%)}}
+.cbirdrow{position:absolute;left:0;width:100%;animation:cfly3 linear infinite;will-change:transform}@keyframes cfly3{from{transform:translate(-6%,0)}to{transform:translate(106%,-60px)}}
+.cbirdrow .cwing{animation:cflap .45s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+@media(prefers-reduced-motion:reduce){#cityFx{display:none}}
+nav.tabs.v2 img,.mtile img{will-change:auto}

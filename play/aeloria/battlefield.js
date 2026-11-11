@@ -9,6 +9,7 @@ const BF = (() => {
   const COUNT = { foot: 9, archer: 6, cav: 6, mage: 5, raider: 9, ghoul: 9, hound: 8, brute: 3, wraith: 6 };
   const RANGED = new Set(['archer', 'mage', 'wraith']);
   const SHOT = { archer: '#f4e6c0', mage: '#5ff0e0', wraith: '#ff9a3d' };
+  let needSize = true, ro = null, groundCv = null; const SC = {};
   let cv = null, ctx, F = null, raf = 0, W = 0, H = 0, dpr = 1, S0 = 40, squads = [], parts = [], floats = [], shots = [], rings = [], last = 0, T = 0, ended = 0, shakeT = 0, shakeP = 0;
   const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const still = () => window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -29,15 +30,14 @@ const BF = (() => {
     fight.heroes.forEach((u, i) => squads.push(build(u, 'h', i, fight.heroes.length, false)));
     fight.foes.forEach((u, i) => squads.push(build(u, 'f', i, fight.foes.length, !u.hero && u.max > 2 * base)));
     squads.forEach(q => img(q.spr) || img(q.por));
-    cv.onpointerdown = tap; raf = requestAnimationFrame(frame);
+    cv.onpointerdown = tap; needSize = true; W = H = 0; if (window.ResizeObserver) { ro = new ResizeObserver(() => { needSize = true; }); ro.observe(cv); } raf = requestAnimationFrame(frame);
   }
-  function stop() { cancelAnimationFrame(raf); raf = 0; if (cv) cv.onpointerdown = null; cv = null; F = null; squads = []; }
+  function stop() { cancelAnimationFrame(raf); raf = 0; if (ro) { ro.disconnect(); ro = null; } if (cv) cv.onpointerdown = null; cv = null; F = null; squads = []; }
   function end(win) { ended = win ? 1 : -1; squads.forEach(q => { q.cheer = (q.side === 'h') === win ? 1 : 0; }); }
 
   /* ---------- geometry ---------- */
   function size() {
-    const w = cv.clientWidth, h = cv.clientHeight; dpr = Math.min(2, window.devicePixelRatio || 1);
-    if (w !== W || h !== H || cv.width !== Math.round(w * dpr)) { W = w; H = h; cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    if (needSize || !ro) { needSize = false; const w = cv.clientWidth, h = cv.clientHeight; dpr = Math.min(1.5, window.devicePixelRatio || 1); if (w !== W || h !== H || cv.width !== Math.round(w * dpr)) { W = w; H = h; cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); groundCv = null; } }
     const L = Math.max(F.heroes.length, F.foes.length, 2); S0 = clamp(Math.min(H / (L * 2.35), W / 8.2), 26, 80);
   }
   const laneY = q => H * (.3 + .66 * (q.i + .5) / q.n);
@@ -120,8 +120,10 @@ const BF = (() => {
     ctx.translate(0, -bob - cheer - float); ctx.scale(q.dir, 1);
     if (dead) ctx.rotate(-Math.min(1, age / .35) * 1.45); else if (s.lean) ctx.rotate(s.lean * .16);
     if (im) {
-      const h = sc, w = h * im.naturalWidth / im.naturalHeight; ctx.drawImage(im, -w / 2, -h, w, h);
-      if (q.flash > 0 && !dead) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.flash * .75; ctx.drawImage(im, -w / 2, -h, w, h); ctx.globalCompositeOperation = 'source-over'; }
+      const h = sc, w = h * im.naturalWidth / im.naturalHeight, ph = Math.max(8, Math.ceil(h * dpr / 6) * 6), key = q.spr + ph; let cs = SC[key];
+      if (!cs) { cs = SC[key] = document.createElement('canvas'); cs.height = ph; cs.width = Math.max(1, Math.round(ph * im.naturalWidth / im.naturalHeight)); const cc = cs.getContext('2d'); cc.imageSmoothingQuality = 'high'; cc.drawImage(im, 0, 0, cs.width, cs.height); }
+      ctx.drawImage(cs, -w / 2, -h, w, h);
+      if (q.flash > .25 && !dead) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.flash * .75; ctx.drawImage(cs, -w / 2, -h, w, h); ctx.globalCompositeOperation = 'source-over'; }
     } else { ctx.fillStyle = q.side === 'h' ? '#5a8fd8' : '#b3433a'; ctx.fillRect(-sc * .18, -sc * .8, sc * .36, sc * .8); ctx.beginPath(); ctx.arc(0, -sc * .9, sc * .16, 0, 6.28); ctx.fill(); }
     ctx.restore();
   }
@@ -130,8 +132,8 @@ const BF = (() => {
     ctx.save(); ctx.strokeStyle = '#3a2414'; ctx.lineWidth = Math.max(2, sc * .05); ctx.beginPath(); ctx.moveTo(x, y + r); ctx.lineTo(x, c.y - sc * .1); ctx.stroke();
     ctx.fillStyle = col; ctx.beginPath(); const wv = Math.sin(T * 5 + q.i) * r * .18; ctx.moveTo(x, y + r * 1.05); ctx.lineTo(x + q.dir * r * 1.5, y + r * 1.3 + wv); ctx.lineTo(x, y + r * 1.9); ctx.fill();
     const ready = q.side === 'h' && u.en >= 100 && !F.auto;
-    if (ready) { ctx.shadowColor = '#ffd36b'; ctx.shadowBlur = 10 + Math.sin(T * 9) * 6; }
-    ctx.fillStyle = '#140f22'; ctx.beginPath(); ctx.arc(x, y, r + 2.5, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0;
+    if (ready) { ctx.fillStyle = `rgba(255,211,107,${.25 + Math.sin(T * 9) * .15})`; ctx.beginPath(); ctx.arc(x, y, r + 8, 0, 6.28); ctx.fill(); }
+    ctx.fillStyle = '#140f22'; ctx.beginPath(); ctx.arc(x, y, r + 2.5, 0, 6.28); ctx.fill();
     const p = img(q.por); if (p) { ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.clip(); const m = Math.min(p.naturalWidth, p.naturalHeight); ctx.drawImage(p, (p.naturalWidth - m) / 2, 0, m, m, x - r, y - r, r * 2, r * 2); ctx.restore(); }
     ctx.lineWidth = 2.2; ctx.strokeStyle = ready ? '#ffd36b' : col; ctx.beginPath(); ctx.arc(x, y, r + 1.2, 0, 6.28); ctx.stroke();
     if (q.side === 'h' && !ready) { ctx.strokeStyle = '#ffd36b'; ctx.beginPath(); ctx.arc(x, y, r + 1.2, -1.57, -1.57 + 6.28 * clamp(u.en / 100, 0, 1)); ctx.stroke(); }
@@ -149,12 +151,13 @@ const BF = (() => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
     if (shakeT > 0) { shakeT -= dt; ctx.translate(rnd(-1, 1) * shakeP, rnd(-1, 1) * shakeP * .6); }
     // trampled ground so the armies stand on something
-    ctx.save(); ctx.translate(W / 2, H * .66); ctx.scale(1, H * .5 / (W * .62)); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, W * .62); g.addColorStop(0, 'rgba(30,20,12,.7)'); g.addColorStop(.7, 'rgba(30,20,12,.45)'); g.addColorStop(1, 'rgba(30,20,12,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, W * .62, 0, 6.28); ctx.fill(); ctx.restore();
+    if (!groundCv) { groundCv = document.createElement('canvas'); groundCv.width = Math.max(1, Math.round(W / 2)); groundCv.height = Math.max(1, Math.round(H / 2)); const gc = groundCv.getContext('2d'); gc.scale(.5, .5); gc.translate(W / 2, H * .66); gc.scale(1, H * .5 / (W * .62)); const g = gc.createRadialGradient(0, 0, 0, 0, 0, W * .62); g.addColorStop(0, 'rgba(30,20,12,.7)'); g.addColorStop(.7, 'rgba(30,20,12,.45)'); g.addColorStop(1, 'rgba(30,20,12,0)'); gc.fillStyle = g; gc.beginPath(); gc.arc(0, 0, W * .62, 0, 6.28); gc.fill(); }
+    ctx.drawImage(groundCv, 0, 0, W, H);
     squads.forEach(drawMarks);
     parts.forEach(p => { if (!p.dust) return; ctx.globalAlpha = p.life / p.max * .35; ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz * (2 - p.life / p.max), 0, 6.28); ctx.fill(); }); ctx.globalAlpha = 1;
     const all = []; squads.forEach(q => q.sol.forEach(s => { if (s.x !== null) all.push([q, s]); })); all.sort((a, b) => a[1].y - b[1].y); all.forEach(([q, s]) => drawSoldier(q, s));
     squads.forEach(drawBanner);
-    shots.forEach(s => { const p = clamp((T - s.t) / s.d, 0, 1); if (T < s.t) return; const x = s.x0 + (s.x1 - s.x0) * p, y = s.y0 + (s.y1 - s.y0) * p - Math.sin(Math.PI * p) * S0 * (s.magic ? .2 : .7), p2 = Math.max(0, p - .12), x2 = s.x0 + (s.x1 - s.x0) * p2, y2 = s.y0 + (s.y1 - s.y0) * p2 - Math.sin(Math.PI * p2) * S0 * (s.magic ? .2 : .7); ctx.strokeStyle = s.col; ctx.lineWidth = s.magic ? 4 : 2; ctx.lineCap = 'round'; if (s.magic) { ctx.shadowColor = s.col; ctx.shadowBlur = 10; } ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x, y); ctx.stroke(); ctx.shadowBlur = 0; });
+    shots.forEach(s => { const p = clamp((T - s.t) / s.d, 0, 1); if (T < s.t) return; const x = s.x0 + (s.x1 - s.x0) * p, y = s.y0 + (s.y1 - s.y0) * p - Math.sin(Math.PI * p) * S0 * (s.magic ? .2 : .7), p2 = Math.max(0, p - .12), x2 = s.x0 + (s.x1 - s.x0) * p2, y2 = s.y0 + (s.y1 - s.y0) * p2 - Math.sin(Math.PI * p2) * S0 * (s.magic ? .2 : .7); ctx.strokeStyle = s.col; ctx.lineWidth = s.magic ? 4 : 2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x, y); ctx.stroke(); if (s.magic) { ctx.globalAlpha = .35; ctx.lineWidth = 9; ctx.stroke(); ctx.globalAlpha = 1; } });
     rings.forEach(r => { if (T < r.t) return; const p = (T - r.t) / r.d; ctx.save(); ctx.translate(r.x, r.y); ctx.scale(1, .5); ctx.globalAlpha = (1 - p) * .9; ctx.strokeStyle = r.col; ctx.lineWidth = 5 * (1 - p) + 1; ctx.beginPath(); ctx.arc(0, 0, r.r * p, 0, 6.28); ctx.stroke(); if (r.fill) { ctx.globalAlpha = (1 - p) * .3; ctx.fillStyle = r.col; ctx.fill(); } ctx.restore(); });
     ctx.globalCompositeOperation = 'lighter'; parts.forEach(p => { if (p.dust) return; ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, 6.28); ctx.fill(); }); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     floats.forEach(f => { const p = T - f.t, big = f.cls === 'crit'; ctx.globalAlpha = clamp(2 - p * 2, 0, 1); ctx.font = `900 ${Math.round(S0 * (big ? .62 : f.cls === 'info' ? .34 : .46))}px Cinzel,serif`; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = '#000c'; const y = f.y - p * S0 * .9; ctx.strokeText(f.txt, clamp(f.x, 40, W - 40), y); ctx.fillStyle = f.cls === 'heal' ? '#6fe39a' : big ? '#ffd36b' : f.cls === 'info' ? '#d9ccff' : '#fff'; ctx.fillText(f.txt, clamp(f.x, 40, W - 40), y); }); ctx.globalAlpha = 1;

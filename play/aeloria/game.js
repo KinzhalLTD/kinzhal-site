@@ -579,8 +579,9 @@ function renderHud() {
   const mt = might(); $('#hudName').textContent = S.name; $('#hudMight').innerHTML = `${ART.icon('might', 14)} ${fmt(mt)} <span class="vipchip" data-act="sub" data-s="vip">VIP ${vipLvl()}</span>`;
   if (renderHud.m && mt > renderHud.m) { const c = FX.centerOf($('#hudMight')); FX.text(c.x + 30, c.y + 10, `+${fmt(mt - renderHud.m)} Might`, 'might'); $('#hudMight').classList.remove('gain'); void $('#hudMight').offsetWidth; $('#hudMight').classList.add('gain'); }
   renderHud.m = mt;
-  $('#hudRes').innerHTML = RES.map(k => `<div class="res ${S.res[k] >= c ? 'full' : ''}" data-res="${k}" title="${RNAME[k]}: ${fmt(r[k])}/h, storage ${fmt(c)}">${ART.icon(k, 18)}<b>${fmt(S.res[k]).replace(/^(\d{3})\.\d+([KMB])$/, '$1$2')}</b><small class="${r[k] < 0 ? 'neg' : ''}">${r[k] >= 0 ? '+' : ''}${fmt(r[k])}/h</small></div>`).join('') +
+  const hudHtml = RES.map(k => `<div class="res ${S.res[k] >= c ? 'full' : ''}" data-res="${k}" title="${RNAME[k]}: ${fmt(r[k])}/h, storage ${fmt(c)}">${ART.icon(k, 18)}<b>${fmt(S.res[k]).replace(/^(\d{3})\.\d+([KMB])$/, '$1$2')}</b><small class="${r[k] < 0 ? 'neg' : ''}">${r[k] >= 0 ? '+' : ''}${fmt(r[k])}/h</small></div>`).join('') +
     `<div class="res gem" data-res="gems" data-act="sub" data-s="gems">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b><span class="plus">+</span></div>`;
+  { const hr = $('#hudRes'); if (hr._h !== hudHtml) { hr.innerHTML = hudHtml; hr._h = hudHtml; } }
   { const nv = $('#navVigor'); if (nv) { nv.textContent = '⚡' + S.vigor; nv.parentNode.classList.toggle('go', S.vigor >= 6); } const md = $('#moreDot'); if (md) md.hidden = !(S.house.requests.length || (S.arena && S.arena.tickets > 0 && S.b.citadel >= 3)); }
   $('#mailDot').hidden = !S.unread; $('#mailDot').textContent = S.unread;
   const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); const passReady = Math.min(30, Math.floor(S.pass.xp / 120)) > Object.keys(S.pass.claimed).length; $('#questDot').hidden = !(qd || now() >= S.chestAt || passReady || LIVE.deedReady());
@@ -646,7 +647,7 @@ function fitCity(recentre) {
   const z = CITY_Z[fitCity.zi || 0], sw = Math.ceil(Math.max(w, h * 1840 / 1288) * z), sh = Math.ceil(sw * 1288 / 1840);
   if (!$('#cityZoom')) { const b = document.createElement('button'); b.id = 'cityZoom'; b.dataset.act = 'czoom'; b.title = 'Zoom the city'; cv.after(b); }
   $('#cityZoom').textContent = (fitCity.zi || 0) === 1 ? '－' : '＋';
-  sv.style.setProperty('width', sw + 'px', 'important'); sv.style.setProperty('height', sh + 'px', 'important');
+  sv.style.setProperty('width', sw + 'px', 'important'); sv.style.setProperty('height', sh + 'px', 'important'); { const fx = $('#cityFx'); if (fx) { fx.style.width = sw + 'px'; fx.style.height = sh + 'px'; } }
   if (recentre || fitCity.w !== w || fitCity.h !== h) requestAnimationFrame(() => { cv.scrollLeft = sw * .5 - w / 2; cv.scrollTop = Math.max(0, sh * .47 - h / 2); });
   fitCity.w = w; fitCity.h = h;
 }
@@ -654,15 +655,15 @@ const CITY_Z = [1.64, 2.5, 1];
 addEventListener('resize', () => fitCity());
 // Drifting cloud shadows and birds so the painted city does not sit perfectly still.
 function cityLife() {
-  const cl = [[-200, 120, 190, 70, 70, 0], [-420, 430, 240, 90, 95, -30], [-300, 640, 170, 60, 80, -55]].map(([x, y, rx, ry, d, dl]) => `<ellipse class="cshadow" cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" style="animation-duration:${d}s;animation-delay:${dl}s"/>`).join('');
-  const bird = (x, y, d, dl, s) => `<g class="cbird" style="animation-duration:${d}s;animation-delay:${dl}s"><g transform="translate(${x} ${y}) scale(${s})"><path class="cwing" d="M-9-3Q-4-7 0 0Q4-7 9-3" fill="none" stroke="#1b1430" stroke-width="2.2" stroke-linecap="round"/></g></g>`;
-  return `<g id="cityLife" pointer-events="none">${cl}${bird(-80, 150, 38, 0, 1)}${bird(-110, 168, 38, -.6, .8)}${bird(-60, 172, 38, -1.1, .7)}${bird(-90, 520, 52, -20, .9)}${bird(-120, 505, 52, -20.7, .7)}</g>`;
+  const cl = [[8, 26, 0, 70], [36, 30, -30, 95], [70, 22, -55, 80]].map(([y, w, dl, d]) => `<i class="cshadow" style="top:${y}%;width:${w}%;animation-duration:${d}s;animation-delay:${dl}s"></i>`).join('');
+  const bird = (y, d, dl, s) => `<div class="cbirdrow" style="top:${y}%;animation-duration:${d}s;animation-delay:${dl}s"><svg viewBox="-10 -8 20 10" width="${Math.round(18 * s)}" height="${Math.round(9 * s)}"><path class="cwing" d="M-9-3Q-4-7 0 0Q4-7 9-3" fill="none" stroke="#1b1430" stroke-width="2.2" stroke-linecap="round"/></svg></div>`;
+  return `<div id="cityFx" aria-hidden="true">${cl}${bird(34, 38, 0, 1)}${bird(35.5, 38, -.6, .8)}${bird(36, 38, -1.1, .7)}${bird(62, 52, -20, .9)}${bird(61, 52, -20.7, .7)}</div>`;
 }
 function renderCity() {
   if (use3D()) { const h = $('#city3d'); if (CITY3D.init(h)) { $('#cityView').hidden = true; h.hidden = tab !== 'city'; CITY3D.setActive(tab === 'city'); CITY3D.sync(); cityUiRender(); return; } window.CITY3D_FAIL = true; $('#city3d').hidden = true; $('#cityView').hidden = tab !== 'city'; }
   const cv = $('#cityView');
   if (!$('#cityDyn')) {
-    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="${paintedCity() ? '-420 -300 1840 1288' : '0 0 1000 700'}" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}${paintedCity() ? cityScenery() : ''}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g>${paintedCity() ? cityLife() : ''}<g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" x="-420" y="-300" width="1840" height="1288" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" x="-420" y="-300" width="1840" height="1288" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>`;
+    cv.classList.toggle('painted', paintedCity()); cv.innerHTML = `<svg viewBox="${paintedCity() ? '-420 -300 1840 1288' : '0 0 1000 700'}" preserveAspectRatio="xMidYMid meet" id="citySvg">${ART.cityBg()}${paintedCity() ? cityScenery() : ''}<defs><radialGradient id="lglow"><stop offset="0" stop-color="#ffcf6b" stop-opacity=".75"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient></defs><g id="cityAmb">${cityAmbient()}</g><g id="cityDyn"></g><g id="citySky" pointer-events="none">${citySky()}</g><rect id="warmA" x="-420" y="-300" width="1840" height="1288" fill="#ff8a3d" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><rect id="nightA" x="-420" y="-300" width="1840" height="1288" fill="#1a2350" opacity="0" pointer-events="none" style="mix-blend-mode:multiply"/><g id="lanterns" pointer-events="none" opacity="0">${cityLanterns()}</g><g id="cityTop"></g></svg>${paintedCity() ? cityLife() : ''}`;
     cv.style.background = paintedCity() ? '#0b0818' : ART.P.ground[2]; fitCity(true);
   }
   const items = [];
@@ -1245,7 +1246,8 @@ function drawMap() {
   const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const s = TS * cam.z, t = now();
   ctx.fillStyle = '#1f4a6a'; ctx.fillRect(0, 0, w, h);
-  ctx.save(); ctx.translate(-cam.x, -cam.y); ctx.scale(s / TB, s / TB); ctx.imageSmoothingEnabled = true; ctx.drawImage(TERR.canvas, 0, 0); ctx.restore();
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'low';
+  { const k = TB / s, sx = Math.max(0, cam.x * k), sy = Math.max(0, cam.y * k), sw = Math.min(TERR.canvas.width - sx, (w + Math.min(0, cam.x)) * k), sh = Math.min(TERR.canvas.height - sy, (h + Math.min(0, cam.y)) * k); if (sw > 0 && sh > 0) ctx.drawImage(TERR.canvas, sx, sy, sw, sh, Math.max(0, -cam.x), Math.max(0, -cam.y), sw / k, sh / k); }
   // animated water shimmer
   ctx.globalAlpha = .12; ctx.fillStyle = '#fff';
   const x0 = Math.max(0, Math.floor(cam.x / s)), y0 = Math.max(0, Math.floor(cam.y / s)), x1 = Math.min(W, Math.ceil((cam.x + w) / s)), y1 = Math.min(H, Math.ceil((cam.y + h) / s));
@@ -1293,29 +1295,32 @@ function drawMap() {
   // drifting clouds give the map depth
   for (let i = 0; i < 7; i++) { const span = W * s + 600, cx = ((i * 977 + t * (.008 + i * .0015) * cam.z * 4) % span) - 300 - cam.x, cy = ((i * 613) % (H * s)) - cam.y, r = s * (2.2 + (i % 3)); if (cx < -r || cx > w + r || cy < -r || cy > h + r) continue; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, 'rgba(255,255,255,.2)'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, r, r * .55, 0, 0, 7); ctx.fill(); }
   // fog of war
-  ctx.save(); ctx.translate(-cam.x, -cam.y); ctx.imageSmoothingEnabled = true; ctx.drawImage(fogCanvas(), -s, -s, (W + 2) * s, (H + 2) * s); ctx.restore();
+  { let hidden = x0 === 0 || y0 === 0 || x1 === W || y1 === H; for (let y = Math.max(0, y0 - 1); y < Math.min(H, y1 + 1) && !hidden; y++) for (let x = Math.max(0, x0 - 1); x < Math.min(W, x1 + 1); x++) if (!seen(x, y)) { hidden = true; break; }
+    if (hidden) { ctx.save(); ctx.translate(-cam.x, -cam.y); ctx.drawImage(fogCanvas(), -s, -s, (W + 2) * s, (H + 2) * s); ctx.restore(); } }
   // realm names
   ctx.textAlign = 'center';
   for (const [k, [rx, ry]] of Object.entries(REGION_SEEDS)) { if (k === 'sunspire') continue; const px = (rx + .5) * s - cam.x, py = (ry - 1.2) * s - cam.y; if (px < -200 || px > w + 200 || py < -60 || py > h + 60) continue; ctx.font = `900 ${Math.max(13, 22 * cam.z)}px Cinzel,Georgia,serif`; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(20,15,34,.6)'; ctx.strokeText(REGION_NAME[k].toUpperCase(), px, py); ctx.fillStyle = k === 'ash' ? 'rgba(255,140,90,.85)' : 'rgba(255,241,196,.88)'; ctx.fillText(REGION_NAME[k].toUpperCase(), px, py); }
   if (mapSel) { ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 3; ctx.strokeRect(mapSel.x * s - cam.x + 2, mapSel.y * s - cam.y + 2, s - 4, s - 4); }
   // minimap
   const mm = Math.min(120, w * .28), k2 = mm / W, ox = w - mm - 10, oy = 10;
-  ctx.fillStyle = '#140f22d9'; ctx.fillRect(ox - 3, oy - 3, mm + 6, mm + 6); ctx.drawImage(TERR.canvas, ox, oy, mm, mm); ctx.drawImage(fogCanvas(), ox - k2, oy - k2, mm + 2 * k2, mm + 2 * k2);
+  if (!mmCv || mmCv.width !== Math.round(mm * dpr) || t - mmAt > 2500) { mmCv = mmCv || document.createElement('canvas'); mmCv.width = mmCv.height = Math.round(mm * dpr); const mc = mmCv.getContext('2d'); mc.drawImage(TERR.canvas, 0, 0, mmCv.width, mmCv.height); const kk = mmCv.width / W; mc.drawImage(fogCanvas(), -kk, -kk, mmCv.width + 2 * kk, mmCv.height + 2 * kk); mmAt = t; }
+  ctx.fillStyle = '#140f22d9'; ctx.fillRect(ox - 3, oy - 3, mm + 6, mm + 6); ctx.drawImage(mmCv, ox, oy, mm, mm);
   for (const o of S.world) { if (o.dead || !seen(o.x, o.y) || o.kind === 'node') continue; ctx.fillStyle = o.kind === 'city' ? o.color : o.kind === 'camp' ? '#ff5e3a' : '#ffd36b'; ctx.fillRect(ox + o.x * k2 - 1, oy + o.y * k2 - 1, 3, 3); }
   ctx.fillStyle = '#fff'; ctx.fillRect(ox + S.home.x * k2 - 2, oy + S.home.y * k2 - 2, 5, 5);
   ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 1.2; ctx.strokeRect(ox + cam.x / s * k2, oy + cam.y / s * k2, w / s * k2, h / s * k2);
 }
-function mapLoop() { if (tab === 'world') { drawMap(); requestAnimationFrame(mapLoop); } }
+let mapLast = 0, mapBusy = false, mmCv = null, mmAt = 0;
+function mapLoop(ts) { if (tab === 'world') { if (mapBusy || !ts || ts - mapLast > 30) { mapLast = ts || 0; drawMap(); } requestAnimationFrame(mapLoop); } }
 function initMapInput() {
   const c = $('#map'); let drag = null, moved = false, pinch = null;
   const pts = new Map();
-  c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 1) { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; moved = false; } else if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cam.z }; } });
+  c.addEventListener('pointerdown', e => { mapBusy = true; c.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 1) { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; moved = false; } else if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cam.z }; } });
   c.addEventListener('pointermove', e => {
     if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 2 && pinch) { const [a, b] = [...pts.values()]; zoomAt(pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d, (a.x + b.x) / 2, (a.y + b.y) / 2); moved = true; return; }
     if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 6) moved = true; cam.x = drag.cx - dx; cam.y = drag.cy - dy; clampCam(); }
   });
-  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) { if (drag && !moved) mapClick(e); drag = null; } };
+  const up = e => { pts.delete(e.pointerId); if (!pts.size) mapBusy = false; if (pts.size < 2) pinch = null; if (!pts.size) { if (drag && !moved) mapClick(e); drag = null; } };
   c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
   c.addEventListener('wheel', e => { e.preventDefault(); zoomAt(cam.z * (e.deltaY < 0 ? 1.12 : .89), e.clientX, e.clientY); }, { passive: false });
 }
