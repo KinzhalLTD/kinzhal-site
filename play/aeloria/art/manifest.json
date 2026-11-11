@@ -19,7 +19,9 @@
     "warlord": "foes/warlord.png",
     "ghoul": "foes/ghoul.png",
     "hound": "foes/hound.png",
-    "raider": "foes/raider.png"
+    "raider": "foes/raider.png",
+    "wyrm": "foes/wyrm.png",
+    "queen": "foes/queen.png"
   },
   "key": {
     "chapter1": "key/chapter1.png",
