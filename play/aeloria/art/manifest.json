@@ -21,7 +21,9 @@
     "hound": "foes/hound.png",
     "raider": "foes/raider.png",
     "wyrm": "foes/wyrm.png",
-    "queen": "foes/queen.png"
+    "queen": "foes/queen.png",
+    "stalker": "foes/stalker.png",
+    "wraith": "foes/wraith.png"
   },
   "key": {
     "chapter1": "key/chapter1.png",
