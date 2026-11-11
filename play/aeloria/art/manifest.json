@@ -24,7 +24,8 @@
     "queen": "foes/queen.png",
     "stalker": "foes/stalker.png",
     "wraith": "foes/wraith.png",
-    "troll": "foes/troll.png"
+    "troll": "foes/troll.png",
+    "lantern": "foes/lantern.png"
   },
   "key": {
     "chapter1": "key/chapter1.png",
