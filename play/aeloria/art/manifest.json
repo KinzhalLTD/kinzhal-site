@@ -45,7 +45,11 @@
     "citadel": "buildings/citadel.png",
     "barracks": "buildings/barracks.png",
     "mews": "buildings/mews.png",
-    "academy": "buildings/academy.png"
+    "academy": "buildings/academy.png",
+    "infirmary": "buildings/infirmary.png",
+    "vault": "buildings/vault.png",
+    "tower": "buildings/tower.png",
+    "wall": "buildings/wall.png"
   },
   "map": {}
 }
