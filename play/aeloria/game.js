@@ -686,7 +686,7 @@ function renderCity() {
   const troopsN = troopCount(S.troops);
   const camp = troopsN ? `<g transform="translate(560 540)" class="bld" data-act="tab" data-tab="army">${Array.from({ length: Math.min(6, Math.ceil(troopsN / 150)) }, (_, i) => `<g transform="translate(${(i % 3) * 30} ${Math.floor(i / 3) * 22})"><path d="M-10 10l10-18 10 18z" fill="#f2ede4"/><path d="M0-8v-6" stroke="#5a3418"/><path class="wave" d="M0-14l6 2-6 2z" fill="${S.color}"/></g>`).join('')}<text x="30" y="56" text-anchor="middle" class="lbl">${fmt(troopsN)} troops</text></g>` : '';
   // replace the SVG only when it changed, so a tap is never lost to the 3-second refresh
-  const dyn = banner + items.map(i => i.html).join('') + camp + items.map(i => i.lab || '').join(''), top = META.bubbles() + caravanSvg();
+  const dyn = banner + items.map(i => i.html).join('') + camp + items.map(i => i.lab || '').join('').replace(/(<g class="bld-lab[^>]*>)/g, '$1<rect x="-70" y="-22" width="140" height="44" fill="#0000"/>'), top = META.bubbles() + caravanSvg();
   if ($('#cityDyn')._h !== dyn) { $('#cityDyn').innerHTML = dyn; $('#cityDyn')._h = dyn; }
   if ($('#cityTop')._h !== top) { $('#cityTop').innerHTML = top; $('#cityTop')._h = top; }
   cityLight(); fitCity();

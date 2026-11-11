@@ -149,7 +149,7 @@ const LIVE = (() => {
   function deedTrack(kind, n) { const x = DEEDS.find(q => q.k === kind); if (!x) return; const d = dd(), before = d.n[kind] || 0; if (before >= x.n) return; d.n[kind] = Math.min(x.n, before + n); if (d.n[kind] >= x.n) { toast(`✔ Daily deed done: ${x.t} · +${x.p} points`, 'good'); FX.sound('coin'); } }
   function deedsHTML() {
     const d = dd(), p = deedPts();
-    return `<div class="card deeds"><div class="phead"><div><h4>☀ Daily Deeds</h4><p class="muted">Seven small goals, new every day. Fill the bar to open all five chests.</p></div><div class="ptier-now"><b>${p}</b>/100</div></div><div class="dbar"><i style="width:${p}%"></i>${DEED_CHESTS.map(([t]) => { const got = d.claimed[t], can = p >= t && !got; return `<button class="dchest ${got ? 'got' : ''} ${can ? 'ready' : ''}" style="left:${t}%" ${can ? `data-act="deed" data-t="${t}"` : ''}>${ART.icon('chest', 26)}<small>${got ? '✓' : t}</small></button>`; }).join('')}</div><div class="dlist">${DEEDS.map(x => { const v = Math.min(x.n, d.n[x.k] || 0), done = v >= x.n; return `<div class="drow ${done ? 'done' : ''}"><span>${done ? '✔' : '○'} ${x.t}</span><b>${fmt(v)}/${fmt(x.n)}</b><em>+${x.p}</em></div>`; }).join('')}</div></div>`;
+    return `<div class="card deeds"><div class="phead"><div><h4>☀ Daily Deeds</h4><p class="muted">Seven small goals, new every day. Fill the bar to open all five chests.</p></div><div class="ptier-now"><b>${p}</b>/100</div></div><div class="dbar"><i style="width:${p}%"></i>${DEED_CHESTS.map(([t]) => { const got = d.claimed[t], can = p >= t && !got; return `<button class="dchest ${got ? 'got' : ''} ${can ? 'ready' : ''}" style="left:${t}%" data-act="${can ? 'deed' : 'deedinfo'}" data-t="${t}">${ART.icon('chest', 26)}<small>${got ? '✓' : t}</small></button>`; }).join('')}</div><div class="dlist">${DEEDS.map(x => { const v = Math.min(x.n, d.n[x.k] || 0), done = v >= x.n; return `<div class="drow ${done ? 'done' : ''}"><span>${done ? '✔' : '○'} ${x.t}</span><b>${fmt(v)}/${fmt(x.n)}</b><em>+${x.p}</em></div>`; }).join('')}</div></div>`;
   }
   function deedClaim(t) { t = +t; const d = dd(); if (deedPts() < t || d.claimed[t]) return; d.claimed[t] = 1; give(DEED_CHESTS.find(c => c[0] === t)[1], 'Daily Deeds chest'); FX.confetti(); FX.sound('chest'); render(); }
   function eventHTML() {
@@ -235,7 +235,7 @@ const LIVE = (() => {
     for (const p of want) if (!S.shop.seen[p]) { S.shop.seen[p] = 1; S.shop.packs.push({ id: p, until: now() + 2 * DAY }); }
     S.shop.packs = S.shop.packs.filter(p => p.until > now() && !p.bought);
   }
-  const priceBtn = (id, label) => pay() ? `<button class="btn gold" data-act="buyprod" data-id="${id}">${label || PRODUCTS[id].price}</button>` : `<button class="btn" disabled title="Purchases open with the mobile release">${PRODUCTS[id].price}</button>`;
+  const priceBtn = (id, label) => pay() ? `<button class="btn gold" data-act="buyprod" data-id="${id}">${label || PRODUCTS[id].price}</button>` : `<button class="btn soon" data-act="soon">${PRODUCTS[id].price}</button>`;
   function offersTab() {
     checkMilestones();
     const sh = S.shop, cardLeft = sh.card > now() ? Math.ceil((sh.card - now()) / DAY) : 0, cardClaim = cardLeft && sh.cardDay !== today();
@@ -318,6 +318,8 @@ const LIVE = (() => {
       case 'glorybuy': { const g = GLORY[+d.i]; if (S.arena.glory < g.cost) { toast('Not enough Glory', 'bad'); return true; } S.arena.glory -= g.cost; META.grant(g.give(), g.name); render(); return true; }
       case 'evclaim': evClaim(+d.i); return true;
       case 'deed': deedClaim(d.t); return true;
+      case 'deedinfo': toast(dd().claimed[d.t] ? 'You already opened this chest today' : `Reach ${d.t} points today to open this chest (you have ${deedPts()})`); return true;
+      case 'soon': toast('Purchases open with the mobile release. Everything here can also be earned by playing.'); return true;
       case 'buyprod': buyProduct(d.id); return true;
       case 'cardclaim': if (S.shop.card > now() && S.shop.cardDay !== today()) { S.shop.cardDay = today(); give({ gems: 100 }, 'Monthly Card'); FX.sound('coin'); render(); } return true;
       case 'royalgems': if (S.gems < PRODUCTS.royal.gems) { toast('Not enough gems', 'bad'); return true; } spendGems(PRODUCTS.royal.gems); S.shop.royalPass = true; FX.confetti(); FX.sound('chest'); render(); return true;

@@ -68,8 +68,8 @@ const META = (() => {
   const taxReady = () => { if (S.harvest.tax == null) S.harvest.tax = now() - HARVEST_MS; return now() - S.harvest.tax >= HARVEST_MS; };
   function bubbles() {
     let h = '';
-    FIELD_POS.forEach(([x, y], i) => { if (ready(i)) { const k = BLD[S.fields[i].t].field; h += `<g class="bubble" data-act="harvest" data-i="${i}" transform="translate(${x} ${y - 46})"><circle r="17" fill="#fff8e6" stroke="#e8a33d" stroke-width="3"/><g transform="translate(-11 -11)">${ART.iconSvg(k, 22)}</g><path d="M-5 16l5 7 5-7z" fill="#e8a33d"/></g>`; } });
-    if (taxReady()) { const [x, y] = INNER.citadel; h += `<g class="bubble" data-act="harvest" data-i="tax" transform="translate(${x + 72} ${y - 120})"><circle r="19" fill="#fff8e6" stroke="#e8a33d" stroke-width="3"/><g transform="translate(-12 -12)">${ART.iconSvg('gold', 24)}</g><path d="M-5 18l5 7 5-7z" fill="#e8a33d"/></g>`; }
+    FIELD_POS.forEach(([x, y], i) => { if (ready(i)) { const k = BLD[S.fields[i].t].field; h += `<g class="bubble" data-act="harvest" data-i="${i}" transform="translate(${x} ${y - 46})"><circle r="30" fill="#0000"/><circle r="17" fill="#fff8e6" stroke="#e8a33d" stroke-width="3"/><g transform="translate(-11 -11)">${ART.iconSvg(k, 22)}</g><path d="M-5 16l5 7 5-7z" fill="#e8a33d"/></g>`; } });
+    if (taxReady()) { const [x, y] = INNER.citadel; h += `<g class="bubble" data-act="harvest" data-i="tax" transform="translate(${x + 72} ${y - 120})"><circle r="30" fill="#0000"/><circle r="19" fill="#fff8e6" stroke="#e8a33d" stroke-width="3"/><g transform="translate(-12 -12)">${ART.iconSvg('gold', 24)}</g><path d="M-5 18l5 7 5-7z" fill="#e8a33d"/></g>`; }
     return h;
   }
   const readyCount = () => FIELD_POS.filter((_, i) => ready(i)).length + (taxReady() ? 1 : 0);
@@ -258,7 +258,7 @@ const META = (() => {
   }
   function gemsTab() {
     const pay = window.AELORIA_PAYMENTS;
-    return `<p class="muted">Gems are earned in play: quests, achievements, the Season Road, daily gifts, trials and battles.</p><div class="packs">${GEM_PACKS.map((p, i) => `<div class="pack">${p.tag ? `<span class="tag">${p.tag}</span>` : ''}<div class="gempile">${Array.from({ length: Math.min(6, i + 1) }, (_, j) => `<span style="--j:${j}">${ART.icon('gem', 30 + i * 3)}</span>`).join('')}</div><h4>${p.name}</h4><b class="amt">${fmt(p.gems)}${p.bonus ? ` <small>+${fmt(p.bonus)} bonus</small>` : ''}</b>${pay ? `<button class="btn gold" data-act="pack" data-id="${p.id}">${p.price}</button>` : `<button class="btn" disabled title="Purchases open with the mobile release">${p.price}</button>`}</div>`).join('')}</div>
+    return `<p class="muted">Gems are earned in play: quests, achievements, the Season Road, daily gifts, trials and battles.</p><div class="packs">${GEM_PACKS.map((p, i) => `<div class="pack">${p.tag ? `<span class="tag">${p.tag}</span>` : ''}<div class="gempile">${Array.from({ length: Math.min(6, i + 1) }, (_, j) => `<span style="--j:${j}">${ART.icon('gem', 30 + i * 3)}</span>`).join('')}</div><h4>${p.name}</h4><b class="amt">${fmt(p.gems)}${p.bonus ? ` <small>+${fmt(p.bonus)} bonus</small>` : ''}</b>${pay ? `<button class="btn gold" data-act="pack" data-id="${p.id}">${p.price}</button>` : `<button class="btn soon" data-act="soon">${p.price}</button>`}</div>`).join('')}</div>
       ${pay ? '' : '<p class="muted center">Gem purchases open with the mobile release. Everything in the Souq can already be earned by playing.</p>'}`;
   }
   async function buyPack(id) {

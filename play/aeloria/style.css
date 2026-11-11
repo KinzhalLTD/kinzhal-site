@@ -614,3 +614,17 @@ dialog::backdrop{backdrop-filter:none;background:#05030ad9}
 .cbirdrow .cwing{animation:cflap .45s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
 @media(prefers-reduced-motion:reduce){#cityFx{display:none}}
 nav.tabs.v2 img,.mtile img{will-change:auto}
+
+/* ================= tap targets ================= */
+.vipchip{display:inline-block;padding:4px 9px;font-size:10.5px;border-radius:7px;margin:-3px 0 -3px 2px;position:relative}.vipchip::after{content:"";position:absolute;inset:-8px -6px}
+.q{min-height:36px}.q.idle{min-height:34px}
+.tier,[data-act=tier]{min-height:36px;padding-top:6px;padding-bottom:6px}
+input[type=range]{height:34px;touch-action:pan-y}
+label.bt.auto{min-height:36px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}label.bt.auto input{width:20px;height:20px}
+.bt{min-width:38px;min-height:36px}
+.btn.soon{opacity:.75;border-style:dashed}
+.dchest{cursor:pointer}
+.subtabs button{min-height:38px}
+/* room to scroll the lowest plots clear of the quest bar */
+#cityView.painted #citySvg{margin-bottom:120px}
+#status>*{min-height:32px;display:inline-flex;align-items:center}
