@@ -72,11 +72,12 @@ const FX = (() => {
   }
 
   /* ---------- hero skill cut-in ---------- */
-  function cutIn(portraitHTML, heroName, skillName, color = '#e8a33d') {
-    const el = document.createElement('div'); el.className = 'cutin'; el.style.setProperty('--c', color);
-    el.innerHTML = `<div class="band"><div class="cp">${portraitHTML}</div><div class="ct"><small>${heroName}</small><b>${skillName}</b></div></div>`;
+  function cutIn(portraitHTML, heroName, skillName, color = '#e8a33d', figure) {
+    const el = document.createElement('div'); el.className = 'cutin' + (figure ? ' fig' : ''); el.style.setProperty('--c', color);
+    el.innerHTML = figure ? `<i class="speed"></i><div class="band"><div class="ct"><small>${heroName}</small><b>${skillName}</b></div></div><img class="cfig" src="${figure}" alt="">`
+      : `<div class="band"><div class="cp">${portraitHTML}</div><div class="ct"><small>${heroName}</small><b>${skillName}</b></div></div>`;
     (document.getElementById('battle') || document.body).appendChild(el); sound('skill');
-    setTimeout(() => el.remove(), 1000);
+    setTimeout(() => el.remove(), figure ? 1150 : 1000);
   }
 
   /* ---------- floating text ---------- */

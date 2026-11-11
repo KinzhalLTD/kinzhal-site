@@ -153,7 +153,8 @@ const META = (() => {
     const cards = [...ov.querySelectorAll('.scard')];
     cards.forEach((c, i) => setTimeout(() => {
       c.classList.add('flip'); const p = FX.centerOf(c), r = res[i];
-      if (r.rar === 'legendary') { FX.sound('legend'); FX.shake(ov, 14, 500); FX.burst(p.x, p.y, { n: 80, shape: 'star', size: 7, speed: 10, ring: '#ffd36b', life: 1.6 }); }
+      if (r.rar === 'legendary') { FX.sound('legend'); FX.shake(ov, 14, 500); FX.burst(p.x, p.y, { n: 80, shape: 'star', size: 7, speed: 10, ring: '#ffd36b', life: 1.6 });
+        const fig = ART.asset('champions', r.id); if (fig) { const sp = document.createElement('div'); sp.className = 'spot'; sp.innerHTML = `<i class="sp-rays"></i><img src="${fig}" alt=""><div><small>Legendary hero</small><b>${HERO[r.id].name}</b><span>${HERO[r.id].title}</span></div>`; ov.appendChild(sp); sp.addEventListener('click', () => sp.remove()); setTimeout(() => sp.classList.add('out'), 2300); setTimeout(() => sp.remove(), 2700); } }
       else if (r.rar === 'epic') { FX.sound('done'); FX.burst(p.x, p.y, { n: 36, colors: ['#c9b8e8', '#9b7bff', '#fff'], ring: '#9b7bff' }); }
       else { FX.sound('click'); FX.burst(p.x, p.y, { n: 14, colors: ['#9fc3e6', '#fff'] }); }
       if (i === cards.length - 1) setTimeout(() => { ov.querySelector('[data-act=closeov]').hidden = false; }, 500);

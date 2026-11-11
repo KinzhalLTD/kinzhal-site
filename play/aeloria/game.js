@@ -905,7 +905,7 @@ function startStage(key, skipStory) {
   const heroes = LIVE.squadUnits(squad);
   fight = { key, ch, n, heroes, foes: stageFoes(ch, n), turn: 0, buff: 0, shield: 0, auto: !!S.autoSkill, speed: S.fightSpeed || 1, over: false, q: [], next: now() + 1500, pauseUntil: 0 };
   closeSheet(); const b = $('#battle'); b.hidden = false; buildFight(); FX.setMood(n === 6 ? 'boss' : 'battle'); FX.sound('horn');
-  if (n === 6) setTimeout(() => FX.banner(`<span class="bossword">BOSS</span>${esc(CHAPTERS[ch - 1].boss.name)}`, `Chapter ${ch} · ${CHAPTERS[ch - 1].name}`, { cls: 'boss', ms: 1700, sound: 'alarm', art: ART.enemy(CHAPTERS[ch - 1].boss.kind, 110) }), 1900);
+  if (n === 6) { const bk = CHAPTERS[ch - 1].boss.kind, bu = ART.asset('fiends', bk); setTimeout(() => FX.banner(`<span class="bossword">BOSS</span>${esc(CHAPTERS[ch - 1].boss.name)}`, `Chapter ${ch} · ${CHAPTERS[ch - 1].name}`, { cls: 'boss', ms: 2100, sound: 'alarm', art: bu ? `<img class="bossfig" src="${bu}" alt="">` : ART.enemy(bk, 110) }), 1900); }
   fight.timer = setInterval(fightLoop, 50);
 }
 function buildFight() {
@@ -1002,6 +1002,7 @@ function dealTo(target, raw, side, delay = 0, critChance = .1) {
   const crit = Math.random() < critChance;
   let d = Math.max(1, Math.round(raw * raw / (raw + target.def * 1.2) * (0.9 + Math.random() * .2) * (crit ? 1.6 : 1)));
   if (side === 'h' && fight.shield) d = Math.round(d * .5);
+  if (side === 'f' && fight.cur) fight.cur.dmg = (fight.cur.dmg || 0) + Math.min(d, target.hp);
   target.hp = Math.max(0, target.hp - d); if (side === 'h') target.en = Math.min(100, target.en + 8);
   hitFx(side, target.id, (crit ? 'CRIT ' : '') + fmt(d), crit ? 'crit' : '', delay);
   if (side === 'f') {
@@ -1038,11 +1039,12 @@ function skillFx(kind) {
   document.body.appendChild(im); setTimeout(() => im.remove(), 900);
 }
 function castSkill(u, bonus = 1) {
+  fight.cur = u;
   const f = fight, sk = u.hero.skill; u.en = 0;
   if (f.chainTurn === f.turn) { f.chain = Math.min(3, (f.chain || 0) + 1); f.bestChain = Math.max(f.bestChain || 0, f.chain); setTimeout(() => callout(`CHAIN ×${f.chain + 1}  +${f.chain * 15}%`, 'chain'), 380); } else f.chain = 0;
   f.chainTurn = f.turn; const atk = u.atk * (f.buff ? 1.4 : 1) * bonus * (1 + .15 * f.chain);
   const winding = alive(f.foes).filter(t => t.wind);
-  FX.cutIn(ART.portrait(u.hero, 150), u.hero.name, sk.name, u.hero.look.bg);
+  FX.cutIn(ART.portrait(u.hero, 150), u.hero.name, sk.name, u.hero.look.bg, ART.asset('champions', u.hero.id));
   const delay = 520 / f.speed; f.pauseUntil = now() + 1000 / f.speed;
   const foes = alive(f.foes);
   // effects apply now (so the outcome never depends on timers); the visuals land after the cut-in
@@ -1082,7 +1084,7 @@ function fightLoop() {
   let wait = 330 / f.speed;
   if (side === 'h') {
     if (u.en >= 100 && f.auto) { castSkill(u); wait = 1050 / f.speed; }
-    else { const tg = focusFoe(); if (tg) { const d = lunge('h', u, tg); dealTo(tg, u.atk * (f.buff ? 1.4 : 1), 'f', d, .12); u.en = Math.min(100, u.en + 22); } }
+    else { fight.cur = u; const tg = focusFoe(); if (tg) { const d = lunge('h', u, tg); dealTo(tg, u.atk * (f.buff ? 1.4 : 1), 'f', d, .12); u.en = Math.min(100, u.en + 22); } }
   } else {
     if (u.stun) { u.stun = 0; hitFx('f', u.id, 'STUNNED', 'info'); }
     else if (!u.wind && --u.cd <= 0) { u.wind = 1; hitFx('f', u.id, 'CHARGING!', 'info'); FX.sound('tick'); wait = 520 / f.speed; }
@@ -1098,7 +1100,7 @@ function endFight(win) {
   let html, r = {}, stars = 0;
   if (win) {
     const fallen = f.heroes.filter(h => h.hp <= 0).length, first = !S.stages[f.key]; stars = 3 - Math.min(2, fallen);
-    S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++; META.xp(15); LIVE.on('stage', 1); S.essence += 2 + Math.floor(idx / 3);
+    S.stages[f.key] = Math.max(S.stages[f.key] || 0, stars); S.stats.stageWins++; S.bestiary ??= {}; f.foes.forEach(x => { S.bestiary[x.kind] = (S.bestiary[x.kind] || 0) + 1; }); META.xp(15); LIVE.on('stage', 1); S.essence += 2 + Math.floor(idx / 3);
     const xp = 100 + idx * 45; f.heroes.forEach(h => heroXP(h.id, xp));
     S.streak = (S.streak || 0) + 1; const sb = Math.min(5, S.streak - 1) * .1; f.streakTxt = S.streak > 1 ? `🔥 Win streak ×${S.streak}${sb ? ` · +${Math.round(sb * 100)}% gold` : ''}` : '';
     r = { gold: Math.round((200 + idx * 120 + (f.perfects || 0) * 40 + (f.breaks || 0) * 60) * (1 + sb)) }; if (first) r.gems = 10 + idx * 2;
@@ -1110,7 +1112,8 @@ function endFight(win) {
     if (n === 6 && first) f.outro = ch;
     give(r);
     const nextKey = n < 6 ? `${ch}-${n + 1}` : ch < CHAPTERS.length ? `${ch + 1}-1` : null;
-    html = `<div class="res-rays"></div><h2 class="win">Victory</h2>${f.joined ? `<div class="joined">${ART.portrait(HERO[f.joined], 64)}<div><small>New hero</small><b>${HERO[f.joined].name} joins your court!</b></div></div>` : ''}<div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
+    const mvp = f.heroes.reduce((a, b) => (b.dmg || 0) > (a.dmg || 0) ? b : a, f.heroes[0]), mvpArt = mvp && ART.asset('champions', mvp.hero.id);
+    html = `<div class="res-rays"></div>${mvpArt ? `<div class="mvp"><img src="${mvpArt}" alt=""><span><b>MVP</b>${esc(mvp.name)} · ${fmt(mvp.dmg || 0)} damage</span></div>` : ''}<h2 class="win">Victory</h2>${f.joined ? `<div class="joined">${ART.portrait(HERO[f.joined], 64)}<div><small>New hero</small><b>${HERO[f.joined].name} joins your court!</b></div></div>` : ''}<div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
       <div class="rheroes">${f.heroes.map(h => `<div>${ART.portrait(h.hero, 54)}<small>Lv ${S.heroes[h.id].lvl}</small><em>+${xp} XP</em></div>`).join('')}</div>
       <div class="rskill"><span><b>${f.perfects || 0}</b>Perfect casts</span><span><b>${f.breaks || 0}</b>Charges broken</span><span><b>${f.bestChain ? '×' + (f.bestChain + 1) : '–'}</b>Best chain</span></div>
       ${f.streakTxt ? `<div class="streak">${f.streakTxt}</div>` : ''}<div class="rloot">${META.rewardHTML(r)}</div>
@@ -1465,8 +1468,10 @@ function onAct(e) {
     case 'tome': if (S.items.scroll) { S.items.scroll--; heroXP(d.id, 600); sfx('done'); render(); openHero(d.id); } break;
     case 'tutor': { const h = S.heroes[d.id], c = Math.floor(150 * h.lvl * h.lvl); if (h.lvl >= heroCap()) { toast('Raise the Hall of Heroes to lift the level cap', 'bad'); break; } if (S.res.gold < c) { toast('Not enough Gold', 'bad'); break; } S.res.gold -= c; heroXP(d.id, xpFor(h.lvl) * .5); sfx('done'); render(); openHero(d.id); break; }
     case 'stages': openStages(); break;
+    case 'bestiary': openBestiary(); break;
+    case 'beastclaim': { S.bestiaryClaimed ??= {}; const k = d.k; if ((S.bestiary || {})[k] && !S.bestiaryClaimed[k]) { S.bestiaryClaimed[k] = 1; give({ gems: 20, essence: 5 }, `${FOES[k].name} entered in the Bestiary`); FX.sound('coin'); } openBestiary(); break; }
     case 'more': { const tile = (act, extra, icon, name, note, dot) => `<button class="mtile" data-act="${act}" ${extra}>${icon}<b>${name}</b><small>${note}</small>${dot ? '<span class="dot">!</span>' : ''}</button>`, im = k => `<img src="art/nav/${k}.webp" alt="">`;
-      openSheet('Realm', `<div class="mgrid">${tile('tab', 'data-tab="army"', im('army'), 'Army', fmt(troopCount(S.troops)) + ' troops')}${tile('tab', 'data-tab="research"', im('research'), 'Research', S.rq ? 'Studying…' : S.b.academy ? 'Idle' : 'Needs Academy', S.b.academy && !S.rq)}${tile('tab', 'data-tab="house"', im('house'), 'Alliance', S.house.requests.length + (S.house.requests.length === 1 ? ' help request' : ' help requests'), S.house.requests.length > 0)}${tile('arena', '', im('arena'), 'Arena', (S.arena ? S.arena.tickets : 0) + ' tickets', S.arena && S.arena.tickets > 0)}${tile('sub', 'data-s="bag"', ART.icon('crate', 54), 'Bag', 'Items and speed-ups')}${tile('mail', '', ART.icon('scroll', 54), 'Reports', S.unread ? S.unread + ' unread' : 'No new reports', S.unread > 0)}${tile('menu', '', im('more'), 'Settings', 'Sound, help, realm')}</div>`); break; }
+      openSheet('Realm', `<div class="mgrid">${tile('tab', 'data-tab="army"', im('army'), 'Army', fmt(troopCount(S.troops)) + ' troops')}${tile('tab', 'data-tab="research"', im('research'), 'Research', S.rq ? 'Studying…' : S.b.academy ? 'Idle' : 'Needs Academy', S.b.academy && !S.rq)}${tile('tab', 'data-tab="house"', im('house'), 'Alliance', S.house.requests.length + (S.house.requests.length === 1 ? ' help request' : ' help requests'), S.house.requests.length > 0)}${tile('arena', '', im('arena'), 'Arena', (S.arena ? S.arena.tickets : 0) + ' tickets', S.arena && S.arena.tickets > 0)}${tile('sub', 'data-s="bag"', ART.icon('crate', 54), 'Bag', 'Items and speed-ups')}${tile('mail', '', ART.icon('scroll', 54), 'Reports', S.unread ? S.unread + ' unread' : 'No new reports', S.unread > 0)}${tile('bestiary', '', ART.enemy('warlord', 54), 'Bestiary', Object.keys(S.bestiary || {}).length + ' / ' + Object.keys(FOES).length + ' found', bestiaryReady())}${tile('menu', '', im('more'), 'Settings', 'Sound, help, realm')}</div>`); break; }
     case 'stage': startStage(d.key); break;
     case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && !fight.timing && now() >= fight.pauseUntil) timedCast(u); break; }
     case 'landmark': sfx('click'); if (d.id === 'arena') openTab('arena'); else if (d.id === 'bazaar') META.act('sub', { s: 'market' }); else if (d.id === 'altar') META.act('sub', { s: 'summon' }); else { openTab('heroes'); toast('Open a hero to forge their gear with Ember Essence'); } break;
@@ -1526,6 +1531,18 @@ function openMenu() {
 }
 
 /* ======================= start ======================= */
+// A visible chest of everything the realm produced while you were away, plus a small courier's bonus.
+const bestiaryReady = () => Object.keys(S.bestiary || {}).some(k => !(S.bestiaryClaimed || {})[k]);
+function openBestiary() {
+  const seen = S.bestiary || {}, cl = S.bestiaryClaimed || {}, n = Object.keys(seen).length, all = Object.keys(FOES);
+  openSheet(`Bestiary · ${n} / ${all.length}`, `<p class="muted">Every enemy you defeat in the campaign is recorded here. Record a new one for 20 gems and 5 Ember Essence.</p><div class="beasts">${all.map(k => { const u = ART.asset('fiends', k), got = seen[k]; return `<div class="beast ${got ? '' : 'unknown'}">${u ? `<img src="${u}" alt="" loading="lazy">` : ART.enemy(k, 80)}<b>${got ? FOES[k].name : '???'}</b><small>${got ? `Defeated ${fmt(got)}×` : 'Not yet met'}</small>${got && !cl[k] ? `<button class="btn gold sm" data-act="beastclaim" data-k="${k}">Record</button>` : got ? '<em>✓ Recorded</em>' : ''}</div>`; }).join('')}</div>`, true);
+}
+function welcomeBack(away, before) {
+  const got = {}; RES.forEach(k => { const v = Math.floor(S.res[k] - before[k]); if (v > 0) got[k] = v; }); if (!Object.keys(got).length) return;
+  const bonus = { gold: Math.min(20000, Math.round((got.gold || 0) * .1 + 200 * Math.max(1, S.b.citadel))) }; give(bonus);
+  openSheet('While you were away', `<div class="wb"><div class="wb-chest">${ART.icon('chest', 96)}</div><p>Your realm worked for <b>${fmtT(away)}</b>.</p><div class="rloot">${META.rewardHTML(got)}</div><p class="muted">The royal courier adds a purse for your return:</p><div class="rloot">${META.rewardHTML(bonus)}</div><button class="btn gold wide" data-act="close">Splendid</button></div>`);
+  FX.sound('chest'); setTimeout(() => FX.confetti(), 250);
+}
 function start() {
   if (!TERR) TERR = buildTerrain(S.seed); ART.setRealm(S.realm || 'greenhold', LIVE.skinPal()); document.title = `${GAME.name} · ${S.name}`;
   document.addEventListener('click', onAct); document.addEventListener('input', onInput);
@@ -1537,12 +1554,14 @@ function start() {
   initMapInput();
   window.addEventListener('resize', () => { if (tab === 'world') clampCam(); });
   lastTick = Math.max(S.last || now(), now() - 12 * 3600e3);
-  const away = (now() - lastTick) / 1000;
+  const away = (now() - lastTick) / 1000, before = { ...S.res };
   tick();
+  if (away > 600) setTimeout(() => welcomeBack(away, before), start.fromIntro ? 4200 : 1100);
   LIVE.comeback(away);
-  if (away > 120) toast(`Welcome back! Your realm worked for ${fmtT(away)} while you were away.`, 'good');
+  if (away > 120 && away <= 600) toast(`Welcome back! Your realm worked for ${fmtT(away)} while you were away.`, 'good');
   openTab('city');
-  setTimeout(() => META.loginPopup(), start.fromIntro ? 2500 : 900);
+  // the daily login popup waits until nothing else (welcome chest, story, banner) is on screen
+  setTimeout(function tryLogin() { if (sheet().open || document.querySelector('.cine,.story,.reveal')) return setTimeout(tryLogin, 700); META.loginPopup(); }, start.fromIntro ? 2500 : (away > 600 ? 2600 : 900));
   setInterval(() => { tick(); renderHud(); renderQueues(); if (tab !== 'city' && tab !== 'world' && !$('#panel').contains(document.activeElement) && Math.floor(now() / 1000) % 2 === 0) render(true); }, 500);
   setInterval(() => { if (tab === 'city' && !document.querySelector('.reveal')) renderCity(); save(); }, 3000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
