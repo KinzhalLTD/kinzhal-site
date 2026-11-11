@@ -17,7 +17,10 @@
   "foes": {},
   "key": {
     "chapter1": "key/chapter1.png",
-    "chapter2": "key/chapter2.png"
+    "chapter2": "key/chapter2.png",
+    "chapter3": "key/chapter3.png",
+    "chapter4": "key/chapter4.png",
+    "chapter5": "key/chapter5.png"
   },
   "music": {},
   "sfx": {}
