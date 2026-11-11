@@ -668,7 +668,7 @@ function citadelBanner(to) {
 function openField(i) {
   const f = S.fields[i], key = 'f' + i;
   if (!f) {
-    openSheet('Empty field', `<p class="muted">Choose what to build on this plot.</p><div class="pick">${FIELD_TYPES.map(t => { const c = costOf(t, 1); return `<button class="card-btn" data-act="buildfield" data-i="${i}" data-t="${t}"><svg viewBox="-60 -50 120 80" width="96" height="64">${ART.building(t, 1)}</svg><b>${BLD[t].name}</b><small>${ART.icon(BLD[t].field, 14)} +${fmt(fieldRate(1))}/h</small><span class="costs">${costHTML(c)}</span></button>`; }).join('')}</div>`);
+    openSheet('Empty field', `<p class="muted">Choose what to build on this plot.</p><div class="pick">${FIELD_TYPES.map(t => { const c = costOf(t, 1); return `<button class="card-btn" data-act="buildfield" data-i="${i}" data-t="${t}">${ART.asset('buildings', t) ? `<img class="bpaint" src="${ART.asset('buildings', t)}" width="84" height="84" alt="">` : `<svg viewBox="-60 -50 120 80" width="96" height="64">${ART.building(t, 1)}</svg>`}<b>${BLD[t].name}</b><small>${ART.icon(BLD[t].field, 14)} +${fmt(fieldRate(1))}/h</small><span class="costs">${costHTML(c)}</span></button>`; }).join('')}</div>`);
     return;
   }
   openBuilding(key);
@@ -687,7 +687,7 @@ function openBuilding(key) {
   if (id === 'market' && L) extra = marketHTML();
   if (id === 'mews' && L) extra = `<p>Hero level cap: <b>${heroCap()}</b> · March size: <b>${fmt(marchCap())}</b> troops.</p><button class="btn" data-act="tab" data-tab="heroes">Open Heroes</button>`;
   if (id === 'academy' && L) extra = `<button class="btn" data-act="tab" data-tab="research">Open research</button>`;
-  const head = `<div class="bhead"><svg viewBox="-80 -130 160 160" width="120" height="120">${L ? ART.building(id, L) : ART.building('empty')}</svg><div><p>${d.desc}</p><p class="lvl">Level <b>${L}</b> / ${d.max}</p></div></div>`;
+  const head = `<div class="bhead">${ART.asset('buildings', id) ? `<img class="bpaint" src="${ART.asset('buildings', id)}" width="120" height="120" alt="">` : `<svg viewBox="-80 -130 160 160" width="120" height="120">${L ? ART.building(id, L) : ART.building('empty')}</svg>`}<div><p>${d.desc}</p><p class="lvl">Level <b>${L}</b> / ${d.max}</p></div></div>`;
   let up = '';
   if (q) up = `<div class="upbox"><p>Upgrading to level ${q.to} · ${fmtT((q.end - now()) / 1000)}</p><button class="btn" data-act="speed" data-kind="b" data-key="${key}">Speed up</button></div>`;
   else if (L < d.max) {
@@ -1058,6 +1058,17 @@ function useItem(i) {
 const cam = { x: 0, y: 0, z: 1 }; let mapSel = null, mapDirty = true;
 const TS = 60;
 function centerOn(x, y) { const c = $('#map'); cam.x = x * TS * cam.z - c.clientWidth / 2 + TS * cam.z / 2; cam.y = y * TS * cam.z - c.clientHeight / 2 + TS * cam.z / 2; }
+// Painted map markers (art/manifest.json "map"): drawn as round medallions with a coloured rim.
+const MAPIMG = {};
+function medallion(ctx, id, x, y, r, rim) {
+  const url = ART.asset('map', id); if (!url) return false;
+  let im = MAPIMG[id]; if (!im) { im = MAPIMG[id] = new Image(); im.src = url; }
+  if (!im.complete || !im.naturalWidth) return false;
+  ctx.save(); ctx.fillStyle = '#0006'; ctx.beginPath(); ctx.ellipse(x, y + r * .95, r * .8, r * .22, 0, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.closePath(); ctx.clip(); ctx.drawImage(im, x - r, y - r, r * 2, r * 2); ctx.restore();
+  ctx.strokeStyle = rim; ctx.lineWidth = Math.max(2, r * .09); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+  return true;
+}
 function drawMap() {
   const c = $('#map'); if (!c || c.offsetParent === null || !TERR) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1), w = c.clientWidth, h = c.clientHeight;
@@ -1087,10 +1098,10 @@ function drawMap() {
     if (o.dead || o.x < x0 - 2 || o.x > x1 + 2 || o.y < y0 - 2 || o.y > y1 + 2 || !seen(o.x, o.y)) continue;
     const px = (o.x + .5) * s - cam.x, py = (o.y + .5) * s - cam.y;
     if (o.kind === 'node') { ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .95) label('Lv ' + o.lvl, px, py + s * .42, '#140f22b8', 10); }
-    else if (o.kind === 'camp') { ART.mapPaint.camp(ctx, px, py, s, o.lvl); if (cam.z > .7) label('Outpost ' + o.lvl, px, py + s * .42, '#6a1f1fe0', 10); }
+    else if (o.kind === 'camp') { if (!medallion(ctx, 'camp', px, py, s * .42, '#ff5e3a')) ART.mapPaint.camp(ctx, px, py, s, o.lvl); if (cam.z > .7) label('Outpost ' + o.lvl, px, py + s * .42, '#6a1f1fe0', 10); }
     else if (o.kind === 'city') { ART.mapPaint.city(ctx, px, py, s * 1.15, o.color, o.realm); if (cam.z > .4) label(o.name, px, py + s * .5, '#140f22e0'); }
     else if (o.kind === 'boss') { LIVE.drawBoss(ctx, px, py, s, o, t); label('World Boss · Lv ' + o.lvl, px, py + s * .7, '#7a1f1ae6', 11); }
-    else if (o.kind === 'throne') { ART.mapPaint.throne(ctx, px, py, s * 1.3, S.throne); label(S.throne ? 'Sunspire Throne · yours' : 'The Sunspire Throne', px, py + s * 1.15, '#5a3a8ae6', 12); }
+    else if (o.kind === 'throne') { if (!medallion(ctx, 'throne', px, py - s * .2, s * 1.15, '#ffd36b')) ART.mapPaint.throne(ctx, px, py, s * 1.3, S.throne); label(S.throne ? 'Sunspire Throne · yours' : 'The Sunspire Throne', px, py + s * 1.15, '#5a3a8ae6', 12); }
   }
   const hx = (S.home.x + .5) * s - cam.x, hy = (S.home.y + .5) * s - cam.y;
   if (S.shieldUntil > t) { ctx.fillStyle = '#3fd7c826'; ctx.strokeStyle = '#3fd7c8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, s * .8 + Math.sin(t / 400) * 2, 0, 7); ctx.fill(); ctx.stroke(); }

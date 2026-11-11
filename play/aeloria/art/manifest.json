@@ -40,5 +40,12 @@
     "chapter6": "key/chapter6.png"
   },
   "music": {},
-  "sfx": {}
+  "sfx": {},
+  "buildings": {
+    "citadel": "buildings/citadel.png",
+    "barracks": "buildings/barracks.png",
+    "mews": "buildings/mews.png",
+    "academy": "buildings/academy.png"
+  },
+  "map": {}
 }

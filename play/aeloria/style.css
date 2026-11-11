@@ -397,3 +397,4 @@ dialog::backdrop{background:#05030acc;backdrop-filter:blur(3px)}
 .c3up{color:#0b3a22;background:#6fe39a;border-radius:50%;width:15px;height:15px;display:grid;place-items:center;font-size:9px;animation:bobt .8s ease-in-out infinite alternate}
 .c3b{position:absolute;left:0;top:0;pointer-events:auto;cursor:pointer;width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#fff3d6);border:3px solid var(--gold);display:grid;place-items:center;box-shadow:0 6px 14px #0007,0 0 14px #ffd36b88;animation:none}
 .c3b::after{content:"";position:absolute;bottom:-8px;left:50%;margin-left:-6px;border:6px solid transparent;border-top-color:var(--gold)}
+.bpaint{flex:none;border-radius:16px;border:2px solid #e8a33d88;object-fit:cover;box-shadow:0 6px 16px #0008}
