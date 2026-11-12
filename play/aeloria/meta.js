@@ -11,7 +11,7 @@ const GEM_PACKS = [
   { id: 'vault', name: 'Vault of Gems', gems: 4800, bonus: 1200, price: 'SAR 59.99' },
   { id: 'treasury', name: 'Sultan\'s Treasury', gems: 13000, bonus: 4000, price: 'SAR 149.99', tag: 'Best value' }
 ];
-const VIP_PTS = [0, 300, 1000, 2500, 6000, 12000, 25000, 50000, 100000];
+const VIP_PTS = [0, 300, 1000, 2500, 6000, 12000, 25000, 50000, 100000, 180000, 300000, 480000, 750000, 1100000, 1600000, 2300000];
 const ACH = [
   { id: 'build', name: 'Master Builder', desc: 'Finish upgrades', m: S => S.stats.builds || 0, t: [5, 25, 80, 200] },
   { id: 'train', name: 'Drillmaster', desc: 'Train troops', m: S => S.stats.trained, t: [100, 1000, 10000, 100000] },
@@ -39,6 +39,18 @@ const HARVEST_MS = 150e3;
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 const vipLvl = () => { let l = 0; VIP_PTS.forEach((p, i) => { if ((S.vip || 0) >= p) l = i; }); return l; };
 function spendGems(n) { S.gems -= n; S.vip = (S.vip || 0) + n; }
+/* ---------- Royal Forge of Power: endless gem upgrades with permanent bonuses ---------- */
+const FORGE = [
+  { k: 'harvest', name: 'Golden Harvest', icon: 'grain', per: 2, unit: '% all production', base: 60, desc: 'Every field, mill, quarry and mine yields more.' },
+  { k: 'engineer', name: 'Royal Engineers', icon: 'clock', per: 2, unit: '% build and research speed', base: 80, desc: 'Buildings rise and studies finish faster.' },
+  { k: 'legion', name: 'Iron Legion', icon: 'might', per: 1.5, unit: '% troop attack and defence', base: 90, desc: 'Every soldier you send hits harder and holds longer.' },
+  { k: 'spirit', name: 'Heroic Spirit', icon: 'scroll', per: 2, unit: '% hero health and attack', base: 90, desc: 'Your heroes grow mightier in every battle.' },
+  { k: 'coffers', name: 'Royal Coffers', icon: 'chest', per: 4, unit: '% storage capacity', base: 50, desc: 'Store more of everything your realm produces.' }];
+const FL = k => (S && S.forge && S.forge[k]) || 0;
+const forgeCost = (f, l) => Math.round(f.base * Math.pow(1.17, l) / 5) * 5;
+const forgeTotal = () => FORGE.reduce((a, f) => a + FL(f.k), 0);
+const FORGE_RANKS = [[0, 'Unforged'], [10, 'Iron'], [25, 'Bronze'], [50, 'Silver'], [100, 'Gold'], [175, 'Platinum'], [275, 'Diamond'], [400, 'Mythic'], [600, 'Eternal']];
+const forgeRank = (t = forgeTotal()) => { let r = FORGE_RANKS[0], i = 0; FORGE_RANKS.forEach((x, j) => { if (t >= x[0]) { r = x; i = j; } }); return { name: r[1], i, next: FORGE_RANKS[i + 1] }; };
 
 const META = (() => {
   function migrate(s) {
@@ -213,10 +225,10 @@ const META = (() => {
   let sub = 'featured';
   const midnight = () => { const d = new Date(); d.setHours(24, 0, 0, 0); return (d - new Date()) / 1000; };
   function renderStore() {
-    const tabs = [['featured', 'Featured'], ['market', 'Market'], ['offers', 'Offers'], ['summon', 'Crown Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['skins', 'City Skins'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
+    const tabs = [['featured', 'Featured'], ['forge', 'Royal Forge'], ['market', 'Market'], ['offers', 'Offers'], ['summon', 'Crown Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['skins', 'City Skins'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
     const head = `<div class="store-head"><h2>Royal Bazaar</h2><div class="wallet"><span data-res="gems2">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b></span><span>${feather(18)}<b>${S.tokens}</b></span><span>${ART.icon('gold', 18)}<b>${fmt(S.res.gold)}</b></span></div></div>
       <div class="subtabs">${tabs.map(([k, n]) => `<button class="${sub === k ? 'on' : ''}" data-act="sub" data-s="${k}">${n}</button>`).join('')}</div>`;
-    return head + ({ featured, market: marketTab, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab, offers: LIVE.offersTab, skins: LIVE.skinsTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub])();
+    return head + ({ featured, forge: forgeTab, market: marketTab, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab, offers: LIVE.offersTab, skins: LIVE.skinsTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub])();
   }
   /* ---------- Market: stalls paid in Gold, and one free spin of the wheel a day ---------- */
   const MARKET = [['grain', 'Grain wagon'], ['timber', 'Timber cart'], ['stone', 'Stone sledge'], ['ore', 'Iron ingots']].map(([k, n]) => ({ id: k, name: n, max: 5, gold: L => 500 * L, r: L => ({ [k]: 4000 * L }) })).concat([
@@ -236,9 +248,27 @@ const META = (() => {
     setTimeout(() => { spinning = false; toast(`Wheel of Fortune: ${txt}`, 'good'); FX.confetti(); FX.sound('chest'); render(); }, 4400);
   }
   function buyMarket(id) { const m = mk(), it = MARKET.find(x => x.id === id), L = Math.max(1, S.b.citadel); if (!it || (m.bought[id] || 0) >= it.max) return; const price = it.gold(L); if (S.res.gold < price) return toast('Not enough Gold', 'bad'); S.res.gold -= price; m.bought[id] = (m.bought[id] || 0) + 1; give(it.r(L), it.name); FX.sound('coin'); render(); }
+  function forgeTab() {
+    const t = forgeTotal(), R = forgeRank(t), nx = R.next;
+    return `<div class="forgehead"><div class="fh-rank r${R.i}"><small>Power rank</small><b>${R.name}</b></div><div class="fh-mid"><b>Forge level ${fmt(t)}</b>${nx ? `${bar((t - FORGE_RANKS[R.i][0]) / (nx[0] - FORGE_RANKS[R.i][0]))}<small class="muted">${nx[0] - t} more upgrades to ${nx[1]} rank · each rank pays a 1-hour hourglass and a Crown Sigil</small>` : '<small class="muted">The highest rank. Your legend is forged.</small>'}<small class="muted">Every gem spent also counts toward VIP.</small></div></div>
+      <div class="forges">${FORGE.map(f => { const l = FL(f.k), c = forgeCost(f, l), c10 = Array.from({ length: 10 }, (_, i) => forgeCost(f, l + i)).reduce((a, b) => a + b, 0), can = S.gems >= c;
+        return `<div class="forge" data-k="${f.k}"><div class="fg-ic">${ART.icon(f.icon, 40)}<span>Lv ${l}</span></div><div class="fg-txt"><b>${f.name}</b><small>${f.desc}</small><p><em>+${(l * f.per).toFixed(1).replace('.0', '')}${f.unit}</em> → <strong>+${((l + 1) * f.per).toFixed(1).replace('.0', '')}%</strong></p></div>
+        <div class="fg-btns"><button class="btn ${can ? 'gold' : ''}" data-act="forge" data-k="${f.k}" data-n="1">${ART.icon('gem', 15)} ${fmt(c)}</button><button class="btn sm" data-act="forge" data-k="${f.k}" data-n="10">×10 · ${fmt(c10)}</button></div></div>`; }).join('')}</div>
+      <p class="muted center">Upgrades never end and never reset. Costs rise 17% per level. Gems come from play (quests, trials, the Season Road, daily gifts) or from gem packs.</p>
+      ${S.gems < forgeCost(FORGE[0], FL('harvest')) ? '<button class="btn wide" data-act="sub" data-s="gems">Get more gems</button>' : ''}`;
+  }
+  function doForge(k, n) {
+    const f = FORGE.find(x => x.k === k); if (!f) return; S.forge ??= {}; const r0 = forgeRank().i; let done = 0;
+    for (let i = 0; i < n; i++) { const c = forgeCost(f, FL(k)); if (S.gems < c) break; spendGems(c); S.forge[k] = FL(k) + 1; done++; }
+    if (!done) { toast(`Not enough gems: ${fmt(forgeCost(f, FL(k)))} needed`, 'bad'); return; }
+    FX.sound(done > 1 ? 'chest' : 'coin'); const el = document.querySelector(`.forge[data-k="${k}"] .fg-ic`); if (el) { const p = FX.centerOf(el); FX.burst(p.x, p.y, { n: 20 + done * 4, shape: 'star', size: 5, speed: 7, ring: '#ffd36b' }); }
+    toast(`${f.name} level ${FL(k)}: +${(FL(k) * f.per).toFixed(1).replace('.0', '')}${f.unit}`, 'good');
+    const r1 = forgeRank().i; if (r1 > r0) { for (let i = r0; i < r1; i++) grant({ tokens: 1, items: { sp60: 1 } }); FX.banner('Power rank up!', `${forgeRank().name} rank · rewards sent to your bag`, { art: `<div class="fh-rank big r${r1}"><small>Power rank</small><b>${forgeRank().name}</b></div>` }); }
+    render();
+  }
   function featured() {
     const freeOk = S.free !== today(), vipOk = vipLvl() > 0 && S.vipDay !== today();
-    return `<div class="hero-banner" data-act="sub" data-s="summon"><div class="hb-art">${ART.portrait(HERO[featuredId()], 130)}</div><div class="hb-txt"><small>Featured legend</small><h3>${HERO[featuredId()].name}, ${HERO[featuredId()].title}</h3><p>Summon now · 4% legendary · guaranteed within ${SUMMON.pity} summons</p><span class="btn gold">Summon</span></div></div>
+    return `<div class="forgebanner" data-act="sub" data-s="forge">${ART.icon('might', 52)}<div><small>Royal Forge of Power</small><b>Endless upgrades · ${forgeRank().name} rank · level ${fmt(forgeTotal())}</b><span>Permanent boosts to production, speed, troops and heroes</span></div><em>Forge ›</em></div><div class="hero-banner" data-act="sub" data-s="summon"><div class="hb-art">${ART.portrait(HERO[featuredId()], 130)}</div><div class="hb-txt"><small>Featured legend</small><h3>${HERO[featuredId()].name}, ${HERO[featuredId()].title}</h3><p>Summon now · 4% legendary · guaranteed within ${SUMMON.pity} summons</p><span class="btn gold">Summon</span></div></div>
     <div class="grid2">
       <div class="card offer ${freeOk ? 'ready' : ''}"><h4>${ART.icon('chest', 22)} Daily free gift</h4><p class="muted">Gems and a surprise item, every day.</p>${freeOk ? '<button class="btn gold" data-act="freegift">Claim free</button>' : `<span class="muted">Next in ${fmtT(midnight())}</span>`}</div>
       <div class="card offer ${vipOk ? 'ready' : ''}"><h4>👑 VIP ${vipLvl()} daily chest</h4><p class="muted">${vipLvl() ? `${20 * vipLvl()} gems + hourglasses` : 'Reach VIP 1 by spending gems or logging in daily.'}</p>${vipOk ? '<button class="btn gold" data-act="vipchest">Open</button>' : vipLvl() ? `<span class="muted">Next in ${fmtT(midnight())}</span>` : '<button class="btn" data-act="sub" data-s="vip">See VIP</button>'}</div>
@@ -259,12 +289,12 @@ const META = (() => {
   }
   function gemsTab() {
     const pay = window.AELORIA_PAYMENTS;
-    return `<p class="muted">Gems are earned in play: quests, achievements, the Season Road, daily gifts, trials and battles.</p><div class="packs">${GEM_PACKS.map((p, i) => `<div class="pack">${p.tag ? `<span class="tag">${p.tag}</span>` : ''}<div class="gempile">${Array.from({ length: Math.min(6, i + 1) }, (_, j) => `<span style="--j:${j}">${ART.icon('gem', 30 + i * 3)}</span>`).join('')}</div><h4>${p.name}</h4><b class="amt">${fmt(p.gems)}${p.bonus ? ` <small>+${fmt(p.bonus)} bonus</small>` : ''}</b>${pay ? `<button class="btn gold" data-act="pack" data-id="${p.id}">${p.price}</button>` : `<button class="btn soon" data-act="soon">${p.price}</button>`}</div>`).join('')}</div>
+    return `<p class="muted">Gems are earned in play: quests, achievements, the Season Road, daily gifts, trials and battles.</p><div class="packs">${GEM_PACKS.map((p, i) => `<div class="pack">${p.tag ? `<span class="tag">${p.tag}</span>` : ''}<div class="gempile">${Array.from({ length: Math.min(6, i + 1) }, (_, j) => `<span style="--j:${j}">${ART.icon('gem', 30 + i * 3)}</span>`).join('')}</div><h4>${p.name}</h4>${!(S.shop && S.shop.first && S.shop.first[p.id]) ? '<span class="x2">×2 first purchase</span>' : ''}<b class="amt">${fmt(p.gems)}${p.bonus ? ` <small>+${fmt(p.bonus)} bonus</small>` : ''}</b>${pay ? `<button class="btn gold" data-act="pack" data-id="${p.id}">${p.price}</button>` : `<button class="btn soon" data-act="soon">${p.price}</button>`}</div>`).join('')}</div>
       ${pay ? '' : '<p class="muted center">Gem purchases open with the mobile release. Everything in the Souq can already be earned by playing.</p>'}`;
   }
   async function buyPack(id) {
     const p = GEM_PACKS.find(x => x.id === id), pay = window.AELORIA_PAYMENTS; if (!p || !pay) return;
-    try { if (await pay.buy(id)) { S.gems += p.gems + p.bonus; S.vip += p.gems; FX.confetti(); FX.sound('chest'); toast(`+${fmt(p.gems + p.bonus)} gems`, 'good'); save(); render(); } } catch (e) { toast('Purchase cancelled', 'bad'); }
+    try { if (await pay.buy(id)) { S.shop.first ??= {}; const dbl = !S.shop.first[id]; S.shop.first[id] = 1; S.gems += p.gems + p.bonus + (dbl ? p.gems : 0); S.vip += p.gems; FX.confetti(); FX.sound('chest'); toast(`+${fmt(p.gems + p.bonus)} gems`, 'good'); save(); render(); } } catch (e) { toast('Purchase cancelled', 'bad'); }
   }
   function itemsTab() {
     return `<div class="items">${Object.entries(ITEMS).filter(([, d]) => d.gems).map(([i, d]) => `<div class="item">${ART.icon(d.icon, 38)}<b>${d.name}</b><small>${d.desc}</small><span class="own">Owned ${S.items[i] || 0}</span><button class="mini gold" data-act="buy" data-i="${i}">${ART.icon('gem', 12)} ${d.gems}</button></div>`).join('')}</div>`;
@@ -284,6 +314,7 @@ const META = (() => {
       case 'openchest': openChestKind(d.k); return true;
       case 'deal': buyDeal(+d.i); return true;
       case 'spin': spin(); return true;
+      case 'forge': doForge(d.k, +d.n || 1); return true;
       case 'mbuy': buyMarket(d.id); return true;
       case 'pack': buyPack(d.id); return true;
       case 'freegift': freeGift(); return true;

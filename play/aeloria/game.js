@@ -212,26 +212,26 @@ function rates() {
   for (const k of ['grain', 'timber', 'stone', 'ore']) r[k] = r[k] * (1 + tech(prodBoost[k])) + 120;
   r.gold = 200 + 160 * S.b.citadel + 260 * S.b.market;
   r.grain *= 1 + RB('grain'); r.gold *= 1 + RB('gold');
-  const vb = 1 + vipLvl() * .03; for (const k of RES) r[k] *= vb;
+  const vb = (1 + vipLvl() * .03) * (1 + FL('harvest') * .02); for (const k of RES) r[k] *= vb;
   r.upkeep = troopCount(S.troops) * 0.25; // grain eaten per hour
   r.grain -= r.upkeep;
   return r;
 }
-const cap = () => 30000 + 25000 * S.b.citadel * S.b.citadel;
+const cap = () => (30000 + 25000 * S.b.citadel * S.b.citadel) * (1 + FL('coffers') * .04);
 const vaultSafe = () => 3000 + 6000 * S.b.vault * S.b.vault / 2;
 const troopCount = t => Object.values(t || {}).reduce((a, b) => a + b, 0);
 const troopMight = t => Object.entries(t || {}).reduce((a, [k, n]) => a + n * TIER_MIGHT[tparse(k)[1] - 1], 0);
 function heroStats(id) {
   const d = HERO[id], h = S.heroes[id]; const m = (1 + .13 * (h.lvl - 1)) * (1 + .2 * (h.stars - 1));
-  const g = LIVE.gearMult(id);
-  return { hp: Math.round(d.hp * m * g.hp), atk: Math.round(d.atk * m * g.atk), def: Math.round(d.def * m * g.def), spd: d.spd };
+  const g = LIVE.gearMult(id), sp = 1 + FL('spirit') * .02;
+  return { hp: Math.round(d.hp * m * g.hp * sp), atk: Math.round(d.atk * m * g.atk * sp), def: Math.round(d.def * m * g.def), spd: d.spd };
 }
 const heroMight = () => Object.entries(S.heroes).reduce((a, [id, h]) => a + h.lvl * 40 * h.stars, 0);
 function might() {
   let m = 0; for (const [k, l] of Object.entries(S.b)) m += l * l * (k === 'citadel' ? 40 : 14);
   S.fields.forEach(f => { if (f) m += f.l * f.l * 6; });
   m += troopMight(S.troops) + S.marches.reduce((a, x) => a + troopMight(x.troops), 0);
-  m += heroMight() + LIVE.gearMight() + Object.values(S.tech).reduce((a, l) => a + l * 60, 0);
+  m += heroMight() + LIVE.gearMight() + Object.values(S.tech).reduce((a, l) => a + l * 60, 0) + forgeTotal() * 150;
   return Math.floor(m);
 }
 const vigorMax = () => 60 + S.b.mews * 2 + vipLvl() * 5;
@@ -246,7 +246,7 @@ function costOf(id, toL) {
   if (toL >= 8 && !out.ore) out.ore = Math.floor(80 * Math.pow(1.5, toL - 8));
   return out;
 }
-const timeOf = (id, toL) => BLD[id].base * Math.pow(1.58, toL - 1) / (1 + tech('build'));
+const timeOf = (id, toL) => BLD[id].base * Math.pow(1.58, toL - 1) / (1 + tech('build')) / (1 + FL('engineer') * .02);
 const afford = c => Object.entries(c).every(([k, v]) => k === 'gems' ? S.gems >= v : (S.res[k] || 0) >= v);
 const pay = c => { for (const [k, v] of Object.entries(c)) { if (k === 'gems') spendGems(v); else S.res[k] -= v; } };
 function give(r, label) {
@@ -330,7 +330,7 @@ function healAll() {
 
 /* ======================= research ======================= */
 const techCost = (t, to) => ({ grain: Math.floor(600 * Math.pow(1.7, to - 1)), timber: Math.floor(500 * Math.pow(1.7, to - 1)), ore: Math.floor(150 * Math.pow(1.7, to - 1)), gold: Math.floor(500 * Math.pow(1.75, to - 1) * (t.max === 1 ? 4 : 1)) });
-const techTime = (t, to) => 30 * Math.pow(1.75, to - 1) * (t.max === 1 ? 8 : 1) / (1 + S.b.academy * .03 + RB('research'));
+const techTime = (t, to) => 30 * Math.pow(1.75, to - 1) * (t.max === 1 ? 8 : 1) / (1 + S.b.academy * .03 + RB('research')) / (1 + FL('engineer') * .02);
 const techNeed = (t, to) => Math.max(t.need || 1, to * 2 - 1);
 function startResearch(id) {
   const t = TECHM[id], to = (S.tech[id] || 0) + 1;
@@ -405,7 +405,7 @@ function battle(att, def) {
   for (const k in startD) lossD[k] = startD[k] - (D.troops[k] || 0);
   return { win: powA > powD * 1.05 || troopCount(D.troops) === 0, leftA: A.troops, leftD: D.troops, lossA, lossD, rounds };
 }
-const playerAtk = () => ({ atkB: tech('blade') + squadBonus(), defB: tech('armor') + RB('def') });
+const playerAtk = () => ({ atkB: tech('blade') + squadBonus() + FL('legion') * .015, defB: tech('armor') + RB('def') + FL('legion') * .015 });
 function troopsHTML(t, cls = '') { const e = Object.entries(t || {}).filter(([, n]) => n > 0); return e.length ? `<div class="tlist ${cls}">${e.map(([k, n]) => { const [ty, ti] = tparse(k); return `<span class="tchip">${ART.troop(ty, ti, 26)}${fmt(n)}</span>`; }).join('')}</div>` : '<span class="muted">none</span>'; }
 
 /* ======================= world marches ======================= */
