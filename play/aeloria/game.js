@@ -417,7 +417,14 @@ function battle(att, def) {
   return { win: powA > powD * 1.05 || troopCount(D.troops) === 0, leftA: A.troops, leftD: D.troops, lossA, lossD, rounds };
 }
 const playerAtk = () => ({ atkB: tech('blade') + squadBonus() + FL('legion') * .015, defB: tech('armor') + RB('def') + FL('legion') * .015 });
-function troopsHTML(t, cls = '') { const e = Object.entries(t || {}).filter(([, n]) => n > 0); return e.length ? `<div class="tlist ${cls}">${e.map(([k, n]) => { const [ty, ti] = tparse(k); return `<span class="tchip">${ART.troop(ty, ti, 26)}${fmt(n)}</span>`; }).join('')}</div>` : '<span class="muted">none</span>'; }
+// Troop chips: painted soldiers (your army in blue, the Ashen host in red); side: 'me', 'ash' or 'rival'.
+const TSPR = { me: { inf: 'foot', rng: 'archer', cav: 'cav', sie: 'brute' }, ash: { inf: 'raider', rng: 'wraith', cav: 'hound', sie: 'brute' } };
+function troopsHTML(t, cls = '', side) {
+  const e = Object.entries(t || {}).filter(([, n]) => n > 0); if (!e.length) return '<span class="muted">none</span>';
+  if (!side) return `<div class="tlist ${cls}">${e.map(([k, n]) => { const [ty, ti] = tparse(k); return `<span class="tchip">${ART.troop(ty, ti, 26)}${fmt(n)}</span>`; }).join('')}</div>`;
+  return `<div class="tlist big ${cls}">${e.map(([k, n]) => { const [ty, ti] = tparse(k), u = ART.asset('army', (TSPR[side === 'ash' ? 'ash' : 'me'])[ty]) || ART.asset('troops', ty); return `<span class="tchip2 ${side}" title="${TROOP[ty].name} ${'I'.repeat(ti)}"><i>${u ? `<img src="${u}" alt="">` : ART.troop(ty, ti, 30)}<em>${'I'.repeat(ti)}</em></i><b>${fmt(n)}</b><small>${TROOP[ty].name}</small></span>`; }).join('')}</div>`;
+}
+const battleHTML = (win, rounds, mine, theirs, saved, foeSide, mineLabel = 'Your losses', theirLabel = 'Enemy losses') => `<div class="rbattle"><div class="rb-head ${win ? 'win' : 'loss'}"><b>${win ? 'VICTORY' : 'DEFEAT'}</b><span>${rounds} round${rounds === 1 ? '' : 's'}</span></div><div class="rb-cols"><div><h5>${mineLabel}</h5>${troopsHTML(mine, '', 'me')}${saved ? `<small class="muted">${fmt(saved)} sent to the Infirmary</small>` : ''}</div><div><h5>${theirLabel}</h5>${troopsHTML(theirs, '', foeSide)}</div></div></div>`;
 
 /* ======================= world marches ======================= */
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -452,7 +459,7 @@ function arrive(m) {
   }
   if (m.kind === 'scout') {
     S.stats.scouts++;
-    const lvl = S.b.tower; const show = t => lvl >= 3 ? troopsHTML(t) : `about ${fmt(troopCount(t) * (0.8 + Math.random() * .4))} troops`;
+    const lvl = S.b.tower; const show = t => lvl >= 3 ? troopsHTML(t, '', o.kind === 'city' ? 'rival' : 'ash') : `about ${fmt(troopCount(t) * (0.8 + Math.random() * .4))} troops`;
     report(`Scout report · ${o.name || 'Ashen outpost L' + o.lvl}`, `<p>Army: ${show(o.troops)}</p>${o.res ? `<p>Resources: ${RES.map(k => ART.icon(k, 14) + fmt(o.res[k])).join(' ')}</p>` : ''}${o.wall ? `<p>Ramparts level ${o.wall}</p>` : ''}${lvl < 3 ? '<p class="muted">Raise the Watchtower to level 3 for exact numbers.</p>' : ''}`, 'scout');
     return goBack();
   }
@@ -468,7 +475,7 @@ function arrive(m) {
   m.troops = res.leftA;
   const deadMine = troopCount(res.lossA), healed = addWounded(Object.fromEntries(Object.entries(res.lossA).map(([k, n]) => [k, Math.floor(n * .6)])));
   o.troops = res.leftD;
-  let body = `<p><b>${res.win ? 'Victory!' : 'Defeat.'}</b> ${res.rounds} rounds.</p><p>Your losses: ${troopsHTML(res.lossA)} <span class="muted">(${fmt(healed)} sent to the Infirmary)</span></p><p>Enemy losses: ${troopsHTML(res.lossD)}</p>`;
+  let body = battleHTML(res.win, res.rounds, res.lossA, res.lossD, healed, o.kind === 'city' ? 'rival' : 'ash');
   if (res.win) {
     if (o.kind === 'camp') {
       META.xp(30); LIVE.on('camp', 1); S.essence += 4 * o.lvl; S.stats.camps++; S.stats.campMax = Math.max(S.stats.campMax, o.lvl);
@@ -517,7 +524,7 @@ function resolveRaid() {
   if (S.shieldUntil > now()) { report('Raid turned away', `${esc(inc.name)}'s army broke against your Aegis Ward. The city is safe.`, 'scout'); return; }
   const res = battle({ troops: inc.troops, atkB: .05 }, { troops: S.troops, ...playerAtk(), defB: tech('armor') + squadBonus() / 2, wall: S.b.wall });
   const healed = addWounded(res.lossD); S.troops = res.leftD; for (const k in S.troops) if (!S.troops[k]) delete S.troops[k];
-  let body = `<p>${esc(inc.name)} attacked with ${fmt(troopCount(inc.troops))} troops.</p><p>Your losses: ${troopsHTML(res.lossD)} <span class="muted">(${fmt(healed)} saved by the Infirmary)</span></p><p>Their losses: ${troopsHTML(res.lossA)}</p>`;
+  let body = `<p>${esc(inc.name)} attacked with ${fmt(troopCount(inc.troops))} troops.</p>` + battleHTML(!res.win, res.rounds || 1, res.lossD, res.lossA, healed, 'rival', 'Your losses', 'Their losses');
   if (res.win) {
     const safe = vaultSafe(), lost = {};
     for (const k of RES) { lost[k] = Math.floor(Math.max(0, S.res[k] - safe) * .25); S.res[k] -= lost[k]; }
@@ -1488,9 +1495,18 @@ function openMarch(id) {
 }
 
 /* ======================= Mail ======================= */
+// A painted icon for each kind of report, chosen from its title so older reports get one too.
+function repIcon(r) {
+  const t = r.title, img = (u, c = '') => u ? { h: `<img src="${u}" alt="">`, c } : null, A = ART.asset;
+  return (/Elite Warband/.test(t) && img(A('fiends', 'warlord'), 'fig')) || (/outpost/i.test(t) && img(A('map', 'camp'))) || (/Throne/.test(t) && img(A('map', 'throne')))
+    || (/raided|Defence|Raid turned/.test(t) && img(A('buildings', 'wall'))) || (/Treasure/.test(t) && img(A('icons', 'chest')))
+    || (/Scout|charted/.test(t) && img(A('icons', 'scroll'))) || (/Boss|Colossus/.test(t) && img(A('fiends', 'golem'), 'fig'))
+    || (/^(Victory|Defeat)/.test(t) && img(A('map', 'city'))) || (/March/.test(t) && img(A('nav', 'hud_home'))) || img(A('nav', 'hud_mail')) || { h: '✉', c: '' };
+}
+const repWhen = t => { const d = (now() - t) / 1000; return d < 60 ? 'just now' : d < 3600 ? `${Math.floor(d / 60)} min ago` : d < 86400 ? `${Math.floor(d / 3600)} h ago` : new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' }); };
 function openMail() {
   S.unread = 0; renderHud();
-  openSheet('Reports', S.reports.length ? S.reports.map((r, i) => `<details class="rep ${r.kind}" ${i === 0 ? 'open' : ''}><summary><b>${r.title}</b><small>${new Date(r.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></summary>${r.body}</details>`).join('') : '<p class="muted">No reports yet.</p>', true);
+  openSheet('Reports', S.reports.length ? S.reports.map((r, i) => { const ic = repIcon(r); return `<details class="rep ${r.kind}" ${i === 0 ? 'open' : ''}><summary><span class="repic ${ic.c}">${ic.h}</span><span class="reptx"><b>${r.title}</b><small>${repWhen(r.t)}</small></span>${r.kind === 'win' || r.kind === 'loss' ? `<em class="reptag ${r.kind}">${r.kind === 'win' ? 'Won' : 'Lost'}</em>` : ''}</summary><div class="repbody">${r.body}</div></details>`; }).join('') : '<p class="muted">No reports yet.</p>', true);
 }
 
 /* ======================= tabs & render ======================= */
