@@ -1582,7 +1582,7 @@ function onAct(e) {
     case 'home': if (tab === 'world') centerOn(S.home.x, S.home.y); else openTab('world'); break;
     case 'mail': openMail(); break;
     case 'incoming': openSheet('Incoming attack!', `<p><b>${esc(S.incoming.name)}</b> marches with about ${fmt(troopCount(S.incoming.troops) * (S.b.tower >= 3 ? 1 : 1.1))} troops. Arrives in ${fmtT((S.incoming.arrive - now()) / 1000)}.</p><p>Your defenders: ${fmt(troopCount(S.troops))} troops, Ramparts ${S.b.wall}.</p>${S.items.shield ? '<button class="btn gold" data-act="use" data-i="shield">Raise Aegis Ward</button>' : `<button class="btn gold" data-act="buy" data-i="shield">${ART.icon('gem', 12)} ${ITEMS.shield.gems} Buy Aegis Ward</button>`}`); break;
-    case 'mute': { const on = !(S.settings.music || S.settings.sfx); S.settings.music = on; S.settings.sfx = on; FX.music(on); FX.setSfx(on); el.textContent = on ? '🔊' : '🔇'; break; }
+    case 'mute': { const on = !(S.settings.music || S.settings.sfx); S.settings.music = on; S.settings.sfx = on; FX.music(on); FX.setSfx(on); el.classList.toggle('muted', !on); break; }
     case 'menu': openMenu(); break;
     case 'gfx3d': S.settings.gfx3d = S.settings.gfx3d !== true; $('#cityView').innerHTML = ''; if (!use3D() && window.CITY3D && CITY3D.ok) CITY3D.setActive(false); openTab('city'); break;
     case 'reset': if (!el.dataset.sure) { el.dataset.sure = 1; el.textContent = 'Tap again to erase this realm'; el.classList.add('gold'); break; } try { localStorage.removeItem(SAVE_KEY); } catch (x) { } location.reload(); break;
@@ -1624,7 +1624,7 @@ function start() {
   document.addEventListener('click', onAct); document.addEventListener('input', onInput);
   document.addEventListener('submit', e => { if (e.target.dataset.act === 'chat') { e.preventDefault(); const v = e.target.m.value.trim(); if (v) { S.house.chat.push({ from: S.name, t: v, at: now() }); setTimeout(() => { S.house.chat.push({ from: pick(HOUSE_NAMES), t: pick(['Well said!', 'Agreed, my lord.', 'Ha! Good one.', 'On it.', 'For the Dawn Falcon!']), at: now() }); if (tab === 'house') render(); }, 1500); render(); } } });
   $('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
-  FX.setSfx(S.settings.sfx); $('#muteBtn').textContent = S.settings.music || S.settings.sfx ? '🔊' : '🔇';
+  FX.setSfx(S.settings.sfx); $('#muteBtn').classList.toggle('muted', !(S.settings.music || S.settings.sfx));
   const wake = () => { FX.music(S.settings.music); document.removeEventListener('pointerdown', wake); }; document.addEventListener('pointerdown', wake); if (start.fromIntro) wake();
   $('#brand').innerHTML = ART.emblem(38);
   initMapInput();

@@ -1,5 +1,5 @@
 /* Aeloria: Age of Crowns — interface styles */
-:root{--bg:#120c1f;--panel:#1d1530;--panel2:#2a1f44;--line:#3d2f5e;--ink:#f8eedb;--ink2:#cbbfa6;--gold:#e8a33d;--gold2:#ffd36b;--gold3:#fff1c4;--teal:#3fd7c8;--red:#ff5e3a;--good:#6fe39a;--epic:#b48cff;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);
+:root{--bg:#120c1f;--panel:#1d1530;--panel2:#2a1f44;--line:#3d2f5e;--ink:#f8eedb;--ink2:#cbbfa6;--gold:#e8a33d;--gold2:#ffd36b;--gold3:#fff1c4;--teal:#3fd7c8;--red:#ff5e3a;--good:#6fe39a;--epic:#b48cff;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);
 --display:"Cinzel","Trajan Pro",Georgia,serif;--body:"Cairo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 color-scheme:dark;--frame:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(160deg,#ffd36b,#7e4a22 40%,#3d2f5e 60%,#e8a33d) border-box}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -755,3 +755,49 @@ label.bt.auto{min-height:36px;display:inline-flex;align-items:center;gap:6px;cur
 .colbar{position:relative;height:12px;border-radius:6px;background:#0008;overflow:hidden}.colbar i{position:absolute;left:0;top:0;bottom:0;background:var(--rc)}.colbar em{position:relative;display:block;text-align:center;font-style:normal;font-size:9.5px;font-weight:800;line-height:12px}
 .col small .rws,.col small>*{font-size:11px}
 .colfaces.big span{width:62px;height:62px;border-radius:12px}
+
+/* ================= top bar v2: crest, medallion buttons, chips; layout that scales from iPhone to PC ================= */
+header.hud{background:linear-gradient(180deg,#07040f 0%,#1a1030 70%,#22163d 100%);border-bottom:2px solid #e8a33d;box-shadow:0 6px 22px #000c,inset 0 -1px #ffd36b44;padding-left:max(10px,var(--safe-l,0px));padding-right:max(10px,var(--safe-r,0px))}
+header.hud::after{content:"";position:absolute;left:50%;bottom:-9px;width:120px;height:8px;transform:translateX(-50%);background:radial-gradient(ellipse at 50% 0,#ffd36b99,transparent 70%);pointer-events:none}
+#brand{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,#3a2a6b,#120b22 75%);box-shadow:0 0 0 2px #e8a33d,0 0 0 4px #5a3410,0 4px 10px #000a,inset 0 2px 6px #ffffff2a}
+#brand svg{width:38px!important;height:38px!important}
+.who b{font-size:15px;letter-spacing:.02em;text-shadow:0 2px 0 #000}
+.hbtn{position:relative;width:44px;height:44px;padding:0;border:0;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 50% 38%,#3b2e66,#140b24 72%);box-shadow:0 0 0 2px #e8a33d,0 0 0 3.5px #5a3410,0 4px 8px #000b,inset 0 2px 5px #ffffff30,inset 0 -3px 6px #0008;transition:transform .12s}
+.hbtn::before{content:"";position:absolute;inset:3px 6px auto;height:40%;border-radius:50% 50% 45% 45%;background:linear-gradient(#ffffff38,#ffffff00);pointer-events:none}
+.hbtn img{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 2px 2px #000a);transition:transform .2s cubic-bezier(.2,1.6,.4,1)}
+.hbtn:hover img{transform:scale(1.1) rotate(-4deg)}.hbtn:active{transform:scale(.92)}
+.hbtn.muted img{filter:grayscale(1) brightness(.55)}.hbtn.muted::after{content:"";position:absolute;width:56%;height:3px;background:#ff5e3a;border-radius:2px;transform:rotate(-40deg);box-shadow:0 0 0 1.5px #140b24}
+.hbtn .dot{top:-3px;right:-3px}
+.hud .hrow{gap:8px}
+@media(max-width:400px){.hbtn{width:40px;height:40px}.hbtn img{width:30px;height:30px}#brand{width:42px;height:42px}#brand svg{width:34px!important;height:34px!important}.hud .hrow{gap:6px}}
+@media(max-width:350px){.hbtn{width:36px;height:36px}.hbtn img{width:27px;height:27px}}
+/* ---- tablet and desktop: bigger controls, content centred, the bar becomes a dock ---- */
+@media(min-width:760px){
+  header.hud{padding:calc(10px + var(--safe-t)) max(16px,calc((100vw - 1180px)/2)) 10px}
+  .hud .hrow{gap:12px}
+  #brand{width:56px;height:56px}#brand svg{width:46px!important;height:46px!important}
+  .who b{font-size:19px}#hudMight{font-size:14.5px}
+  .hbtn{width:54px;height:54px;margin-bottom:12px}.hbtn img{width:42px;height:42px}
+  .hbtn[data-l]::after{content:attr(data-l);position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);font:800 10.5px var(--body);color:#e9dcff;white-space:nowrap;text-shadow:0 1px 2px #000;background:none;width:auto;height:auto;box-shadow:none;border-radius:0}
+  .hbtn.muted[data-l]::after{content:"Muted";color:#ff9b7a}
+  #hudRes{gap:8px;margin-top:8px}
+  .res,body.painted-ui .res{padding:5px 10px 5px 6px;border-radius:12px;column-gap:6px}
+  .res .ic{width:26px!important;height:26px!important}.res b{font-size:15px}.res small{font-size:11px}
+  #status>*{font-size:13.5px}
+  nav.tabs.v2{padding:6px max(10px,calc((100vw - 880px)/2)) calc(6px + var(--safe-b))}
+  nav.tabs.v2 button{min-height:68px;font-size:12.5px}nav.tabs.v2 img{width:46px;height:46px}
+  nav.tabs.v2 .nbattle{margin-top:-38px}.nbattle i{width:86px;height:86px}nav.tabs.v2 .nbattle i img{width:68px;height:68px}.nbattle b{font-size:13px}
+  #queues{left:max(10px,calc((100vw - 1180px)/2));top:12px}.q{font-size:13px}.q b{font-size:12.5px}
+  #cityZoom{width:48px;height:48px;font-size:24px;right:max(10px,calc((100vw - 1180px)/2))}
+  .guide{max-width:520px}
+  dialog#sheet{width:min(640px,94vw)}dialog#sheet.wide{width:min(900px,94vw)}
+  #panel{padding-left:max(14px,calc((100vw - 1100px)/2));padding-right:max(14px,calc((100vw - 1100px)/2))}
+  .toast{font-size:15px}
+}
+@media(min-width:1100px){.heroes.figs{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}.hfig{height:214px}.hfig img{height:158px}}
+@media(hover:hover){nav.tabs.v2 button:hover img{transform:translateY(-3px) scale(1.08)}.btn:hover{filter:brightness(1.08)}}
+.vipchip{white-space:nowrap}
+@media(min-width:760px){#hudRes{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(min-width:760px){body nav.tabs.v2,body.painted-ui nav.tabs.v2{padding:6px max(10px,calc((100vw - 880px)/2)) calc(6px + var(--safe-b))}}
+@media(min-width:1100px){body nav.tabs.v2,body.painted-ui nav.tabs.v2{background:linear-gradient(90deg,#0d0819 0,#241843 calc(50% - 300px),#241843 calc(50% + 300px),#0d0819 100%)}}
+.cols{display:block!important;grid-template-columns:none!important}.cols .colrow{width:100%}

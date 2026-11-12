@@ -183,7 +183,12 @@
     "army": "nav/army.webp",
     "research": "nav/research.webp",
     "house": "nav/house.webp",
-    "arena": "nav/arena.webp"
+    "arena": "nav/arena.webp",
+    "hud_home": "nav/hud_home.webp",
+    "hud_bag": "nav/hud_bag.webp",
+    "hud_mail": "nav/hud_mail.webp",
+    "hud_sound": "nav/hud_sound.webp",
+    "hud_menu": "nav/hud_menu.webp"
   },
   "champions": {
     "astrid": "champions/astrid.webp",
