@@ -739,3 +739,19 @@ label.bt.auto{min-height:36px;display:inline-flex;align-items:center;gap:6px;cur
 .tmeter b{position:absolute;bottom:18px;transform:translateX(-50%);font-size:10.5px;color:var(--tc);opacity:.5}.tmeter b.got{opacity:1;text-shadow:0 0 8px var(--tc)}
 .tdmg{font-size:14px;text-align:center}.tdmg b{color:#ffd36b;font-size:18px}.tdmg em{color:var(--good);font-style:normal;font-weight:800}
 .result .tmeter{width:84%;align-self:center;margin:34px auto 12px}
+
+/* hero speech in the city */
+.speech{position:fixed;z-index:80;transform:translate(-50%,calc(-100% - 6px));max-width:220px;background:#fff8e6;color:#2c1604;border-radius:14px;padding:7px 12px 6px;font-size:13px;font-weight:700;line-height:1.3;text-align:center;box-shadow:0 6px 16px #0009;animation:speech .3s cubic-bezier(.2,1.5,.4,1);pointer-events:none}
+.speech::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-top-color:#fff8e6;border-bottom:0}
+.speech b{display:block;font:900 11px var(--display);color:#9c5a12;letter-spacing:.06em}.speech small{display:block;font-size:10px;color:#9c7a5a;font-weight:600;margin-top:2px}
+@keyframes speech{from{transform:translate(-50%,calc(-100% + 6px)) scale(.7);opacity:0}}
+/* hero collections */
+.cols h3{margin:6px 0}.colrow{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}.colrow::-webkit-scrollbar{display:none}
+.col{flex:none;width:176px;border-radius:14px;padding:8px;background:linear-gradient(160deg,color-mix(in srgb,var(--rc) 35%,#140f22),#140f22);border:1px solid color-mix(in srgb,var(--rc) 70%,transparent);display:flex;flex-direction:column;gap:5px}
+.col>b{font-size:12.5px}.col.done:not(.claimed){box-shadow:0 0 0 2px #ffd36b,0 0 16px #ffd36b66;animation:glowb 1.2s infinite alternate}
+.colfaces{display:flex;flex-wrap:wrap;gap:3px}.colfaces span{width:34px;height:34px;border-radius:8px;overflow:hidden;filter:grayscale(1) brightness(.35)}.colfaces span.own{filter:none;box-shadow:0 0 0 1.5px var(--rc)}
+.colfaces .portrait,.colfaces svg,.colfaces img{width:100%!important;height:100%!important}
+.colfaces.big{justify-content:center;gap:6px;margin-bottom:8px}
+.colbar{position:relative;height:12px;border-radius:6px;background:#0008;overflow:hidden}.colbar i{position:absolute;left:0;top:0;bottom:0;background:var(--rc)}.colbar em{position:relative;display:block;text-align:center;font-style:normal;font-size:9.5px;font-weight:800;line-height:12px}
+.col small .rws,.col small>*{font-size:11px}
+.colfaces.big span{width:62px;height:62px;border-radius:12px}

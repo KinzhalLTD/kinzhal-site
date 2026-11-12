@@ -584,6 +584,7 @@ function renderHud() {
   { const hr = $('#hudRes'); if (hr._h !== hudHtml) { hr.innerHTML = hudHtml; hr._h = hudHtml; } }
   { const nv = $('#navVigor'); if (nv) { nv.textContent = '⚡' + S.vigor; nv.parentNode.classList.toggle('go', S.vigor >= 6); } const md = $('#moreDot'); if (md) md.hidden = !(S.house.requests.length || (S.arena && S.arena.tickets > 0 && S.b.citadel >= 3)); }
   $('#mailDot').hidden = !S.unread; $('#mailDot').textContent = S.unread;
+  { const hd = $('#heroDot'); if (hd && !(renderHud.hdT > now())) { renderHud.hdT = now() + 3000; hd.hidden = !(collectionReady() || HEROES.some(h => { const st = S.heroes[h.id]; return st && STAR_SHARDS[st.stars + 1] && st.shards >= STAR_SHARDS[st.stars + 1]; })); } }
   const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); const passReady = Math.min(30, Math.floor(S.pass.xp / 120)) > Object.keys(S.pass.claimed).length; $('#questDot').hidden = !(qd || now() >= S.chestAt || passReady || LIVE.deedReady());
   $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0 || (S.market || {}).spin !== today());
   const shield = S.shieldUntil > now();
@@ -683,7 +684,7 @@ function renderCity() {
   }
   if (paintedCity()) S.squad.filter(id => S.heroes[id] && S.heroes[id].stars && ART.asset('champions', id)).slice(0, 3).forEach((id, i) => {
     const [x, y] = [[446, 400], [554, 400], [500, 420]][i];
-    items.push({ y, html: `<g class="cityhero" data-act="hero" data-id="${id}" transform="translate(${x} ${y})"><ellipse rx="24" ry="7" fill="#0007"/><g class="ch-bob" style="animation-delay:${-i * .7}s"><image href="${ART.asset('champions', id)}" x="-44" y="-114" width="88" height="118"/></g></g>` });
+    items.push({ y, html: `<g class="cityhero" data-act="herotalk" data-id="${id}" transform="translate(${x} ${y})"><ellipse rx="24" ry="7" fill="#0007"/><g class="ch-bob" style="animation-delay:${-i * .7}s"><image href="${ART.asset('champions', id)}" x="-44" y="-114" width="88" height="118"/></g></g>` });
   });
   items.sort((a, b) => a.y - b.y);
   const banner = paintedCity() ? '' : `<g transform="translate(500 92)"><path d="M0 0v-40" stroke="#5a3418" stroke-width="3"/><path class="wave" d="M0-40h40l-8 9 8 9H0z" fill="${S.color}"/></g>`;
@@ -794,13 +795,29 @@ function renderArmy() {
 }
 
 /* ======================= Heroes tab ======================= */
+/* ---------- Hero collections: complete a set for a one-time reward ---------- */
+function collections() {
+  const sets = Object.keys(REALMS).map(r => ({ k: r, name: `Heroes of ${REALMS[r].name}`, color: REALMS[r].color, ids: HEROES.filter(h => h.realm === r).map(h => h.id), r: { gems: 120, essence: 20 } }));
+  sets.push({ k: 'legends', name: 'Legends of the World', color: '#ffd36b', ids: HEROES.filter(h => h.legend).map(h => h.id), r: { gems: 400, essence: 60, tokens: 3 } });
+  return sets.map(s => ({ ...s, got: s.ids.filter(id => S.heroes[id] && S.heroes[id].stars > 0).length }));
+}
+function collectionsHTML() {
+  const cl = S.colClaimed || {};
+  return `<div class="cols"><h3>Collections <small class="muted">complete a set for a one-time reward</small></h3><div class="colrow">${collections().sort((a, b) => ((b.got >= b.ids.length && !cl[b.k]) - (a.got >= a.ids.length && !cl[a.k])) || (b.got / b.ids.length - a.got / a.ids.length)).map(s => { const done = s.got >= s.ids.length, claimed = cl[s.k];
+    return `<div class="col ${done ? 'done' : ''} ${claimed ? 'claimed' : ''}" style="--rc:${s.color}"><b>${s.name}</b><div class="colfaces">${s.ids.map(id => `<span class="${S.heroes[id] && S.heroes[id].stars ? 'own' : ''}">${ART.portrait(HERO[id], 34)}</span>`).join('')}</div><div class="colbar"><i style="width:${s.got / s.ids.length * 100}%"></i><em>${s.got}/${s.ids.length}</em></div>${done && !claimed ? `<button class="btn gold sm" data-act="colclaim" data-k="${s.k}">Claim</button>` : claimed ? '<small class="good">✓ Complete</small>' : `<small class="muted">${META.rewardHTML(s.r)}</small>`}</div>`; }).join('')}</div></div>`;
+}
+function claimCollection(k) {
+  const s = collections().find(x => x.k === k); S.colClaimed ??= {}; if (!s || S.colClaimed[k] || s.got < s.ids.length) return;
+  S.colClaimed[k] = 1; META.grant(s.r, s.name + ' complete'); FX.banner('Collection complete', esc(s.name), { art: `<div class="colfaces big">${s.ids.map(id => `<span class="own">${ART.portrait(HERO[id], 56)}</span>`).join('')}</div>` }); render();
+}
+const collectionReady = () => collections().some(s => s.got >= s.ids.length && !(S.colClaimed || {})[s.k]);
 function renderHeroes() {
   const owned = HEROES.filter(h => S.heroes[h.id] && S.heroes[h.id].stars > 0), rest = HEROES.filter(h => !owned.includes(h));
   const card = h => { const st = S.heroes[h.id] || { lvl: 0, stars: 0, shards: 0 }; const own = st.stars > 0, fig = ART.asset('champions', h.id), need = STAR_SHARDS[st.stars + 1], ready = need && st.shards >= need;
     if (!fig) return `<button class="hero r-${h.rarity} ${own ? '' : 'dim'} ${S.squad.includes(h.id) ? 'insq' : ''}" data-act="hero" data-id="${h.id}"><span class="rtag">${h.rarity}</span>${ART.portrait(h, 92)}<b>${h.name}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small><span class="stars">${own ? '★'.repeat(st.stars) : `${st.shards}/${STAR_SHARDS[1]} shards`}</span></button>`;
     return `<button class="hfig r-${h.rarity} ${own ? '' : 'locked'} ${S.squad.includes(h.id) ? 'insq' : ''} ${ready ? 'can' : ''}" style="--rc:${(REALMS[h.realm] || {}).color || '#7a4fb3'}" data-act="hero" data-id="${h.id}"><span class="rtag">${h.rarity}</span>${S.squad.includes(h.id) ? '<span class="sqtag">Squad</span>' : ''}${ready ? '<span class="uptag">⬆</span>' : ''}<img src="${fig}" alt="" loading="lazy"><span class="hf-info"><b>${shortName(h.id)}</b><small>${h.role}${own ? ` · Lv ${st.lvl}` : ''}</small>${own ? `<span class="stars">${'★'.repeat(st.stars)}<i>${'★'.repeat(5 - st.stars)}</i></span>` : `<span class="shardbar"><i style="width:${Math.min(100, st.shards / STAR_SHARDS[1] * 100)}%"></i><em>${st.shards}/${STAR_SHARDS[1]}</em></span>`}</span></button>`; };
   return `<h2>Heroes</h2><div class="squad"><span>Squad</span>${[0, 1, 2].map(i => S.squad[i] ? `<span class="slot">${ART.portrait(HERO[S.squad[i]], 44)}</span>` : '<span class="slot empty">+</span>').join('')}<span class="muted">Squad leads your armies: +${(squadBonus() * 100).toFixed(1)}% troop ATK${(() => { const l = LIVE.synergy(S.squad.filter(id => S.heroes[id] && S.heroes[id].stars)).label; return l ? ` · <b class="good">${l}</b>` : ''; })()}</span></div>
-  <div class="heroes figs">${owned.map(card).join('')}${rest.map(card).join('')}</div>
+  ${collectionsHTML()}<div class="heroes figs">${owned.map(card).join('')}${rest.map(card).join('')}</div>
   <div class="card stagecard"><div><h3>${ART.icon('vigor', 18)} Story Campaign</h3><p class="muted">Follow the story across the six realms of Aeloria. Each stage costs 6 Vigor. Vigor: <b>${S.vigor}</b> / ${vigorMax()}</p></div><button class="btn gold" data-act="stages">Open campaign</button></div>
   <div class="card stagecard arenacard"><div><h3>⚔ Arena of Crowns</h3><p class="muted">Duel other lords' hero squads. Climb from Bronze to Champion, earn Glory and daily gems. Tickets today: <b>${S.arena.day === today() ? S.arena.tickets : 5}</b></p></div><button class="btn gold" data-act="arena">Enter Arena</button></div>`;
 }
@@ -1092,7 +1109,7 @@ function skillFx(kind) {
   document.body.appendChild(im); setTimeout(() => im.remove(), 900);
 }
 function castSkill(u, bonus = 1) {
-  fight.cur = u;
+  fight.cur = u; if (QUIPS[u.hero.id]) setTimeout(() => BF.say(u, QUIPS[u.hero.id][2]), 1000 / (fight.speed || 1));
   const f = fight, sk = u.hero.skill; u.en = 0;
   if (f.chainTurn === f.turn) { f.chain = Math.min(3, (f.chain || 0) + 1); f.bestChain = Math.max(f.bestChain || 0, f.chain); setTimeout(() => callout(`CHAIN ×${f.chain + 1}  +${f.chain * 15}%`, 'chain'), 380); } else f.chain = 0;
   f.chainTurn = f.turn; const atk = u.atk * (f.buff ? 1.4 : 1) * bonus * (1 + .15 * f.chain);
@@ -1461,7 +1478,7 @@ function openMail() {
 /* ======================= tabs & render ======================= */
 let tab = 'city';
 function openTab(t) {
-  tab = t; closeSheet();
+  tab = t; closeSheet(); document.querySelectorAll('.speech').forEach(x => x.remove());
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t || (b.id === 'navMore' && ['army', 'research', 'house', 'arena', 'bag'].includes(t))));
   FX.setMood(t === 'world' ? 'world' : 'city'); $('#cityUi').hidden = t !== 'city';
   $('#cityView').hidden = t !== 'city' || use3D(); $('#city3d').hidden = t !== 'city' || !use3D(); if (window.CITY3D && CITY3D.ok) CITY3D.setActive(t === 'city' && use3D()); $('#worldView').hidden = t !== 'world'; $('#panel').hidden = t === 'city' || t === 'world'; $('#main').classList.toggle('panel-open', t !== 'city' && t !== 'world');
@@ -1517,6 +1534,10 @@ function onAct(e) {
     case 'heal': healAll(); break;
     case 'trade': trade(d.a, d.b); break;
     case 'hero': openHero(d.id); break;
+    case 'herotalk': { const old = document.querySelector(`.speech[data-id="${d.id}"]`); if (old) { old.remove(); openHero(d.id); break; } document.querySelectorAll('.speech').forEach(x => x.remove());
+      const q = QUIPS[d.id], line = q ? q[Math.floor(Math.random() * 2)] : HERO[d.id].title, r = el.getBoundingClientRect(), b = document.createElement('div'); b.className = 'speech'; b.dataset.id = d.id;
+      b.innerHTML = `<b>${esc(shortName(d.id))}</b>${esc(line)}<small>Tap again to open</small>`; b.style.left = (r.left + r.width / 2) + 'px'; b.style.top = r.top + 'px'; document.body.appendChild(b); sfx('tick'); setTimeout(() => b.remove(), 3200); break; }
+    case 'colclaim': claimCollection(d.k); break;
     case 'star': { const h = S.heroes[d.id], need = STAR_SHARDS[h.stars + 1]; if (h.shards >= need) { h.shards -= need; h.stars++; if (!h.lvl) h.lvl = 1; sfx('win'); heroMoment(d.id, h.stars === 1 ? 'NEW HERO' : 'STAR UP', h.stars === 1 ? `${HERO[d.id].title} joins your court` : `${'★'.repeat(h.stars)} · stronger in every stat`); } render(); openHero(d.id); break; }
     case 'squad': { const i = S.squad.indexOf(d.id); if (i >= 0) S.squad.splice(i, 1); else { if (S.squad.length >= 3) S.squad.shift(); S.squad.push(d.id); } render(); openHero(d.id); break; }
     case 'tome': if (S.items.scroll) { S.items.scroll--; const l0 = S.heroes[d.id].lvl; heroXP(d.id, 600); sfx('done'); render(); openHero(d.id); if (S.heroes[d.id].lvl > l0) heroMoment(d.id, 'LEVEL UP', `Level ${l0} → ${S.heroes[d.id].lvl}`); } break;

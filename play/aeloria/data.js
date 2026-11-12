@@ -301,3 +301,28 @@ const HOUSE_CHAT = [
   'Has anyone beaten the Lantern-Smoke Lord yet?', 'Remember to claim your supply chest.', 'One day we take the Sunspire Throne together.',
   'Frostmark players: the north fjords are full of iron.', 'Coral Isles marches are SO fast, I love it.', 'Helped everyone, back to farming.'
 ];
+
+// Hero voice lines: two for the city, the third is their battle cry.
+const QUIPS = {
+  astrid: ["The walls hold. I made sure of it.", "Ale after the battle, not before.", "Shields up! Hold the line!"],
+  sigrun: ["The runes whisper of a long winter.", "Frost remembers every footstep.", "Be still!"],
+  aldric: ["An oath kept is a wall no army breaks.", "The Valewood will bloom again, my lord.", "For the Oak!"],
+  elowen: ["Even ash feeds new roots.", "The old oaks are listening.", "Rise, green and whole!"],
+  rania: ["I never miss twice.", "The dunes hide nothing from me.", "Sun guide my arrow!"],
+  layla: ["You didn't see me. Nobody does.", "Quiet streets make for honest work.", "Too slow!"],
+  saqr: ["My falcons see every road in Aeloria.", "A crown is a promise, not a prize.", "Fly, my falcons!"],
+  lian: ["Patience is the sharpest blade.", "A thousand petals, one purpose.", "Scatter like blossoms!"],
+  hiro: ["The lantern guard never sleeps.", "One draw. One cut. Done.", "Steel and light!"],
+  kaimana: ["The tide always comes back.", "I can read the stars like a map.", "Waves, answer me!"],
+  tama: ["Stand behind me. All of you.", "The reef has broken bigger ships.", "Not one step further!"],
+  amara: ["I built three new gadgets today. Two work.", "Red earth makes the strongest bronze.", "Fire in the hole!"],
+  kofi: ["My lion is hungry. So am I.", "The savanna taught me to be swift.", "Charge!"],
+  arthur: ["A king serves the realm, not the other way round.", "The round table has room for one more.", "For Aeloria!"],
+  antarah: ["Courage is a poem written with a sword.", "I will sing of this day, if we live.", "For honour and for Najd!"],
+  zarqa: ["I see them coming, three days away.", "Trees do not walk. Armies do.", "Look! There!"],
+  peter: ["A great realm needs a great navy.", "Give me timber and a month.", "Forward, all of you!"],
+  suntzu: ["The battle is won before it begins.", "Know your enemy. Know yourself.", "Strike where they are weak!"],
+  leonardo: ["I sketched a flying machine this morning.", "Everything connects to everything else.", "Hold still. I can mend this."],
+  elcid: ["Vivar's banner has never fallen.", "Loyalty is worth more than gold.", "Santiago and Vivar!"],
+  bismarck: ["Iron and patience build nations.", "A treaty is a battle won quietly.", "Advance, as one!"]
+};

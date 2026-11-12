@@ -134,6 +134,7 @@ const BF = (() => {
     } else { ctx.fillStyle = q.side === 'h' ? '#5a8fd8' : '#b3433a'; ctx.fillRect(-sc * .18, -sc * .8, sc * .36, sc * .8); ctx.beginPath(); ctx.arc(0, -sc * .9, sc * .16, 0, 6.28); ctx.fill(); }
     ctx.restore();
   }
+  function say(u, txt) { const q = squadOf(u); if (q) { q.say = txt; q.sayT = T; } }
   function drawPlate(q) {
     const u = q.u, s = q.sol[0]; if (u.hp <= 0 || !s || !s.cmd || s.x === null) return;
     const sc = S0 * depth(q) * 2.15, w = Math.max(54, S0 * 1.5), x = s.x, y = s.y - sc - 10, ready = u.en >= 100 && !F.auto;
@@ -141,6 +142,7 @@ const BF = (() => {
     const nm = u.name, tw = Math.max(w, ctx.measureText(nm).width + 12);
     ctx.fillStyle = ready ? `rgba(255,211,107,${.85 + Math.sin(T * 9) * .15})` : 'rgba(20,15,34,.85)'; ctx.beginPath(); ctx.roundRect(x - tw / 2, y - 26, tw, 17, 8); ctx.fill();
     ctx.fillStyle = ready ? '#2c1604' : '#f3ecff'; ctx.fillText(ready ? nm + ' ⚡' : nm, x, y - 13);
+    if (q.say && T - q.sayT < 1.8) { const a = clamp(Math.min((T - q.sayT) * 6, (1.8 - (T - q.sayT)) * 4), 0, 1); ctx.globalAlpha = a; ctx.font = `800 ${Math.round(clamp(S0 * .3, 11, 15))}px Cairo,system-ui,sans-serif`; const bw = ctx.measureText(q.say).width + 18, bx = clamp(x, bw / 2 + 4, W - bw / 2 - 4), by = y - 58; ctx.fillStyle = '#fff8e6'; ctx.beginPath(); ctx.roundRect(bx - bw / 2, by - 15, bw, 26, 13); ctx.fill(); ctx.beginPath(); ctx.moveTo(x - 6, by + 10); ctx.lineTo(x, by + 20); ctx.lineTo(x + 6, by + 10); ctx.fill(); ctx.fillStyle = '#2c1604'; ctx.fillText(q.say, bx, by + 3); ctx.globalAlpha = 1; ctx.font = `800 ${Math.round(clamp(S0 * .26, 10, 14))}px Cairo,system-ui,sans-serif`; }
     ctx.fillStyle = '#000a'; ctx.fillRect(x - w / 2 - 1, y - 7, w + 2, 9); ctx.fillStyle = '#5fd38a'; ctx.fillRect(x - w / 2, y - 6, w * clamp(u.hp / u.max, 0, 1), 4); ctx.fillStyle = '#ffd36b'; ctx.fillRect(x - w / 2, y - 1, w * clamp(u.en / 100, 0, 1), 2);
     ctx.restore();
   }
@@ -180,6 +182,6 @@ const BF = (() => {
     ctx.globalCompositeOperation = 'lighter'; parts.forEach(p => { if (p.dust) return; ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, 6.28); ctx.fill(); }); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     floats.forEach(f => { const p = T - f.t, big = f.cls === 'crit'; ctx.globalAlpha = clamp(2 - p * 2, 0, 1); ctx.font = `900 ${Math.round(S0 * (big ? .62 : f.cls === 'info' ? .34 : .46))}px Cinzel,serif`; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = '#000c'; const y = f.y - p * S0 * .9; ctx.strokeText(f.txt, clamp(f.x, 40, W - 40), y); ctx.fillStyle = f.cls === 'heal' ? '#6fe39a' : big ? '#ffd36b' : f.cls === 'info' ? '#d9ccff' : '#fff'; ctx.fillText(f.txt, clamp(f.x, 40, W - 40), y); }); ctx.globalAlpha = 1;
   }
-  const api = { start, stop, end, attack, hit, skill, onTap: null, get active() { return !!cv; } };
+  const api = { say, start, stop, end, attack, hit, skill, onTap: null, get active() { return !!cv; } };
   return api;
 })();
