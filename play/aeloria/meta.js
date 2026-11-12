@@ -281,9 +281,21 @@ const META = (() => {
     q.reduce((pr, fn) => pr.then(fn), Promise.resolve());
     render();
   }
+  /* ---------- Growth Fund: one purchase, gems back at every Citadel milestone ---------- */
+  const FUND = { cost: 1000, tiers: [[3, 300], [5, 400], [7, 500], [9, 600], [11, 700], [13, 800], [15, 1000], [18, 1200], [20, 1500]] };
+  const fundTotal = () => FUND.tiers.reduce((a, t) => a + t[1], 0);
+  const fundReady = () => S.shop && S.shop.fund && FUND.tiers.some(([c]) => S.b.citadel >= c && !S.shop.fund[c]);
+  function fundCard() {
+    const own = S.shop && S.shop.fund, got = own ? FUND.tiers.filter(([c]) => own[c]).reduce((a, t) => a + t[1], 0) : 0;
+    return `<div class="fund ${fundReady() ? 'ready' : ''}"><div class="fu-top"><div>${ART.icon('chest', 54)}</div><div><small>Royal Growth Fund</small><b>${own ? `${fmt(got)} / ${fmt(fundTotal())} gems collected` : `Invest ${fmt(FUND.cost)} gems, receive ${fmt(fundTotal())}`}</b><span>${own ? 'Claim gems each time your Citadel reaches a milestone.' : `${Math.round(fundTotal() / FUND.cost)}× return as your Citadel grows. One purchase, nine payouts.`}</span></div></div>
+      <div class="fu-tiers">${FUND.tiers.map(([c, g]) => { const ok = S.b.citadel >= c, cl = own && own[c]; return `<button class="fu-t ${cl ? 'got' : ''} ${own && ok && !cl ? 'can' : ''}" ${own && ok && !cl ? `data-act="fundclaim" data-c="${c}"` : 'data-act="fundinfo" data-c="' + c + '"'}><small>Citadel ${c}</small>${ART.icon('gem', 18)}<b>${g}</b>${cl ? '<i>✓</i>' : ''}</button>`; }).join('')}</div>
+      ${own ? '' : `<button class="btn gold wide" data-act="fundbuy">${ART.icon('gem', 16)} Invest ${fmt(FUND.cost)} gems</button>`}</div>`;
+  }
+  function fundBuy() { S.shop ??= {}; if (S.shop.fund) return; if (S.gems < FUND.cost) return toast(`You need ${fmt(FUND.cost)} gems`, 'bad'); spendGems(FUND.cost); S.shop.fund = {}; FX.sound('chest'); FX.confetti(); FX.banner('Growth Fund opened', `Claim ${fmt(fundTotal())} gems as your Citadel grows`, { art: ART.icon('chest', 90) }); render(); }
+  function fundClaim(c) { c = +c; const t = FUND.tiers.find(x => x[0] === c); if (!t || !S.shop.fund || S.shop.fund[c] || S.b.citadel < c) return; S.shop.fund[c] = 1; S.gems += t[1]; FX.sound('coin'); toast(`Growth Fund: +${t[1]} gems`, 'good'); const el = document.querySelector('.fund'); if (el) { const p = FX.centerOf(el); FX.burst(p.x, p.y, { n: 40, shape: 'star', ring: '#3fd7c8' }); } render(); }
   function featured() {
     const freeOk = S.free !== today(), vipOk = vipLvl() > 0 && S.vipDay !== today();
-    return `<div class="forgebanner" data-act="sub" data-s="forge">${ART.icon('might', 52)}<div><small>Royal Forge of Power</small><b>Endless upgrades · ${forgeRank().name} rank · level ${fmt(forgeTotal())}</b><span>Permanent boosts to production, speed, troops and heroes</span></div><em>Forge ›</em></div><div class="hero-banner" data-act="sub" data-s="summon"><div class="hb-art">${ART.portrait(HERO[featuredId()], 130)}</div><div class="hb-txt"><small>Featured legend</small><h3>${HERO[featuredId()].name}, ${HERO[featuredId()].title}</h3><p>Summon now · 4% legendary · guaranteed within ${SUMMON.pity} summons</p><span class="btn gold">Summon</span></div></div>
+    return `${fundCard()}<div class="forgebanner" data-act="sub" data-s="forge">${ART.icon('might', 52)}<div><small>Royal Forge of Power</small><b>Endless upgrades · ${forgeRank().name} rank · level ${fmt(forgeTotal())}</b><span>Permanent boosts to production, speed, troops and heroes</span></div><em>Forge ›</em></div><div class="hero-banner" data-act="sub" data-s="summon"><div class="hb-art">${ART.portrait(HERO[featuredId()], 130)}</div><div class="hb-txt"><small>Featured legend</small><h3>${HERO[featuredId()].name}, ${HERO[featuredId()].title}</h3><p>Summon now · 4% legendary · guaranteed within ${SUMMON.pity} summons</p><span class="btn gold">Summon</span></div></div>
     <div class="grid2">
       <div class="card offer ${freeOk ? 'ready' : ''}"><h4>${ART.icon('chest', 22)} Daily free gift</h4><p class="muted">Gems and a surprise item, every day.</p>${freeOk ? '<button class="btn gold" data-act="freegift">Claim free</button>' : `<span class="muted">Next in ${fmtT(midnight())}</span>`}</div>
       <div class="card offer ${vipOk ? 'ready' : ''}"><h4>👑 VIP ${vipLvl()} daily chest</h4><p class="muted">${vipLvl() ? `${20 * vipLvl()} gems + hourglasses` : 'Reach VIP 1 by spending gems or logging in daily.'}</p>${vipOk ? '<button class="btn gold" data-act="vipchest">Open</button>' : vipLvl() ? `<span class="muted">Next in ${fmtT(midnight())}</span>` : '<button class="btn" data-act="sub" data-s="vip">See VIP</button>'}</div>
@@ -330,6 +342,9 @@ const META = (() => {
       case 'deal': buyDeal(+d.i); return true;
       case 'spin': spin(); return true;
       case 'forge': doForge(d.k, +d.n || 1); return true;
+      case 'fundbuy': fundBuy(); return true;
+      case 'fundclaim': fundClaim(d.c); return true;
+      case 'fundinfo': toast(S.shop && S.shop.fund ? (S.shop.fund[d.c] ? 'Already claimed' : `Raise your Citadel to level ${d.c} to claim`) : 'Invest in the Growth Fund to unlock these gems'); return true;
       case 'mbuy': buyMarket(d.id); return true;
       case 'pack': buyPack(d.id); return true;
       case 'freegift': freeGift(); return true;
@@ -345,5 +360,5 @@ const META = (() => {
     }
     return false;
   }
-  return { busy: () => spinning, migrate, xp, grant, bubbles, readyCount, guide, loginPopup, achHTML, passHTML, renderStore, act, feather, rewardHTML, vipLvl };
+  return { fundReady, busy: () => spinning, migrate, xp, grant, bubbles, readyCount, guide, loginPopup, achHTML, passHTML, renderStore, act, feather, rewardHTML, vipLvl };
 })();

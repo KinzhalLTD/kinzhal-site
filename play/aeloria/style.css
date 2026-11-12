@@ -820,3 +820,13 @@ header.hud::after{content:"";position:absolute;left:50%;bottom:-9px;width:120px;
 .forgebanner{display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:12px;border-radius:18px;cursor:pointer;background:radial-gradient(circle at 12% 50%,#ff9a3d55,transparent 50%),linear-gradient(110deg,#5a2a10,#1d1530 70%);border:2px solid #ffb84099;box-shadow:0 0 18px #ff9a3d33}.forgebanner small{display:block;font:900 11px var(--display);letter-spacing:.18em;color:#ffb840;text-transform:uppercase}.forgebanner b{display:block;font-size:14px}.forgebanner span{font-size:12px;color:var(--ink2)}.forgebanner em{margin-left:auto;font-style:normal;font-weight:900;color:#ffd36b;white-space:nowrap}
 .fsec{margin:14px 2px 8px;font-size:16px;color:#ffd36b!important}.fsec small{font:600 11.5px var(--body);display:block;margin-top:2px}.fsec.map{color:#7fe0ff!important}.forge.map{background:linear-gradient(#14304a,#0f1a29);border-color:#3fa6c8}.forge.map .fg-ic{box-shadow:0 0 0 2px #3fd7c8}.forge.map .fg-ic span{background:#3fd7c8}
 .mfind.mforge{background:radial-gradient(circle at 50% 35%,#ffb840,#a0520e 75%);color:#2c1604;border-color:#ffe08a}
+
+.mfind.melite{background:radial-gradient(circle at 50% 35%,#fff0b0,#c47a1c 75%);border-color:#fff3c0;animation:glowb 1.2s infinite alternate}
+/* Growth Fund */
+.fund{margin-bottom:12px;padding:12px;border-radius:18px;background:radial-gradient(circle at 10% 30%,#3fd7c833,transparent 50%),linear-gradient(110deg,#103a3a,#140f22 72%);border:2px solid #3fd7c899}
+.fund.ready{box-shadow:0 0 0 2px #3fd7c8,0 0 20px #3fd7c866;animation:glowb 1.2s infinite alternate}
+.fu-top{display:flex;gap:10px;align-items:center}.fu-top small{display:block;font:900 11px var(--display);letter-spacing:.18em;color:#7fe0ff;text-transform:uppercase}.fu-top b{display:block;font-size:15px}.fu-top span{font-size:12px;color:var(--ink2)}
+.fu-tiers{display:flex;gap:6px;overflow-x:auto;padding:10px 2px 6px;scrollbar-width:none}.fu-tiers::-webkit-scrollbar{display:none}
+.fu-t{position:relative;flex:none;width:72px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border-radius:12px;background:#0006;border:1px solid #3fd7c855;color:var(--ink)}
+.fu-t small{font-size:9.5px;color:var(--ink2)}.fu-t b{font-size:13px}.fu-t.can{border-color:#ffd36b;box-shadow:0 0 12px #ffd36b88;animation:ready .6s infinite alternate}.fu-t.got{opacity:.5}.fu-t i{position:absolute;top:2px;right:5px;font-style:normal;color:var(--good)}
+@media(max-width:440px){.mapbtns{gap:5px;right:56px}.mapbtns .mfind{width:36px;height:36px;font-size:16px}.mapbtns .btn{padding:6px 10px;min-height:36px;font-size:13px}}

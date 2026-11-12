@@ -179,7 +179,18 @@ function makeCamp(id, [x, y], r = Math.random) {
 function freeSpot() { const occ = new Set(S.world.map(o => o.x + ',' + o.y)); occ.add(S.home.x + ',' + S.home.y); for (let i = 0; i < 800; i++) { const x = 1 + Math.floor(Math.random() * (W - 2)), y = 1 + Math.floor(Math.random() * (H - 2)); if (isLand(x, y) && !occ.has(x + ',' + y) && Math.hypot(x - CX, y - CY) > 3) return [x, y]; } return [S.home.x + 2, S.home.y]; }
 // Lost treasure chests and wandering merchants on the world map (added to old saves too).
 function nearSpot() { const occ = new Set(S.world.map(o => o.x + ',' + o.y)); occ.add(S.home.x + ',' + S.home.y); for (let i = 0; i < 500; i++) { const a = Math.random() * 6.283, d = 2.5 + Math.random() * (i < 300 ? 6 : 14), x = Math.round(S.home.x + Math.cos(a) * d), y = Math.round(S.home.y + Math.sin(a) * d); if (x > 0 && y > 0 && x < W - 1 && y < H - 1 && isLand(x, y) && !occ.has(x + ',' + y) && (i >= 300 || seen(x, y))) return [x, y]; } return freeSpot(); }
+// Elite Warbands: two rare golden camps roam near the city for 45 minutes at a time, with far richer spoils.
+function eliteTick() {
+  const t = now(); S.world = S.world.filter(o => !(o.elite && o.dead)); const live = S.world.filter(o => o.elite).length;
+  if (live < 2 && t >= (S.eliteAt || 0)) {
+    const [x, y] = nearSpot(), base = Math.max(1, ...S.world.filter(o => o.kind === 'camp' && !o.elite && seen(o.x, o.y)).map(o => o.lvl)), lvl = Math.min(12, base + 2 + Math.floor(Math.random() * 2));
+    const id = S.world.reduce((m, o) => Math.max(m, o.id), 0) + 1, c = makeCamp(id, [x, y]); c.lvl = lvl; const n = Math.floor(30 * Math.pow(lvl, 1.6)), tier = lvl >= 8 ? 3 : lvl >= 5 ? 2 : 1;
+    c.troops = { ['inf' + tier]: Math.floor(n * .4), ['rng' + tier]: Math.floor(n * .35), ['cav' + tier]: Math.floor(n * .25) }; c.elite = true; c.expireAt = t + 45 * 60e3; S.world.push(c);
+    S.eliteAt = t + (live ? 20 : 2) * 60e3; if (tab === 'world') { toast('⚔ An Elite Warband has appeared near your city!', 'good'); sfx('horn'); }
+  }
+}
 function ensureExtras() {
+  eliteTick();
   let id = S.world.reduce((m, o) => Math.max(m, o.id), 0) + 1; const n = k => S.world.filter(o => o.kind === k).length;
   while (n('chest') < 6) { const [x, y] = nearSpot(); S.world.push({ id: id++, kind: 'chest', x, y, lvl: 1 }); }
   while (n('merchant') < 2) { const [x, y] = nearSpot(); S.world.push({ id: id++, kind: 'merchant', x, y, lvl: 1 }); }
@@ -464,8 +475,9 @@ function arrive(m) {
       const L = o.lvl, pl = 1 + FL('plunder') * .05; m.loot = { gold: Math.round(300 * L * L * pl), grain: Math.round(800 * L * pl), timber: Math.round(600 * L * pl), stone: Math.round(400 * L * pl), ore: Math.round(150 * L * pl) };
       const extra = { items: { gift: 1 + (L >= 5 ? 1 : 0) } }; if (Math.random() < .35) extra.items.sp5 = 1 + Math.floor(L / 3); if (Math.random() < .25) extra.gems = 5 * L;
       if (L >= 4 && Math.random() < .3) extra.shards = { [pick(HEROES).id]: 1 + Math.floor(L / 4) };
-      body += `<p>Spoils: ${give(extra)} and resources carried home.</p>`;
-      o.respawnAt = now() + 4 * 60e3; o.dead = true;
+      if (o.elite) { for (const k in m.loot) m.loot[k] *= 3; extra.gems = (extra.gems || 0) + 15 + 3 * L; extra.essence = 10 + 2 * L; extra.shards = { [pick(HEROES.filter(h => h.rarity !== 'rare')).id]: 2 + Math.floor(L / 3) }; extra.items.sp60 = 1; S.stats.elites = (S.stats.elites || 0) + 1; }
+      body += `<p>${o.elite ? '<b>Elite Warband destroyed!</b> ' : ''}Spoils: ${give(extra)} and resources carried home.</p>`;
+      o.respawnAt = o.elite ? 9e15 : now() + 4 * 60e3; o.dead = true;
     } else if (o.kind === 'city') {
       META.xp(60); LIVE.on('rival', 1); S.stats.rivals++; const take = {}; for (const k of RES) { take[k] = Math.floor(Math.min(o.res[k] * .4 * (1 + FL('plunder') * .05), o.res[k], loadOf(m.troops) / 5)); o.res[k] -= take[k]; }
       m.loot = take; body += `<p>You plundered ${RES.map(k => ART.icon(k, 14) + fmt(take[k])).join(' ')}</p>`; o.lvl = Math.max(1, o.lvl); o.angry = (o.angry || 0) + 1;
@@ -474,9 +486,9 @@ function arrive(m) {
       else body += `<p>The Throne garrison still holds ${fmt(troopCount(o.troops))} troops. Keep attacking!</p>`;
     }
   }
-  report(`${res.win ? 'Victory' : 'Defeat'} · ${o.name || (o.kind === 'camp' ? 'Ashen outpost L' + o.lvl : 'Sunspire Throne')}`, body, res.win ? 'win' : 'loss');
+  report(`${res.win ? 'Victory' : 'Defeat'} · ${o.name || (o.kind === 'camp' ? (o.elite ? 'Elite Warband L' : 'Ashen outpost L') + o.lvl : 'Sunspire Throne')}`, body, res.win ? 'win' : 'loss');
   mapFx.push({ x: o.x, y: o.y, t: now(), win: res.win });
-  if (!fight && !document.querySelector('.story,.reveal,.cine')) { FX.banner(res.win ? 'VICTORY' : 'DEFEAT', `${esc(o.name || (o.kind === 'camp' ? 'Ashen outpost level ' + o.lvl : 'Sunspire Throne'))} · ${res.win ? 'the spoils are on their way home' : 'your army was driven back'}`, { ms: 1500, cls: res.win ? '' : 'boss', art: o.kind === 'camp' ? ART.enemy('raider', 110) : '' }); if (res.win) setTimeout(() => FX.confetti(), 300); }
+  if (!fight && !document.querySelector('.story,.reveal,.cine')) { FX.banner(res.win ? 'VICTORY' : 'DEFEAT', `${esc(o.name || (o.kind === 'camp' ? (o.elite ? 'Elite Warband level ' : 'Ashen outpost level ') + o.lvl : 'Sunspire Throne'))} · ${res.win ? 'the spoils are on their way home' : 'your army was driven back'}`, { ms: 1500, cls: res.win ? '' : 'boss', art: o.kind === 'camp' ? ART.enemy('raider', 110) : '' }); if (res.win) setTimeout(() => FX.confetti(), 300); }
   sfx(res.win ? 'win' : 'loss'); void deadMine; void isCity;
   if (troopCount(m.troops) === 0) { S.marches = S.marches.filter(x => x !== m); give(m.loot); return; }
   goBack();
@@ -535,6 +547,7 @@ function tick() {
   }
   for (const o of S.world) {
     if (o.dead && o.kind === 'chest' && o.respawnAt <= t) { const [x, y] = nearSpot(); o.x = x; o.y = y; delete o.dead; delete o.respawnAt; }
+    if (o.elite && !o.dead && o.expireAt <= t) { o.dead = true; o.respawnAt = 9e15; }
     if (o.dead && o.kind === 'camp' && o.respawnAt <= t) { const p = freeSpot(); Object.assign(o, makeCamp(o.id, p)); delete o.dead; delete o.respawnAt; }
     if (o.kind === 'city' && Math.random() < dt / 60) { for (const k in o.troops) o.troops[k] += Math.ceil(o.troops[k] * .01); for (const k of RES) o.res[k] = Math.min(o.res[k] + 400 * o.lvl, 60000 * o.lvl); }
   }
@@ -545,6 +558,7 @@ function tick() {
   if (!S.incoming && S.b.citadel >= 4 && t >= S.raidAt) { if (S.shieldUntil > t) scheduleRaid(); else startRaid(); }
   if (S.incoming && t >= S.incoming.arrive) resolveRaid();
   LIVE.tick(dt);
+  if (tab === 'world' && Math.floor(t / 1000) % 30 === 0) eliteTick();
   // a treasure caravan passes the gates now and then: a small surprise for whoever is watching the city
   if (!caravan && t >= (S.caravanAt || (S.caravanAt = t + 45000))) { if (S.caravanDay !== today()) { S.caravanDay = today(); S.caravanN = 0; } if (S.caravanN < 30 && paintedCity()) { caravan = { until: t + 36000 }; if (tab === 'city') { toast('✨ A treasure caravan is passing your gates: tap it!', 'good'); sfx('coin'); } } else S.caravanAt = t + 600000; }
   if (caravan && t > caravan.until) { caravan = null; S.caravanAt = t + (80 + Math.random() * 80) * 1000; }
@@ -586,7 +600,7 @@ function renderHud() {
   $('#mailDot').hidden = !S.unread; $('#mailDot').textContent = S.unread;
   { const hd = $('#heroDot'); if (hd && !(renderHud.hdT > now())) { renderHud.hdT = now() + 3000; hd.hidden = !(collectionReady() || HEROES.some(h => { const st = S.heroes[h.id]; return st && STAR_SHARDS[st.stars + 1] && st.shards >= STAR_SHARDS[st.stars + 1]; })); } }
   const qd = S.quest < QUESTS.length && QUESTS[S.quest].c(S); const passReady = Math.min(30, Math.floor(S.pass.xp / 120)) > Object.keys(S.pass.claimed).length; $('#questDot').hidden = !(qd || now() >= S.chestAt || passReady || LIVE.deedReady());
-  $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0 || (S.market || {}).spin !== today());
+  $('#storeDot').hidden = !(S.free !== today() || (vipLvl() && S.vipDay !== today()) || S.tokens > 0 || (S.market || {}).spin !== today() || META.fundReady());
   const shield = S.shieldUntil > now();
   $('#status').innerHTML = (S.incoming ? `<button class="alert" data-act="incoming">⚠ ${esc(S.incoming.name)} attacks in ${fmtT((S.incoming.arrive - now()) / 1000)}</button>` : '') +
     (shield ? `<span class="veil">${ART.icon('shield', 14)} Ward ${fmtT((S.shieldUntil - now()) / 1000)}</span>` : '') +
@@ -1355,6 +1369,7 @@ function drawMap() {
     if (o.dead || o.x < x0 - 2 || o.x > x1 + 2 || o.y < y0 - 2 || o.y > y1 + 2 || !seen(o.x, o.y)) continue;
     const px = (o.x + .5) * s - cam.x, py = (o.y + .5) * s - cam.y;
     if (o.kind === 'node') { if (!medallion(ctx, NODE_ART[o.res], px, py, s * .36, NODE_RIM[o.res] || '#ffd36b')) ART.mapPaint.node(ctx, px, py, s, o.res); if (cam.z > .95) label('Lv ' + o.lvl, px, py + s * .42, '#140f22b8', 10); }
+    else if (o.kind === 'camp' && o.elite) { const pu = .5 + Math.sin(t / 220) * .5; ctx.strokeStyle = `rgba(255,211,107,${.4 + pu * .5})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(px, py, s * (.55 + pu * .08), 0, 7); ctx.stroke(); if (!medallion(ctx, 'camp', px, py, s * .48, '#ffd36b')) ART.mapPaint.camp(ctx, px, py, s, o.lvl); const fu = ART.asset('fiends', 'warlord'), fi = fu && mimg(fu); if (fi) { const hh = s * .9; ctx.drawImage(fi, px - hh * .35, py - s * .55 - hh * .75, hh * .7, hh * .7 * fi.naturalHeight / fi.naturalWidth); } label(`Elite ${o.lvl} · ${fmtT((o.expireAt - t) / 1000)}`, px, py + s * .5, '#7a4a12f0', 10); }
     else if (o.kind === 'camp') { if (!medallion(ctx, 'camp', px, py, s * .42, '#ff5e3a')) ART.mapPaint.camp(ctx, px, py, s, o.lvl); if (cam.z > .7) label('Outpost ' + o.lvl, px, py + s * .42, '#6a1f1fe0', 10); }
     else if (o.kind === 'city') { if (!cityMark(ctx, px, py, s * 1.15, o.color)) ART.mapPaint.city(ctx, px, py, s * 1.15, o.color, o.realm); if (cam.z > .4) label(o.name, px, py + s * .5, '#140f22e0'); }
     else if (o.kind === 'chest') { const im = mimg(ART.asset('icons', 'chest')), bob = Math.sin(t / 300 + o.id) * s * .04, pu = .5 + Math.sin(t / 250 + o.id) * .5; ctx.strokeStyle = `rgba(255,211,107,${.35 + pu * .5})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(px, py + s * .22, s * (.3 + pu * .06), s * (.12 + pu * .02), 0, 0, 7); ctx.stroke(); if (im) ctx.drawImage(im, px - s * .3, py - s * .36 + bob, s * .6, s * .6); else { ctx.fillStyle = '#e8a33d'; ctx.fillRect(px - s * .2, py - s * .15, s * .4, s * .3); } if (cam.z > .7) label('Treasure', px, py + s * .44, '#7a4a12e6', 10); }
@@ -1428,6 +1443,9 @@ function openTile(o) {
   if (o.kind === 'node') {
     html += `<div class="bhead">${ART.icon(o.res, 60)}<div><p><b>Level ${o.lvl} ${RNAME[o.res]} site</b></p><p>Remaining: ${fmt(o.amount)}</p><p class="muted">Send troops to gather. Cavalry carry the most.</p></div></div>
     <button class="btn gold" data-act="sendform" data-id="${o.id}" data-kind="gather">Gather</button>`;
+  } else if (o.kind === 'camp' && o.elite) {
+    html += `<div class="bhead">${ART.asset('fiends', 'warlord') ? `<img src="${ART.asset('fiends', 'warlord')}" alt="" style="height:110px;width:auto">` : ART.enemy('warlord', 70)}<div><p><b>Elite Warband · level ${o.lvl}</b></p><p>Leaves in <b>${fmtT((o.expireAt - now()) / 1000)}</b></p><p>Guards: ${troopsHTML(o.troops)}</p><p class="muted">The Hollow King's chosen. Three times the resources of an outpost, plus gems, Ember Essence, epic hero shards and a 1-hour hourglass.</p></div></div>
+    <button class="btn gold" data-act="sendform" data-id="${o.id}" data-kind="attack">Attack</button>`;
   } else if (o.kind === 'camp') {
     html += `<div class="bhead">${ART.enemy('raider', 70)}<div><p><b>Ashen outpost · level ${o.lvl}</b></p><p>Guards: ${troopsHTML(o.troops)}</p><p class="muted">The Hollow King's soldiers hold this ground. Destroy the outpost for Gold, resources, Alliance gifts and hero shards.</p></div></div>
     <button class="btn gold" data-act="sendform" data-id="${o.id}" data-kind="attack">Attack</button>`;
@@ -1574,7 +1592,7 @@ function onAct(e) {
     case 'scout': scout(+d.id); break;
     case 'collect': { const o = S.world.find(w => w.id === +d.id); if (o && !o.dead) { if (S.marches.some(m => m.kind === 'collect' && m.target === o.id)) { toast('Riders are already on their way there'); break; } sendMarch(o, 'collect', {}); } break; }
     case 'mapzoom': { const c = $('#map').getBoundingClientRect(); zoomAt(cam.z * (+d.d > 0 ? 1.35 : .74), c.left + c.width / 2, c.top + c.height / 2); break; }
-    case 'mapfind': { const k = d.k, cand = S.world.filter(o => !o.dead && seen(o.x, o.y) && (k === 'res' ? o.kind === 'node' : o.kind === k)).sort((a, b) => dist(S.home, a) - dist(S.home, b)); if (!cand.length) { toast('None charted yet: explore the mist to find more'); break; } mapFind[k] = ((mapFind[k] ?? -1) + 1) % Math.min(cand.length, 6); const o = cand[mapFind[k]]; if (cam.z < .8) cam.z = 1; centerOn(o.x, o.y); clampCam(); mapSel = { x: o.x, y: o.y }; sfx('click'); break; }
+    case 'mapfind': { const k = d.k, cand = S.world.filter(o => !o.dead && (seen(o.x, o.y) || k === 'elite') && (k === 'res' ? o.kind === 'node' : k === 'elite' ? o.elite : o.kind === k)).sort((a, b) => dist(S.home, a) - dist(S.home, b)); if (!cand.length) { toast('None charted yet: explore the mist to find more'); break; } mapFind[k] = ((mapFind[k] ?? -1) + 1) % Math.min(cand.length, 6); const o = cand[mapFind[k]]; if (cam.z < .8) cam.z = 1; centerOn(o.x, o.y); clampCam(); mapSel = { x: o.x, y: o.y }; sfx('click'); break; }
     case 'explore': explore(+d.x, +d.y); break;
     case 'march': openMarch(+d.id); break;
     case 'recall': recall(+d.id); closeSheet(); break;
