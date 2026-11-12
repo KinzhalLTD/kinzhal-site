@@ -45,7 +45,13 @@ const FORGE = [
   { k: 'engineer', name: 'Royal Engineers', icon: 'clock', per: 2, unit: '% build and research speed', base: 80, desc: 'Buildings rise and studies finish faster.' },
   { k: 'legion', name: 'Iron Legion', icon: 'might', per: 1.5, unit: '% troop attack and defence', base: 90, desc: 'Every soldier you send hits harder and holds longer.' },
   { k: 'spirit', name: 'Heroic Spirit', icon: 'scroll', per: 2, unit: '% hero health and attack', base: 90, desc: 'Your heroes grow mightier in every battle.' },
-  { k: 'coffers', name: 'Royal Coffers', icon: 'chest', per: 4, unit: '% storage capacity', base: 50, desc: 'Store more of everything your realm produces.' }];
+  { k: 'coffers', name: 'Royal Coffers', icon: 'chest', per: 4, unit: '% storage capacity', base: 50, desc: 'Store more of everything your realm produces.' },
+  { k: 'roads', map: 1, name: 'Swift Roads', icon: 'clock', per: 3, unit: '% march speed', base: 70, desc: 'Every march, scout and treasure run reaches the target sooner.' },
+  { k: 'pockets', map: 1, name: 'Deep Pockets', icon: 'crate', per: 4, unit: '% gathering speed and load', base: 60, desc: 'Gather resource sites faster and carry more home.' },
+  { k: 'banners', map: 1, name: 'War Banners', icon: 'might', per: 3, unit: '% march size', base: 90, desc: 'Send more troops in every march. Every 25 Conquest levels also opens a march slot (up to 3).' },
+  { k: 'fortune', map: 1, name: 'Fortune Seekers', icon: 'gem', per: 5, unit: '% treasure and caravan rewards', base: 60, desc: 'Lost chests and passing caravans hold more for you.' },
+  { k: 'plunder', map: 1, name: 'Plunderers', icon: 'gold', per: 5, unit: '% outpost and rival spoils', base: 80, desc: 'Bring back more from every outpost and rival citadel you defeat.' }];
+const conquestTotal = () => FORGE.filter(f => f.map).reduce((a, f) => a + FL(f.k), 0);
 const FL = k => (S && S.forge && S.forge[k]) || 0;
 const forgeCost = (f, l) => Math.round(f.base * Math.pow(1.17, l) / 5) * 5;
 const forgeTotal = () => FORGE.reduce((a, f) => a + FL(f.k), 0);
@@ -251,19 +257,28 @@ const META = (() => {
   function forgeTab() {
     const t = forgeTotal(), R = forgeRank(t), nx = R.next;
     return `<div class="forgehead"><div class="fh-rank r${R.i}"><small>Power rank</small><b>${R.name}</b></div><div class="fh-mid"><b>Forge level ${fmt(t)}</b>${nx ? `${bar((t - FORGE_RANKS[R.i][0]) / (nx[0] - FORGE_RANKS[R.i][0]))}<small class="muted">${nx[0] - t} more upgrades to ${nx[1]} rank · each rank pays a 1-hour hourglass and a Crown Sigil</small>` : '<small class="muted">The highest rank. Your legend is forged.</small>'}<small class="muted">Every gem spent also counts toward VIP.</small></div></div>
-      <div class="forges">${FORGE.map(f => { const l = FL(f.k), c = forgeCost(f, l), c10 = Array.from({ length: 10 }, (_, i) => forgeCost(f, l + i)).reduce((a, b) => a + b, 0), can = S.gems >= c;
+      ${forgeSec('Realm', 'Your city, armies and heroes', false)}<div class="forges">${FORGE.filter(f => !f.map).map(f => { const l = FL(f.k), c = forgeCost(f, l), c10 = Array.from({ length: 10 }, (_, i) => forgeCost(f, l + i)).reduce((a, b) => a + b, 0), can = S.gems >= c;
         return `<div class="forge" data-k="${f.k}"><div class="fg-ic">${ART.icon(f.icon, 40)}<span>Lv ${l}</span></div><div class="fg-txt"><b>${f.name}</b><small>${f.desc}</small><p><em>+${(l * f.per).toFixed(1).replace('.0', '')}${f.unit}</em> → <strong>+${((l + 1) * f.per).toFixed(1).replace('.0', '')}%</strong></p></div>
         <div class="fg-btns"><button class="btn ${can ? 'gold' : ''}" data-act="forge" data-k="${f.k}" data-n="1">${ART.icon('gem', 15)} ${fmt(c)}</button><button class="btn sm" data-act="forge" data-k="${f.k}" data-n="10">×10 · ${fmt(c10)}</button></div></div>`; }).join('')}</div>
+      ${forgeSec('Conquest', `The world map · march slots opened: ${Math.min(3, Math.floor(conquestTotal() / 25))} / 3 (next at ${Math.min(75, (Math.floor(conquestTotal() / 25) + 1) * 25)} Conquest levels)`, true)}<div class="forges">${FORGE.filter(f => f.map).map(forgeCard).join('')}</div>
       <p class="muted center">Upgrades never end and never reset. Costs rise 17% per level. Gems come from play (quests, trials, the Season Road, daily gifts) or from gem packs.</p>
       ${S.gems < forgeCost(FORGE[0], FL('harvest')) ? '<button class="btn wide" data-act="sub" data-s="gems">Get more gems</button>' : ''}`;
   }
+  function forgeSec(name, sub, map) { return `<h3 class="fsec ${map ? 'map' : ''}">${name} <small class="muted">${sub}</small></h3>`; }
+  function forgeCard(f) { const l = FL(f.k), c = forgeCost(f, l), c10 = Array.from({ length: 10 }, (_, i) => forgeCost(f, l + i)).reduce((a, b) => a + b, 0), can = S.gems >= c;
+    return `<div class="forge ${f.map ? 'map' : ''}" data-k="${f.k}"><div class="fg-ic">${ART.icon(f.icon, 40)}<span>Lv ${l}</span></div><div class="fg-txt"><b>${f.name}</b><small>${f.desc}</small><p><em>+${(l * f.per).toFixed(1).replace('.0', '')}${f.unit}</em> → <strong>+${((l + 1) * f.per).toFixed(1).replace('.0', '')}%</strong></p></div>
+      <div class="fg-btns"><button class="btn ${can ? 'gold' : ''}" data-act="forge" data-k="${f.k}" data-n="1">${ART.icon('gem', 15)} ${fmt(c)}</button><button class="btn sm" data-act="forge" data-k="${f.k}" data-n="10">×10 · ${fmt(c10)}</button></div></div>`; }
   function doForge(k, n) {
+    const s0 = Math.min(3, Math.floor(conquestTotal() / 25));
     const f = FORGE.find(x => x.k === k); if (!f) return; S.forge ??= {}; const r0 = forgeRank().i; let done = 0;
     for (let i = 0; i < n; i++) { const c = forgeCost(f, FL(k)); if (S.gems < c) break; spendGems(c); S.forge[k] = FL(k) + 1; done++; }
     if (!done) { toast(`Not enough gems: ${fmt(forgeCost(f, FL(k)))} needed`, 'bad'); return; }
     FX.sound(done > 1 ? 'chest' : 'coin'); const el = document.querySelector(`.forge[data-k="${k}"] .fg-ic`); if (el) { const p = FX.centerOf(el); FX.burst(p.x, p.y, { n: 20 + done * 4, shape: 'star', size: 5, speed: 7, ring: '#ffd36b' }); }
     toast(`${f.name} level ${FL(k)}: +${(FL(k) * f.per).toFixed(1).replace('.0', '')}${f.unit}`, 'good');
-    const r1 = forgeRank().i; if (r1 > r0) { for (let i = r0; i < r1; i++) grant({ tokens: 1, items: { sp60: 1 } }); FX.banner('Power rank up!', `${forgeRank().name} rank · rewards sent to your bag`, { art: `<div class="fh-rank big r${r1}"><small>Power rank</small><b>${forgeRank().name}</b></div>` }); }
+    const q = [], s1 = Math.min(3, Math.floor(conquestTotal() / 25)), r1 = forgeRank().i;
+    if (r1 > r0) { for (let i = r0; i < r1; i++) grant({ tokens: 1, items: { sp60: 1 } }); q.push(() => FX.banner('Power rank up!', `${forgeRank().name} rank · rewards sent to your bag`, { art: `<div class="fh-rank big r${r1}"><small>Power rank</small><b>${forgeRank().name}</b></div>` })); }
+    if (s1 > s0) q.push(() => FX.banner('March slot opened!', `You can now send ${maxMarches()} marches at once`, { art: ART.icon('might', 90) }));
+    q.reduce((pr, fn) => pr.then(fn), Promise.resolve());
     render();
   }
   function featured() {

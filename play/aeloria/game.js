@@ -237,8 +237,8 @@ function might() {
 const vigorMax = () => 60 + S.b.mews * 2 + vipLvl() * 5;
 const heroCap = () => 10 + S.b.mews * 3;
 const squadBonus = () => S.squad.reduce((a, id) => a + (S.heroes[id] ? S.heroes[id].lvl * S.heroes[id].stars * .004 : 0), 0);
-const maxMarches = () => 2 + (S.tech.slots || 0);
-const marchCap = () => 300 + S.b.barracks * 250 + S.b.mews * 120;
+const maxMarches = () => 2 + (S.tech.slots || 0) + Math.min(3, Math.floor(conquestTotal() / 25));
+const marchCap = () => Math.round((300 + S.b.barracks * 250 + S.b.mews * 120) * (1 + FL('banners') * .03));
 
 function costOf(id, toL) {
   const base = BLD[id].cost, m = Math.pow(1.62, toL - 1) * (toL === 1 ? .6 : 1), out = {};
@@ -411,8 +411,8 @@ function troopsHTML(t, cls = '') { const e = Object.entries(t || {}).filter(([, 
 /* ======================= world marches ======================= */
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const marchSpeed = () => 1 + tech('march') + RB('march');
-const travelMs = (o, troops) => { const slow = troops.sie1 || troops.sie2 || troops.sie3 ? 1.3 : 1; return dist(S.home, o) * 2200 * slow / marchSpeed(); };
-const loadOf = t => Object.entries(t).reduce((a, [k, n]) => { const [ty, ti] = tparse(k); return a + n * TROOP[ty].load * (1 + (ti - 1) * .5); }, 0) * (1 + tech('gather'));
+const travelMs = (o, troops) => { const slow = troops.sie1 || troops.sie2 || troops.sie3 ? 1.3 : 1; return dist(S.home, o) * 2200 * slow / marchSpeed() / (1 + FL('roads') * .03); };
+const loadOf = t => Object.entries(t).reduce((a, [k, n]) => { const [ty, ti] = tparse(k); return a + n * TROOP[ty].load * (1 + (ti - 1) * .5); }, 0) * (1 + tech('gather')) * (1 + FL('pockets') * .04);
 function sendMarch(o, kind, troops) {
   if (S.marches.length >= maxMarches()) return toast('All march slots are busy', 'bad');
   if (kind !== 'scout' && kind !== 'explore' && kind !== 'collect' && troopCount(troops) <= 0) return toast('Choose some troops', 'bad');
@@ -436,7 +436,7 @@ function arrive(m) {
   if (m.kind === 'explore') { S.stats.scouts++; const found = S.world.filter(q => !q.dead && Math.hypot(q.x - m.tx, q.y - m.ty) <= 5); const n = k => found.filter(q => q.kind === k).length; report(`Lands charted · ${REGION_NAME[regionAt(m.tx, m.ty)]}`, `<p>Your scouts mapped the land around (${m.tx}, ${m.ty}).</p><p>Found: ${n('node')} resource sites, ${n('camp')} Ashen outposts${n('city') ? `, ${n('city')} rival citadel` : ''}${found.some(q => q.kind === 'throne') ? ' and <b>the Sunspire Throne</b>' : ''}.</p>`, 'scout'); META.xp(10); return goBack(); }
   if (!o || o.dead || o.x !== m.tx || o.y !== m.ty) { report('March returned', m.kind === 'collect' ? 'Someone reached the treasure before your riders.' : 'The target was gone before your troops arrived.'); return goBack(); }
   if (m.kind === 'collect') {
-    const L = 1 + Math.floor(dist(S.home, o) / 8), rw = { gold: 300 * L, [pick(['grain', 'timber', 'stone', 'ore'])]: 2000 * L }; const r = Math.random(); if (r < .3) rw.gems = 5 * L; else if (r < .45) rw.items = { sp5: 1 }; else if (r < .5) rw.shards = { [pick(HEROES).id]: 2 };
+    const L = (1 + Math.floor(dist(S.home, o) / 8)) * (1 + FL('fortune') * .05), rw = { gold: Math.round(300 * L), [pick(['grain', 'timber', 'stone', 'ore'])]: Math.round(2000 * L) }; const r = Math.random(); if (r < .3) rw.gems = Math.round(5 * L); else if (r < .45) rw.items = { sp5: 1 }; else if (r < .5) rw.shards = { [pick(HEROES).id]: 2 };
     const txt = give(rw); o.dead = true; o.respawnAt = now() + 3 * 60e3; S.stats.chests = (S.stats.chests || 0) + 1; META.xp(8); LIVE.on('treasure', 1); mapFx.push({ x: o.x, y: o.y, t: now(), win: true }); report('Treasure recovered', `<p>Your riders opened a lost chest in ${REGION_NAME[regionAt(o.x, o.y)]}.</p><p>Found: ${txt}</p>`, 'win'); sfx('chest'); return goBack();
   }
   if (m.kind === 'scout') {
@@ -447,7 +447,7 @@ function arrive(m) {
   }
   if (m.kind === 'gather') {
     if (o.kind !== 'node') return goBack();
-    m.res = o.res; m.load = loadOf(m.troops); m.rate = (6 + o.lvl * 4) * (1 + tech('gather')) * (o.res === 'gold' ? .4 : 1);
+    m.res = o.res; m.load = loadOf(m.troops); m.rate = (6 + o.lvl * 4) * (1 + tech('gather')) * (1 + FL('pockets') * .04) * (o.res === 'gold' ? .4 : 1);
     m.state = 'gather'; m.gstart = now(); m.gend = now() + Math.min(m.load, o.amount) / m.rate * 1000; return;
   }
   // attack
@@ -461,13 +461,13 @@ function arrive(m) {
   if (res.win) {
     if (o.kind === 'camp') {
       META.xp(30); LIVE.on('camp', 1); S.essence += 4 * o.lvl; S.stats.camps++; S.stats.campMax = Math.max(S.stats.campMax, o.lvl);
-      const L = o.lvl; m.loot = { gold: 300 * L * L, grain: 800 * L, timber: 600 * L, stone: 400 * L, ore: 150 * L };
+      const L = o.lvl, pl = 1 + FL('plunder') * .05; m.loot = { gold: Math.round(300 * L * L * pl), grain: Math.round(800 * L * pl), timber: Math.round(600 * L * pl), stone: Math.round(400 * L * pl), ore: Math.round(150 * L * pl) };
       const extra = { items: { gift: 1 + (L >= 5 ? 1 : 0) } }; if (Math.random() < .35) extra.items.sp5 = 1 + Math.floor(L / 3); if (Math.random() < .25) extra.gems = 5 * L;
       if (L >= 4 && Math.random() < .3) extra.shards = { [pick(HEROES).id]: 1 + Math.floor(L / 4) };
       body += `<p>Spoils: ${give(extra)} and resources carried home.</p>`;
       o.respawnAt = now() + 4 * 60e3; o.dead = true;
     } else if (o.kind === 'city') {
-      META.xp(60); LIVE.on('rival', 1); S.stats.rivals++; const take = {}; for (const k of RES) { take[k] = Math.floor(Math.min(o.res[k] * .4, loadOf(m.troops) / 5)); o.res[k] -= take[k]; }
+      META.xp(60); LIVE.on('rival', 1); S.stats.rivals++; const take = {}; for (const k of RES) { take[k] = Math.floor(Math.min(o.res[k] * .4 * (1 + FL('plunder') * .05), o.res[k], loadOf(m.troops) / 5)); o.res[k] -= take[k]; }
       m.loot = take; body += `<p>You plundered ${RES.map(k => ART.icon(k, 14) + fmt(take[k])).join(' ')}</p>`; o.lvl = Math.max(1, o.lvl); o.angry = (o.angry || 0) + 1;
     } else if (o.kind === 'throne') {
       if (troopCount(o.troops) === 0) { S.throne = true; body += '<p><b>The Sunspire Throne is yours. All six realms bow to you, Sovereign.</b></p>'; burst(); burst(); log('You captured the Sunspire Throne!'); }
@@ -1550,7 +1550,7 @@ function onAct(e) {
     case 'stage': startStage(d.key); break;
     case 'cast': { const u = fight && fight.heroes.find(h => h.id === d.id); if (u && u.hp > 0 && u.en >= 100 && !fight.over && !fight.timing && now() >= fight.pauseUntil) timedCast(u); break; }
     case 'landmark': sfx('click'); if (d.id === 'arena') openTab('arena'); else if (d.id === 'bazaar') META.act('sub', { s: 'market' }); else if (d.id === 'altar') META.act('sub', { s: 'summon' }); else { openTab('heroes'); toast('Open a hero to forge their gear with Ember Essence'); } break;
-    case 'caravan': if (caravan) { caravan = null; S.caravanN = (S.caravanN || 0) + 1; S.caravanAt = now() + (80 + Math.random() * 80) * 1000; const L = Math.max(1, S.b.citadel), r = Math.random(), rw = r < .4 ? { gold: 400 * L } : r < .75 ? { [pick(['grain', 'timber', 'stone', 'ore'])]: 2500 * L } : r < .9 ? { gems: 10 } : r < .98 ? { items: { sp5: 1 } } : { gems: 50 }; give(rw, 'Treasure caravan'); LIVE.on('caravan', 1); FX.confetti(); FX.sound('chest'); META.xp(3); render(); } break;
+    case 'caravan': if (caravan) { caravan = null; S.caravanN = (S.caravanN || 0) + 1; S.caravanAt = now() + (80 + Math.random() * 80) * 1000; const L = Math.max(1, S.b.citadel) * (1 + FL('fortune') * .05), r = Math.random(), rw = r < .4 ? { gold: Math.round(400 * L) } : r < .75 ? { [pick(['grain', 'timber', 'stone', 'ore'])]: Math.round(2500 * L) } : r < .9 ? { gems: 10 } : r < .98 ? { items: { sp5: 1 } } : { gems: 50 }; give(rw, 'Treasure caravan'); LIVE.on('caravan', 1); FX.confetti(); FX.sound('chest'); META.xp(3); render(); } break;
     case 'czoom': { const cv = $('#cityView'), fx = (cv.scrollLeft + cv.clientWidth / 2) / cv.scrollWidth, fy = (cv.scrollTop + cv.clientHeight / 2) / cv.scrollHeight; fitCity.zi = ((fitCity.zi || 0) + 1) % CITY_Z.length; fitCity.w = cv.clientWidth; fitCity.h = cv.clientHeight; fitCity(); requestAnimationFrame(() => { cv.scrollLeft = fx * cv.scrollWidth - cv.clientWidth / 2; cv.scrollTop = fy * cv.scrollHeight - cv.clientHeight / 2; }); sfx('click'); break; }
     case 'target': if (fight && !fight.over) { const u = fight.foes.find(h => h.id === d.id); if (u && u.hp > 0) { fight.target = u.id; sfx('click'); updFight(); } } break;
     case 'auto': break;
