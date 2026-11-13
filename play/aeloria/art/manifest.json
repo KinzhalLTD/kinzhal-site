@@ -50,7 +50,9 @@
     "epic": "key/epic.webp",
     "victory": "key/victory.webp",
     "siege": "key/siege.webp",
-    "sunveldt": "key/sunveldt.webp"
+    "sunveldt": "key/sunveldt.webp",
+    "title_w": "key/title_w.webp",
+    "chapter1_w": "key/chapter1_w.webp"
   },
   "music": {
     "cine": "music/cine.mp3",
