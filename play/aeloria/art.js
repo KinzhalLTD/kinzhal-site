@@ -9,11 +9,14 @@ const ART = (() => {
   /* ---------- painted-art overrides (art/manifest.json) ---------- */
   // The city and many screens wait for this list; retry with back-off so a slow or failed request never strands the drawn fallback.
   let MAN = {}, READY = false;
-  const loadMan = (n = 0) => fetch('art/manifest.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  // Asset path for a manifest entry. The packed app build (single offline HTML) supplies window.AELORIA_ASSETS
+  // with every file as a data URI and window.AELORIA_MANIFEST in place of art/manifest.json.
+  const AP = p => (window.AELORIA_ASSETS && window.AELORIA_ASSETS[p]) || 'art/' + p;
+  const loadMan = (n = 0) => (window.AELORIA_MANIFEST ? Promise.resolve({ ok: true, json: () => window.AELORIA_MANIFEST }) : fetch('art/manifest.json', { cache: 'no-cache' })).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(j => { MAN = j || {}; READY = true; window.dispatchEvent(new Event('artready')); })
     .catch(() => { if (n < 5) setTimeout(() => loadMan(n + 1), 800 * 2 ** n); else { READY = true; window.dispatchEvent(new Event('artready')); } });
   loadMan();
-  const painted = (kind, id, s, cls = 'portrait') => MAN[kind] && MAN[kind][id] ? `<img src="art/${MAN[kind][id]}" width="${s}" height="${s}" class="${cls} painted" alt="" loading="lazy" decoding="async">` : null;
+  const painted = (kind, id, s, cls = 'portrait') => MAN[kind] && MAN[kind][id] ? `<img src="${AP(MAN[kind][id])}" width="${s}" height="${s}" class="${cls} painted" alt="" loading="lazy" decoding="async">` : null;
 
   /* ---------- emblem: crown over a radiant sun on a shield ---------- */
   const crownPath = (fill, stroke) => `<path d="M30 46l-4-20 12 10 12-16 12 16 12-10-4 20z" fill="${fill}" stroke="${stroke}" stroke-width="2" stroke-linejoin="round"/><rect x="29" y="45" width="42" height="7" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="2"/><circle cx="50" cy="20" r="3.2" fill="#ff5e7a"/><circle cx="26" cy="26" r="2.4" fill="#3fd7c8"/><circle cx="74" cy="26" r="2.4" fill="#3fd7c8"/>`;
@@ -47,9 +50,9 @@ const ART = (() => {
     scroll: '<g><rect x="5" y="4" width="14" height="16" rx="2" fill="#f2e6cf"/><path d="M8 9h8M8 12h8M8 15h5" stroke="#9c5f2e" stroke-width="1.5"/></g>',
     chest: '<g><rect x="3" y="9" width="18" height="11" rx="2" fill="#9c5f2e"/><path d="M3 11c0-5 4-7 9-7s9 2 9 7z" fill="#c07a3a"/><rect x="10" y="10" width="4" height="5" rx="1" fill="#ffd36b"/></g>'
   };
-  const icon = (k, s = 18) => MAN.icons && MAN.icons[k] ? `<img class="ic pic" src="art/${MAN.icons[k]}" width="${Math.round(s * 1.25)}" height="${Math.round(s * 1.25)}" alt="">` : `<svg width="${s}" height="${s}" viewBox="0 0 24 24" class="ic" aria-hidden="true">${IC[k] || IC.scroll}</svg>`;
+  const icon = (k, s = 18) => MAN.icons && MAN.icons[k] ? `<img class="ic pic" src="${AP(MAN.icons[k])}" width="${Math.round(s * 1.25)}" height="${Math.round(s * 1.25)}" alt="">` : `<svg width="${s}" height="${s}" viewBox="0 0 24 24" class="ic" aria-hidden="true">${IC[k] || IC.scroll}</svg>`;
 
-  const iconSvg = (k, s = 22) => MAN.icons && MAN.icons[k] ? `<image href="art/${MAN.icons[k]}" x="${-s * .1}" y="${-s * .1}" width="${s * 1.2}" height="${s * 1.2}"/>` : icon(k, s).replace(/<svg[^>]*>/, `<svg width="${s}" height="${s}" viewBox="0 0 24 24">`);
+  const iconSvg = (k, s = 22) => MAN.icons && MAN.icons[k] ? `<image href="${AP(MAN.icons[k])}" x="${-s * .1}" y="${-s * .1}" width="${s * 1.2}" height="${s * 1.2}"/>` : icon(k, s).replace(/<svg[^>]*>/, `<svg width="${s}" height="${s}" viewBox="0 0 24 24">`);
 
   /* ---------- troops ---------- */
   const TROOP_ART = {
@@ -225,7 +228,7 @@ const ART = (() => {
     acacia: (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 0c0-10 2-16-6-24M0-10c4-6 8-10 8-16" stroke="#6a4a2a" stroke-width="2.5" fill="none"/><ellipse cx="0" cy="-28" rx="22" ry="6" fill="#7a8a3a"/><ellipse cx="-4" cy="-31" rx="14" ry="4" fill="#9aa64a"/></g>`,
     cherry: (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 0c0-10 2-16-6-24M0-12c4-6 8-8 10-14" stroke="#5a3a2a" stroke-width="2.5" fill="none"/><circle cx="-8" cy="-26" r="9" fill="#f5b0c8"/><circle cx="8" cy="-28" r="9" fill="#f0a0bc"/><circle cx="0" cy="-34" r="8" fill="#ffc8da"/></g>`
   };
-  const tree = (x, y, s = 1, kind) => { const a = MAN.map && MAN.map.trees; return a ? `<image href="art/${a}" x="${x - 46 * s}" y="${y - 70 * s}" width="${92 * s}" height="${92 * s}"/>` : (TREES[kind || P.tree] || TREES.oak)(x, y, s); };
+  const tree = (x, y, s = 1, kind) => { const a = MAN.map && MAN.map.trees; return a ? `<image href="${AP(a)}" x="${x - 46 * s}" y="${y - 70 * s}" width="${92 * s}" height="${92 * s}"/>` : (TREES[kind || P.tree] || TREES.oak)(x, y, s); };
   const shadow = (w) => `<ellipse cx="0" cy="4" rx="${w}" ry="8" fill="#000" opacity=".18"/>`;
   const B = {
     citadel: L => `${shadow(72)}${box(-58, -50, 116, 54)}${crenel(-58, -50, 116)}<rect x="-70" y="-78" width="24" height="82" fill="${P.wall2}"/><rect x="46" y="-78" width="24" height="82" fill="${P.wall2}"/>${crenel(-70, -78, 24, P.wall3)}${crenel(46, -78, 24, P.wall3)}${cap(-58, -83, 12)}${cap(58, -83, 12)}${box(-30, -86, 60, 40, shade(P.wall, .15))}${cap(0, -86, 24, L >= 10 ? '#e8a33d' : P.roof)}${door(-9, 4, 18, 26)}${win(-62, -40)}${win(54, -40)}${win(-20, -62)}${win(14, -62)}${flag(-58, -100, '#e8a33d')}${flag(58, -100, P.color)}`,
@@ -248,14 +251,14 @@ const ART = (() => {
   const building = (id, L) => {
     const a = MAN.buildings && MAN.buildings[B[id] ? id : 'empty']; if (!a) return (B[id] || B.empty)(L || 1);
     const z = (BSIZE[id] || 132) * (id === 'empty' ? 1 : 1 + Math.min(L || 1, 20) * .01);
-    return `<ellipse cy="${z * .04}" rx="${z * .4}" ry="${z * .13}" fill="#000" opacity=".3"/><image href="art/${a}" x="${-z / 2}" y="${-z * .86}" width="${z}" height="${z}"/>${id === 'empty' || !B[id] ? '<text x="0" y="2" text-anchor="middle" font-size="20" font-weight="900" fill="#fff" stroke="#000" stroke-width=".8" opacity=".9">+</text>' : ''}`;
+    return `<ellipse cy="${z * .04}" rx="${z * .4}" ry="${z * .13}" fill="#000" opacity=".3"/><image href="${AP(a)}" x="${-z / 2}" y="${-z * .86}" width="${z}" height="${z}"/>${id === 'empty' || !B[id] ? '<text x="0" y="2" text-anchor="middle" font-size="20" font-weight="900" fill="#fff" stroke="#000" stroke-width=".8" opacity=".9">+</text>' : ''}`;
   };
 
   /* ---------- city ground per realm ---------- */
   const cityBg = () => {
     { const c = MAN.city && MAN.city[P.realm]; if (c) { const gt = MAN.ground && MAN.ground[{ frostmark: 'snow', amber: 'sand', sunveldt: 'sand' }[P.realm] || 'grass'];
       // the painted city sits in the middle of a wider realm: tiled ground beyond it, the painting feathered into it
-      return `<defs><pattern id="cgnd" width="320" height="320" patternUnits="userSpaceOnUse"><image href="art/${gt}" width="320" height="320" preserveAspectRatio="none"/></pattern><linearGradient id="cfx" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#000"/><stop offset=".09" stop-color="#fff"/><stop offset=".91" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="cfy" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset=".12" stop-color="#fff"/><stop offset=".88" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient><mask id="cmask" maskUnits="userSpaceOnUse" x="-119" y="-55" width="1235" height="823"><rect x="-119" y="-55" width="1235" height="823" fill="url(#cfx)"/></mask><mask id="cmask2" maskUnits="userSpaceOnUse" x="-119" y="-55" width="1235" height="823"><rect x="-119" y="-55" width="1235" height="823" fill="url(#cfy)"/></mask><radialGradient id="cvig" cx=".5" cy=".47" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#05030d" stop-opacity=".55"/></radialGradient></defs><rect x="-420" y="-300" width="1840" height="1288" fill="url(#cgnd)"/><g mask="url(#cmask2)"><image href="art/${c}" x="-119" y="-55" width="1235" height="823" preserveAspectRatio="none" mask="url(#cmask)"/></g>`; } }
+      return `<defs><pattern id="cgnd" width="320" height="320" patternUnits="userSpaceOnUse"><image href="${AP(gt)}" width="320" height="320" preserveAspectRatio="none"/></pattern><linearGradient id="cfx" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#000"/><stop offset=".09" stop-color="#fff"/><stop offset=".91" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient><linearGradient id="cfy" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset=".12" stop-color="#fff"/><stop offset=".88" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient><mask id="cmask" maskUnits="userSpaceOnUse" x="-119" y="-55" width="1235" height="823"><rect x="-119" y="-55" width="1235" height="823" fill="url(#cfx)"/></mask><mask id="cmask2" maskUnits="userSpaceOnUse" x="-119" y="-55" width="1235" height="823"><rect x="-119" y="-55" width="1235" height="823" fill="url(#cfy)"/></mask><radialGradient id="cvig" cx=".5" cy=".47" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#05030d" stop-opacity=".55"/></radialGradient></defs><rect x="-420" y="-300" width="1840" height="1288" fill="url(#cgnd)"/><g mask="url(#cmask2)"><image href="${AP(c)}" x="-119" y="-55" width="1235" height="823" preserveAspectRatio="none" mask="url(#cmask)"/></g>`; } }
     const g = P.ground, u = uid('c'), GT = { frostmark: 'snow', amber: 'sand', sunveldt: 'sand' }, gt = MAN.ground && MAN.ground[GT[P.realm] || 'grass'], st = MAN.ground && MAN.ground.stone;
     const texture = {
       amber: `<path d="M0 30c20-12 40-12 80 0" stroke="${g[2]}" stroke-width="2" fill="none" opacity=".4"/>`,
@@ -267,7 +270,7 @@ const ART = (() => {
     return `<defs><radialGradient id="${u}g" cx="50%" cy="42%" r="75%"><stop offset="0" stop-color="${g[0]}"/><stop offset=".7" stop-color="${g[1]}"/><stop offset="1" stop-color="${g[2]}"/></radialGradient>
       <linearGradient id="${u}w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${shade(P.water, .3)}"/><stop offset="1" stop-color="${shade(P.water, -.35)}"/></linearGradient>
       <pattern id="${u}p" width="80" height="40" patternUnits="userSpaceOnUse">${texture}</pattern>
-      ${gt ? `<pattern id="${u}t" width="220" height="220" patternUnits="userSpaceOnUse"><image href="art/${gt}" width="220" height="220"/></pattern>` : ''}${st ? `<pattern id="${u}s" width="150" height="150" patternUnits="userSpaceOnUse" patternTransform="rotate(27) scale(1 .6)"><image href="art/${st}" width="150" height="150"/></pattern>` : ''}</defs>
+      ${gt ? `<pattern id="${u}t" width="220" height="220" patternUnits="userSpaceOnUse"><image href="${AP(gt)}" width="220" height="220"/></pattern>` : ''}${st ? `<pattern id="${u}s" width="150" height="150" patternUnits="userSpaceOnUse" patternTransform="rotate(27) scale(1 .6)"><image href="${AP(st)}" width="150" height="150"/></pattern>` : ''}</defs>
       <rect width="1000" height="700" fill="url(#${u}g)"/>${gt ? `<rect width="1000" height="700" fill="url(#${u}t)" opacity=".82"/><rect width="1000" height="700" fill="url(#${u}g)" opacity=".25"/>` : `<rect width="1000" height="700" fill="url(#${u}p)"/>`}${coast}
       <ellipse cx="880" cy="120" rx="80" ry="34" fill="url(#${u}w)"/><ellipse cx="880" cy="120" rx="80" ry="34" fill="none" stroke="${shade(P.ground[2], -.2)}" stroke-width="3"/>${tree(820, 120, 1)}${tree(940, 110, .9)}${tree(860, 150, .8, P.realm === 'jade' ? 'cherry' : undefined)}
       <path d="M500 130L820 290 500 450 180 290z" fill="${st ? `url(#${u}s)` : shade(P.ground[0], P.realm === 'frostmark' ? -.06 : .12)}" stroke="${P.wall3}" stroke-width="2"/>
@@ -332,8 +335,8 @@ const ART = (() => {
     tree: mapTree
   };
 
-  const asset = (kind, id) => MAN[kind] && MAN[kind][id] ? 'art/' + MAN[kind][id] : null;
+  const asset = (kind, id) => MAN[kind] && MAN[kind][id] ? AP(MAN[kind][id]) : null;
   // Key art comes in a portrait cut for phones and a wide cut ("<id>_w") for tablets and PC; pick by the screen's shape.
-  const keyUrl = (id, wide) => { if (!MAN.key) return null; wide ??= innerWidth > innerHeight * 1.05; const k = (wide && MAN.key[id + '_w']) || MAN.key[id] || MAN.key[id + '_w']; return k ? 'art/' + k : null; };
+  const keyUrl = (id, wide) => { if (!MAN.key) return null; wide ??= innerWidth > innerHeight * 1.05; const k = (wide && MAN.key[id + '_w']) || MAN.key[id] || MAN.key[id + '_w']; return k ? AP(k) : null; };
   return { get ready() { return READY; }, loopLen: k => (MAN.loops && MAN.loops[k]) || 0, iconSvg, asset, keyUrl, svg, shade, emblem, crownPath, icon, troop, portrait, enemy, building, cityBg, tree, mapPaint, setRealm, RARITY, painted, get P() { return P; } };
 })();

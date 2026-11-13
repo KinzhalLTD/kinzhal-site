@@ -13,6 +13,7 @@ store/aeloria-ios/
 │   ├── 06-ios-app-version-1.0-for-review.md  Review notes, contact, pre-submission checklist
 │   └── 07-product-page-information.md        Promo text, description, keywords, URLs, media order
 ├── screenshots/
+│   ├── iphone-6.9in_1320x2868/   8 captioned portrait screenshots (the required size)
 │   ├── iphone-6.1in_1179x2556/   8 captioned portrait screenshots
 │   └── iphone-6.3in_1206x2622/   8 captioned portrait screenshots
 ├── ads/
@@ -28,6 +29,13 @@ store/aeloria-ios/
 All media is captured from the real game. App Review requires app previews to show only footage from the app.
 
 The preview was recorded at 443×960 points and scaled 2× to 886×1920. Apple also accepts 1920×886 landscape previews, and 2556×1179 / 2622×1206 landscape screenshots. This kit uses portrait, which is the game's main orientation.
+
+## Two ways to build the app
+
+- **Replit (no Mac): recommended.** Upload `expo/aeloria` (the zip `aeloria-replit-expo.zip`) to a Replit **Mobile app (Expo)** project and use **Publish → App Store**. Follow `expo/aeloria/README.md` and `expo/aeloria/APP_STORE_SUBMISSION.md`.
+- **Xcode (Mac).** The native Swift project in `ios/aeloria/`.
+
+Both use the same bundle ID, AdMob IDs and purchase product IDs. Pick one.
 
 ## Still needed before you can press "Submit"
 

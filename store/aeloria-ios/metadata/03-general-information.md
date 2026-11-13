@@ -32,7 +32,7 @@ Every ID below matches the game's internal ID. The wrapper's `window.AELORIA_PAY
 | `space.kinzhal.aeloria.pack5` | Consumable | Citadel 5 Pack | 1,200 gems, builder, 6 hourglasses, 100 essence | SAR 9.99 |
 | `space.kinzhal.aeloria.pack10` | Consumable | Citadel 10 Pack | 3,000 gems, 2 eight-hour hourglasses, 3 tokens, 300 essence | SAR 24.99 |
 | `space.kinzhal.aeloria.pack15` | Consumable | Citadel 15 Pack | 6,500 gems, 8 tokens, 800 essence | SAR 49.99 |
-| `space.kinzhal.aeloria.card` | **Non-renewing subscription** (30 days) | Royal Monthly Card | 300 gems now + 100 gems a day for 30 days | SAR 19.99 |
+| `space.kinzhal.aeloria.card` | Consumable (the game tracks the 30 days) | Royal Monthly Card | 300 gems now + 100 gems a day for 30 days | SAR 19.99 |
 | `space.kinzhal.aeloria.royal` | **Non-consumable** | Royal Season Track | Second reward row on the Season Road | SAR 39.99 |
 | `space.kinzhal.aeloria.noads` | **Non-consumable** | Remove Ads | Removes interstitial, app-open, banner and native ads forever (optional reward videos stay) | SAR 9.99 |
 

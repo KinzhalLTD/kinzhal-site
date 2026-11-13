@@ -342,6 +342,7 @@ const LIVE = (() => {
       case 'skin': S.skin = d.k; applySkin(); render(); toast(d.k ? `${SKINS[d.k].name} applied` : 'Realm default applied', 'good'); return true;
       case 'ad': watchAd(d.p, d); return true;
       case 'adprivacy': ADS.privacy(); return true;
+      case 'appsettings': if (window.AeloriaNative && window.AeloriaNative.openSettings) window.AeloriaNative.openSettings(); return true;
       case 'restore': { const p = pay(); if (!p || !p.restore) return true; Promise.resolve(p.restore()).then(ids => { ids = ids || []; if (ids.includes('noads')) S.shop.noAds = true; if (ids.includes('royal')) S.shop.royalPass = true; save(); toast(ids.length ? 'Purchases restored' : 'Nothing to restore', ids.length ? 'good' : ''); render(); openMenu(); }).catch(() => toast('Restore failed — try again', 'bad')); return true; }
       case 'notify': askNotify(); return true;
     }

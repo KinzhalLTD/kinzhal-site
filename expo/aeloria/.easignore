@@ -1,0 +1,9 @@
+# EAS uploads the project using this file instead of .gitignore.
+# www/ (the game) MUST be uploaded: the build packs it into src/gameHtml.js.
+node_modules/
+.expo/
+ios/
+android/
+dist/
+*.log
+.DS_Store

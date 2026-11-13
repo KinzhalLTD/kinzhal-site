@@ -57,6 +57,7 @@ kingdom,strategy,castle,empire,heroes,rpg,war,citadel,fantasy,medieval,clash,leg
 
 | Slot | File(s) |
 |---|---|
+| **iPhone 6.9" screenshots (1320×2868), required** | `screenshots/iphone-6.9in_1320x2868/01…08.jpg` |
 | iPhone 6.3" screenshots (1206×2622) | `screenshots/iphone-6.3in_1206x2622/01…08.jpg` |
 | iPhone 6.1" screenshots (1179×2556) | `screenshots/iphone-6.1in_1179x2556/01…08.jpg` |
 | App preview (886×1920, 28.5 s, H.264 30 fps + AAC) | `app-preview/preview_886x1920.mp4` |
