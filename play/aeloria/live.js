@@ -32,7 +32,7 @@ const LIVE = (() => {
     const g = gearOf(id);
     return `<div class="card forge"><h4>⚒ Forge · Ember Essence ${fmt(S.essence)}</h4><div class="gear">${Object.entries(SLOTS).map(([k, sl]) => {
       const l = g[k], c = gearCost(l), max = l >= gearMax();
-      return `<div class="gslot q${Math.min(4, Math.floor(l / 4))}"><span class="gi">${sl.icon}</span><b>${sl.name} +${l}</b><small>${sl.stat === 'all' ? 'All stats' : sl.stat.toUpperCase()} +${Math.round(l * sl.per * 100)}%</small>${max ? '<em>Max (raise Hall of Heroes)</em>' : `<button class="mini gold" data-act="forge" data-id="${id}" data-s="${k}">✦${c.essence} · ${ART.icon('gold', 11)}${fmt(c.gold)}</button>`}</div>`;
+      return `<div class="gslot q${Math.min(4, Math.floor(l / 4))}"><span class="gi">${sl.icon}</span><b>${sl.name} +${l}</b><small>${sl.stat === 'all' ? 'All stats' : sl.stat.toUpperCase()} +${Math.round(l * sl.per * 100)}%</small>${max ? '<em>Max (raise Hall of Heroes)</em>' : `<button class="mini gold" data-act="gearforge" data-id="${id}" data-s="${k}">Forge <i class="ess">✦</i>${c.essence} · ${ART.icon('gold', 11)}${fmt(c.gold)}</button>`}</div>`;
     }).join('')}</div><p class="muted">Ember Essence drops from Ashen outposts, campaign stages, the World Boss and chests.</p></div>`;
   }
   function forge(id, k) {
@@ -322,7 +322,7 @@ const LIVE = (() => {
   }
   function act(a, d, el) {
     switch (a) {
-      case 'forge': forge(d.id, d.s); return true;
+      case 'gearforge': forge(d.id, d.s); return true;   // hero gear (the Royal Forge store uses 'forge' in meta.js)
       case 'arena': openTab('arena'); return true;
       case 'arenafight': arenaFight(+d.i); return true;
       case 'arenaleave': leaveFight(); openTab('arena'); return true;

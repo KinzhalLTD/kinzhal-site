@@ -2,7 +2,7 @@
 // It is a view of the fight state owned by game.js: squad sizes follow each unit's health.
 const BF = (() => {
   const IMG = {};
-  const img = url => { if (!url) return null; let i = IMG[url]; if (!i) { i = IMG[url] = new Image(); i.decoding = 'async'; i.src = url; } return i.complete && i.naturalWidth ? i : null; };
+  const img = url => { if (!url) return null; let i = IMG[url]; if (!i || (i.dataset.failed && Date.now() > +i.dataset.retryAt)) { const n = i ? (+i.dataset.tries || 0) + 1 : 0; i = IMG[url] = new Image(); i.decoding = 'async'; i.dataset.tries = n; i.onerror = () => { i.dataset.failed = 1; i.dataset.retryAt = Date.now() + Math.min(30000, 1000 * 2 ** n); }; i.src = url; } return i.complete && i.naturalWidth ? i : null; };
   const ROLE = { Tank: 'foot', Warrior: 'cav', Assassin: 'foot', Ranged: 'archer', Engineer: 'archer', Mage: 'mage', Support: 'mage' };
   const KIND = { ghoul: 'ghoul', hound: 'hound', raider: 'raider', stalker: 'hound', wraith: 'wraith', troll: 'brute', phantom: 'wraith', serpent: 'ghoul', golem: 'brute', warlord: 'raider', queen: 'wraith', wyrm: 'brute', lantern: 'wraith', kraken: 'brute', hollow: 'raider' };
   const SIZE = { foot: 1, archer: 1.05, cav: 1.3, mage: 1.05, raider: 1.1, ghoul: .95, hound: .78, brute: 1.55, wraith: 1.1 };

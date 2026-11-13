@@ -940,3 +940,6 @@ dialog#sheet[open]{animation-duration:.18s}
 .result .adbtn{display:block;margin:8px auto 2px;animation:adpulse 1.6s ease-in-out infinite}
 @keyframes adpulse{50%{box-shadow:0 0 0 4px #6fd38a33}}
 .offer-big.noads{background:linear-gradient(135deg,#1d3a2a,#0d1a14)}
+
+/* Hero gear forge: the Ember Essence mark, coloured so the cost cannot read as "+10" */
+.gslot .ess{font-style:normal;color:#9e2a08;margin-right:1px}

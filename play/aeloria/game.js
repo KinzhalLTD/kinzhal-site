@@ -196,7 +196,7 @@ function ensureExtras() {
   while (n('merchant') < 2) { const [x, y] = nearSpot(); S.world.push({ id: id++, kind: 'merchant', x, y, lvl: 1 }); }
 }
 const mapFx = [], MIMG = {};
-const mimg = url => { if (!url) return null; let i = MIMG[url]; if (!i) { i = MIMG[url] = new Image(); i.src = url; } return i.complete && i.naturalWidth ? i : null; };
+const mimg = url => { if (!url) return null; let i = MIMG[url]; if (!i || (i.dataset.failed && Date.now() > +i.dataset.retryAt)) { const n = i ? (+i.dataset.tries || 0) + 1 : 0; i = MIMG[url] = new Image(); i.dataset.tries = n; i.onerror = () => { i.dataset.failed = 1; i.dataset.retryAt = Date.now() + Math.min(30000, 1000 * 2 ** n); }; i.src = url; } return i.complete && i.naturalWidth ? i : null; };
 function reveal(s, cx, cy, rad) {
   const f = s.fog.split(''); for (let y = Math.max(0, cy - rad); y <= Math.min(H - 1, cy + rad); y++) for (let x = Math.max(0, cx - rad); x <= Math.min(W - 1, cx + rad); x++) if (Math.hypot(x - cx, y - cy) <= rad + .3) f[tIdx(x, y)] = '1';
   s.fog = f.join(''); fogDirty = true;
@@ -1304,10 +1304,21 @@ const TS = 60;
 function centerOn(x, y) { const c = $('#map'); cam.x = x * TS * cam.z - c.clientWidth / 2 + TS * cam.z / 2; cam.y = y * TS * cam.z - c.clientHeight / 2 + TS * cam.z / 2; }
 // Painted map markers (art/manifest.json "map"): drawn as round medallions with a coloured rim.
 const MAPIMG = {};
+// Loads a painted map image once; a failed load (slow or dropped connection) is retried with back-off
+// instead of leaving the drawn fallback on screen for the rest of the session.
+function mapImg(id) {
+  const url = ART.asset('map', id); if (!url) return null;
+  let im = MAPIMG[id];
+  if (!im || (im.dataset.failed && Date.now() > +im.dataset.retryAt)) {
+    const tries = im ? (+im.dataset.tries || 0) + 1 : 0; im = MAPIMG[id] = new Image(); im.decoding = 'async'; im.dataset.tries = tries;
+    im.onload = () => { mapDirty = true; };
+    im.onerror = () => { im.dataset.failed = 1; im.dataset.retryAt = Date.now() + Math.min(30000, 1000 * 2 ** tries); };
+    im.src = url;
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
 function medallion(ctx, id, x, y, r, rim) {
-  const url = ART.asset('map', id); if (!url) return false;
-  let im = MAPIMG[id]; if (!im) { im = MAPIMG[id] = new Image(); im.src = url; }
-  if (!im.complete || !im.naturalWidth) return false;
+  const im = mapImg(id); if (!im) return false;
   ctx.save(); ctx.fillStyle = '#0006'; ctx.beginPath(); ctx.ellipse(x, y + r * .95, r * .8, r * .22, 0, 0, 7); ctx.fill();
   ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.closePath(); ctx.clip(); ctx.drawImage(im, x - r, y - r, r * 2, r * 2); ctx.restore();
   ctx.strokeStyle = rim; ctx.lineWidth = Math.max(2, r * .09); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
@@ -1316,9 +1327,7 @@ function medallion(ctx, id, x, y, r, rim) {
 const NODE_ART = { grain: 'grain', timber: 'timber', stone: 'stonepit', ore: 'ore' }, NODE_RIM = { grain: '#ffd36b', timber: '#7fc46a', stone: '#c9d6e3', ore: '#6fb6ff' };
 // Painted scenery (villages, groves, herbs, shrines) scattered deterministically on free land tiles.
 function mapSprite(ctx, id, x, y, size) {
-  const url = ART.asset('map', id); if (!url) return false;
-  let im = MAPIMG[id]; if (!im) { im = MAPIMG[id] = new Image(); im.onload = () => { mapDirty = true; }; im.src = url; }
-  if (!im.complete || !im.naturalWidth) return false;
+  const im = mapImg(id); if (!im) return false;
   ctx.drawImage(im, x - size / 2, y - size / 2, size, size); return true;
 }
 function decorAt(x, y) { const h = ((x * 73856093) ^ (y * 19349663) ^ 0x5bd1e995) >>> 0; const r = h % 1000; return r < 6 ? 'shrine' : r < 28 ? 'village' : r < 75 ? 'herbs' : r < 150 ? 'trees' : null; }
@@ -1416,7 +1425,18 @@ function drawMap() {
   // realm names
   ctx.textAlign = 'center';
   for (const [k, [rx, ry]] of Object.entries(REGION_SEEDS)) { if (k === 'sunspire') continue; const px = (rx + .5) * s - cam.x, py = (ry - 1.2) * s - cam.y; if (px < -200 || px > w + 200 || py < -60 || py > h + 60) continue; ctx.font = `900 ${Math.max(13, 22 * cam.z)}px Cinzel,Georgia,serif`; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(20,15,34,.6)'; ctx.strokeText(REGION_NAME[k].toUpperCase(), px, py); ctx.fillStyle = k === 'ash' ? 'rgba(255,140,90,.85)' : 'rgba(255,241,196,.88)'; ctx.fillText(REGION_NAME[k].toUpperCase(), px, py); }
-  if (mapSel) { ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 3; ctx.strokeRect(mapSel.x * s - cam.x + 2, mapSel.y * s - cam.y + 2, s - 4, s - 4); }
+  if (mapSel) {
+    const open = $('#sheet').open; if (open) mapSel.t = t; const age = t - (mapSel.t || t), a = open ? 1 : Math.max(0, 1 - age / 900);
+    if (a <= 0) mapSel = null;
+    else {
+      const x0 = mapSel.x * s - cam.x, y0 = mapSel.y * s - cam.y, pad = s * .08, x1 = x0 + pad, y1 = y0 + pad, z = s - pad * 2, k = z * .28, pu = .75 + Math.sin(t / 240) * .25;
+      ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = `rgba(255,211,107,${.10 * pu})`; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x1, y1, z, z, z * .16); else ctx.rect(x1, y1, z, z); ctx.fill();
+      ctx.shadowColor = '#ffb840'; ctx.shadowBlur = 10; ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = Math.max(2, s * .05); ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (const [cx, cy, dx, dy] of [[x1, y1, 1, 1], [x1 + z, y1, -1, 1], [x1, y1 + z, 1, -1], [x1 + z, y1 + z, -1, -1]]) { ctx.moveTo(cx + dx * k, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy + dy * k); }
+      ctx.stroke(); ctx.restore();
+    }
+  }
   // minimap
   const mm = Math.min(120, w * .28), k2 = mm / W, ox = w - mm - 10, oy = 10;
   if (!mmCv || mmCv.width !== Math.round(mm * dpr) || t - mmAt > 2500) { mmCv = mmCv || document.createElement('canvas'); mmCv.width = mmCv.height = Math.round(mm * dpr); const mc = mmCv.getContext('2d'); mc.drawImage(TERR.canvas, 0, 0, mmCv.width, mmCv.height); const kk = mmCv.width / W; mc.drawImage(fogCanvas(), -kk, -kk, mmCv.width + 2 * kk, mmCv.height + 2 * kk); mmAt = t; }
@@ -1445,7 +1465,7 @@ function clampCam() { const c = $('#map'), s = TS * cam.z; cam.x = clamp(cam.x, 
 function mapClick(e) {
   const r = $('#map').getBoundingClientRect(), s = TS * cam.z, x = Math.floor((e.clientX - r.left + cam.x) / s), y = Math.floor((e.clientY - r.top + cam.y) / s);
   if (x < 0 || y < 0 || x >= W || y >= H) return;
-  mapSel = { x, y }; sfx('click');
+  mapSel = { x, y, t: now() }; sfx('click');
   const mm = Math.min(120, r.width * .28); if (e.clientX - r.left > r.width - mm - 12 && e.clientY - r.top < mm + 14) { const k = mm / W; centerOn((e.clientX - r.left - (r.width - mm - 10)) / k, (e.clientY - r.top - 10) / k); clampCam(); mapSel = null; return; }
   if (x === S.home.x && y === S.home.y) return openTab('city');
   const reg = REGION_NAME[regionAt(x, y)];
