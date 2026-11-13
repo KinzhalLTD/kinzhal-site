@@ -329,6 +329,7 @@ const ART = (() => {
   };
 
   const asset = (kind, id) => MAN[kind] && MAN[kind][id] ? 'art/' + MAN[kind][id] : null;
-  const keyUrl = id => MAN.key && MAN.key[id] ? 'art/' + MAN.key[id] : null;
+  // Key art comes in a portrait cut for phones and a wide cut ("<id>_w") for tablets and PC; pick by the screen's shape.
+  const keyUrl = (id, wide) => { if (!MAN.key) return null; wide ??= innerWidth > innerHeight * 1.05; const k = (wide && MAN.key[id + '_w']) || MAN.key[id] || MAN.key[id + '_w']; return k ? 'art/' + k : null; };
   return { loopLen: k => (MAN.loops && MAN.loops[k]) || 0, iconSvg, asset, keyUrl, svg, shade, emblem, crownPath, icon, troop, portrait, enemy, building, cityBg, tree, mapPaint, setRealm, RARITY, painted, get P() { return P; } };
 })();

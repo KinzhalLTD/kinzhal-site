@@ -963,7 +963,17 @@ function playStory(lines, title, onDone, ch) {
   });
   show();
 }
-function chapterStory(ch, part, cb) { const C = CHAPTERS[ch - 1]; playStory(STORY[ch][part], `Chapter ${ch} · ${C.name}`, cb, ch); }
+function chapterStory(ch, part, cb) { const C = CHAPTERS[ch - 1], go = () => playStory(STORY[ch][part], `Chapter ${ch} · ${C.name}`, cb, ch); if (part === 'intro') chapterCard(ch, go); else go(); }
+// Full-screen chapter title card over the chapter's key art: letterbox, slow push-in, the title rising out of the light.
+function chapterCard(ch, done) {
+  const C = CHAPTERS[ch - 1], R = REALMS[C.realm] || { name: 'The Sunspire', color: '#7a4fb3' }, k = ART.keyUrl('chapter' + ch); if (!k || (window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches)) return done();
+  closeSheet(); const el = document.createElement('div'); el.className = 'ccard'; el.style.setProperty('--rc', R.color);
+  const roman = ['I', 'II', 'III', 'IV', 'V', 'VI'][ch - 1] || ch;
+  el.innerHTML = `<img src="${k}" alt=""><i class="cine-vig"></i><i class="cine-rays"></i><i class="cine-dust"></i><i class="lb top"></i><i class="lb bot"></i><div class="cc-t"><small>Chapter ${roman}</small><b>${esc(C.name)}</b><span>${esc(R.name)}</span></div>`;
+  document.body.appendChild(el); FX.setMood('cine'); FX.sound('horn');
+  let gone = false; const end = () => { if (gone) return; gone = true; el.classList.add('out'); setTimeout(() => { el.remove(); done(); }, 600); };
+  el.addEventListener('click', end); setTimeout(end, 3600);
+}
 
 const ARENA = {
   greenhold: { sky: ['#9fd0f0', '#f0c890'], far: '#5a8a6a', mid: '#4f7a3c', near: '#7aa64a', sun: '#fff6d8', deco: 'oak' },
@@ -1004,7 +1014,7 @@ function buildFight() {
   const unit = (u, side) => `<div class="unit ${side === 'h' ? 'hero-u' : 'foe-u'} ${u.max > 2 * (f.foes[0]?.max || 0) && side === 'f' ? 'boss' : ''}" id="u-${side}-${u.id}" data-act="${side === 'h' ? 'cast' : 'target'}" data-id="${u.id}">
     <div class="pf">${side === 'h' || u.hero ? ART.portrait(u.hero, 88) : ART.enemy(u.kind, 88)}<span class="tapme">SKILL!</span></div><b>${esc(u.name)}</b>
     <div class="hpbar"><i class="trail"></i><i class="fill"></i></div>${side === 'h' ? '<div class="enbar"><i></i></div>' : ''}<div class="fx-st"></div></div>`;
-  $('#battle').innerHTML = `${arenaSVG(f.ch)}<div class="dust"></div><div class="bfield army">
+  $('#battle').innerHTML = `${arenaSVG(f.ch)}<i class="cine-vig"></i><i class="cine-rays"></i><div class="dust"></div><div class="bfield army">
     <div class="btop"><button class="bt" data-act="retreat">✕</button><div class="stage-t">${f.mode === 'arena' ? `<small>Arena of Crowns</small><b>vs ${esc(f.opp.name)}</b>` : f.mode === 'trial' ? `<small>Daily Boss Trial · ${TRIAL_TURNS} turns</small><b>${esc(f.foes[0].name)}</b>` : `<small>Chapter ${f.ch} · ${CHAPTERS[f.ch - 1].name}</small><b>Stage ${f.key}</b>`}</div><span id="bstat"></span><button class="bt" data-act="bspeed" id="bspeed">${f.speed}×</button><label class="bt auto"><input type="checkbox" data-act="auto" ${f.auto ? 'checked' : ''}>Auto</label></div>
     <div class="row foes">${f.foes.map(u => unit(u, 'f')).join('')}</div>
     <div class="bfwrap"><canvas id="bfcv"></canvas><div class="vs"><span>Turn <b id="bturn">1</b></span></div></div>
@@ -1745,7 +1755,9 @@ function titleLineup() {
 function paintIntro(realm) {
   titleLineup();
   const k = ART.keyUrl(realm ? REALM_ART[realm] : 'title') || ART.keyUrl('title'), el = $('#intro'); if (!k || !el) return;
-  el.style.background = `linear-gradient(#05030d55,#05030dbb),url(${k}) center/cover`; const c = $('#introCv'); if (c) c.style.opacity = 0;
+  let kb = el.querySelector('.intro-kb'); if (!kb) { kb = document.createElement('div'); kb.className = 'intro-kb'; el.prepend(kb); }
+  if (kb.dataset.k !== k) { kb.dataset.k = k; kb.innerHTML = `<img src="${k}" alt=""><i class="cine-vig"></i><i class="cine-dust"></i>`; }
+  el.style.background = '#05030d'; const c = $('#introCv'); if (c) c.style.opacity = 0;
   document.querySelectorAll('#realms .realm').forEach(b => { const u = ART.keyUrl(REALM_ART[b.dataset.r]); if (u) b.style.background = `linear-gradient(#0b081866,#0b0818e0),url(${u}) center/cover`; });
 }
 window.addEventListener('artready', () => { paintIntro(); { const cvw = $('#cityView'); if (cvw && $('#cityDyn')) cvw.innerHTML = ''; } document.body.classList.toggle('painted-ui', !!ART.asset('ui', 'button')); if (window.CITY3D && CITY3D.retex) CITY3D.retex(); const k = ART.keyUrl('title'); if (k) { $('#introTap').style.background = `linear-gradient(#05030d66,#05030dcc),url(${k}) center/cover`; } if (S && document.querySelector('#app')) render(); FX.music(); });
