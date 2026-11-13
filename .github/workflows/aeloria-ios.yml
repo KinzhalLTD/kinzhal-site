@@ -14,7 +14,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Fast checks on Linux: config files parse, game scripts are valid, bundled assets exist.
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plists, project spec and game files
+        run: |
+          python3 - <<'PY'
+          import plistlib, json, os, sys, yaml
+          base = 'ios/aeloria'
+          for p in ['Aeloria/Info.plist', 'Aeloria/PrivacyInfo.xcprivacy']:
+              d = plistlib.load(open(os.path.join(base, p), 'rb')); print('ok', p, len(d), 'keys')
+          info = plistlib.load(open(base + '/Aeloria/Info.plist', 'rb'))
+          assert info['GADApplicationIdentifier'] == 'ca-app-pub-5681105275743934~9324813833'
+          assert info['ITSAppUsesNonExemptEncryption'] is False and info['NSUserTrackingUsageDescription']
+          spec = yaml.safe_load(open(base + '/project.yml')); assert 'Aeloria' in spec['targets']; print('ok project.yml')
+          for root, _, files in os.walk(base + '/Aeloria/Assets.xcassets'):
+              for f in files:
+                  if f == 'Contents.json':
+                      c = json.load(open(os.path.join(root, f)))
+                      for img in c.get('images', []):
+                          if 'filename' in img: assert os.path.exists(os.path.join(root, img['filename'])), img
+          print('ok assets')
+          man = json.load(open('play/aeloria/art/manifest.json')); missing = []
+          def walk(v):
+              if isinstance(v, dict): [walk(x) for x in v.values()]
+              elif isinstance(v, list): [walk(x) for x in v]
+              elif isinstance(v, str) and v.rsplit('.', 1)[-1] in ('webp', 'png', 'jpg', 'mp3') and not os.path.exists('play/aeloria/art/' + v): missing.append(v)
+          walk(man); print('manifest missing:', missing[:10]); sys.exit(1 if missing else 0)
+          PY
+          for f in play/aeloria/*.js; do node --check "$f" || exit 1; done
+          grep -o 'url([^)]*)' play/aeloria/fonts/fonts.css | tr -d '()' | sed 's/^url//' | sort -u | while read f; do test -f "play/aeloria/fonts/$f" || { echo "missing font $f"; exit 1; }; done
+          echo validated
+
   build:
+    needs: validate
     runs-on: macos-15
     timeout-minutes: 45
     steps:
