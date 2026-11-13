@@ -830,7 +830,7 @@ function collections() {
 }
 function collectionsHTML() {
   const cl = S.colClaimed || {};
-  return `<div class="cols"><h3>Collections <small class="muted">complete a set for a one-time reward</small></h3><div class="colrow">${collections().sort((a, b) => ((b.got >= b.ids.length && !cl[b.k]) - (a.got >= a.ids.length && !cl[a.k])) || (b.got / b.ids.length - a.got / a.ids.length)).map(s => { const done = s.got >= s.ids.length, claimed = cl[s.k];
+  return `<div class="colsec"><h3>Collections <small class="muted">complete a set for a one-time reward</small></h3><div class="colrow">${collections().sort((a, b) => ((b.got >= b.ids.length && !cl[b.k]) - (a.got >= a.ids.length && !cl[a.k])) || (b.got / b.ids.length - a.got / a.ids.length)).map(s => { const done = s.got >= s.ids.length, claimed = cl[s.k];
     return `<div class="col ${done ? 'done' : ''} ${claimed ? 'claimed' : ''}" style="--rc:${s.color}"><b>${s.name}</b><div class="colfaces">${s.ids.map(id => `<span class="${S.heroes[id] && S.heroes[id].stars ? 'own' : ''}">${ART.portrait(HERO[id], 34)}</span>`).join('')}</div><div class="colbar"><i style="width:${s.got / s.ids.length * 100}%"></i><em>${s.got}/${s.ids.length}</em></div>${done && !claimed ? `<button class="btn gold sm" data-act="colclaim" data-k="${s.k}">Claim</button>` : claimed ? '<small class="good">✓ Complete</small>' : `<small class="muted">${META.rewardHTML(s.r)}</small>`}</div>`; }).join('')}</div></div>`;
 }
 function claimCollection(k) {
@@ -1242,14 +1242,16 @@ function endFight(win) {
 function leaveFight() { BF.stop(); if (fight) { clearInterval(fight.timer); fight.over = true; } $('#battle').hidden = true; $('#battle').innerHTML = ''; fight = null; FX.setMood(tab === 'world' ? 'world' : 'city'); }
 
 /* ======================= Research tab ======================= */
+const TECH_IC = { agri: ['icons', 'grain'], forest: ['icons', 'timber'], mason: ['icons', 'stone'], metal: ['icons', 'ore'], build: ['icons', 'clock'], gather: ['icons', 'crate'], drill: ['army', 'foot'], blade: ['nav', 'battle'], armor: ['nav', 'house'], march: ['nav', 'hud_home'], tier2: ['army', 'cav'], tier3: ['army', 'archer'], slots: ['nav', 'arena'] };
+const techIcon = id => { const k = TECH_IC[id], u = k && ART.asset(k[0], k[1]); return u ? `<img src="${u}" alt="">` : ART.icon('scroll', 40); };
 function renderResearch() {
   if (!S.b.academy) return '<h2>Research</h2><div class="card"><p>Build the <b>Royal Academy</b> (unlocks at Citadel 2) to start research.</p><button class="btn gold" data-act="bld" data-key="academy">Go to Royal Academy</button></div>';
   const tree = name => TECH.filter(t => t.tree === name).map(t => {
     const l = S.tech[t.id] || 0, to = l + 1, done = l >= t.max, c = done ? {} : techCost(t, to), need = techNeed(t, to), lock = S.b.academy < need || (t.req && !S.tech[t.req]);
-    return `<div class="tech ${done ? 'done' : ''} ${lock ? 'locked' : ''}"><div><b>${t.name}</b> <span class="muted">${l}/${t.max}</span><p>${t.desc}</p>${done ? '<p class="good">Complete</p>' : `<div class="costs">${costHTML(c)}<span class="cost">${ART.icon('clock', 14)}${fmtT(techTime(t, to))}</span></div>${lock ? `<p class="why">${t.req && !S.tech[t.req] ? 'Requires ' + TECHM[t.req].name : 'Needs Royal Academy ' + need}</p>` : ''}`}</div>${!done && !lock ? `<button class="btn gold" data-act="research" data-id="${t.id}" ${S.rq ? 'disabled' : ''}>Study</button>` : ''}</div>`;
+    return `<div class="tech ${done ? 'done' : ''} ${lock ? 'locked' : ''}"><span class="tk-ic">${techIcon(t.id)}</span><div><b>${t.name}</b> <span class="muted">${l}/${t.max}</span><div class="tk-bar"><i style="width:${l / t.max * 100}%"></i></div><p>${t.desc}</p>${done ? '<p class="good">Complete</p>' : `<div class="costs">${costHTML(c)}<span class="cost">${ART.icon('clock', 14)}${fmtT(techTime(t, to))}</span></div>${lock ? `<p class="why">${t.req && !S.tech[t.req] ? 'Requires ' + TECHM[t.req].name : 'Needs Royal Academy ' + need}</p>` : ''}`}</div>${!done && !lock ? `<button class="btn gold" data-act="research" data-id="${t.id}" ${S.rq ? 'disabled' : ''}>Study</button>` : ''}</div>`;
   }).join('');
   return `<h2>Research</h2>${S.rq ? `<div class="card"><b>Studying ${TECHM[S.rq.id].name} ${S.rq.to}</b>${bar(1 - (S.rq.end - now()) / S.rq.total, 'teal')}<button class="btn" data-act="speed" data-kind="r">Speed up · ${fmtT((S.rq.end - now()) / 1000)}</button></div>` : ''}
-  <div class="cols"><div><h3>Economy</h3>${tree('Economy')}</div><div><h3>Military</h3>${tree('Military')}</div></div>`;
+  <div class="cols rcols"><div><h3>Economy</h3>${tree('Economy')}</div><div><h3>Military</h3>${tree('Military')}</div></div>`;
 }
 
 /* ======================= Quests tab ======================= */
@@ -1650,10 +1652,11 @@ function onInput(e) {
   if (a === 'sendn') { sendSel[el.dataset.k] = +el.value; $('#sn-' + el.dataset.k).textContent = el.value; const go = $('[data-act=go]'); sendInfo(S.world.find(w => w.id === +go.dataset.id), go.dataset.kind); }
   if (a === 'auto') { fight.auto = el.checked; S.autoSkill = el.checked; updFight(); const h = $('#battle .hint'); }
 }
+const simg = k => ART.asset('nav', k) ? `<img src="${ART.asset('nav', k)}" alt="">` : '';
 function openMenu() {
   openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">${REALMS[S.realm].name} · ${REALMS[S.realm].bonusText} · Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
   <div class="card"><h4>How to play</h4><ul class="howto"><li>Upgrade fields to grow Grain, Timber, Stone and Iron. The Citadel caps everything else.</li><li>Train troops in the Barracks. Spearmen › Cavalry › Archers › Spearmen.</li><li>On the World map, explore the fog, gather resources, destroy Ashen outposts and scout Ash-sworn lords.</li><li>Lead heroes through the Story Campaign across six realms to earn XP, shards and new heroes. Your squad boosts every army.</li><li>From Citadel 4 rivals may raid you. Watch the warning, raise an Aegis Ward, or fight back.</li><li>Final goal: break the garrison of the Sunspire Throne at the heart of Aeloria.</li></ul></div>
-  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn" data-act="music">🎵 Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn" data-act="sfxt">🔔 Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn" data-act="replay">🎬 Replay intro</button><button class="btn" data-act="notify">🔔 Enable notifications</button><button class="btn" data-act="gfx3d">🏰 3D city (experimental): ${S.settings.gfx3d === true ? 'On' : 'Off'}</button><button class="btn" data-act="logincal">📅 Royal Courier</button></div></div>
+  <div class="card"><h4>Settings</h4><div class="btns"><button class="btn sbtn" data-act="music">${simg('hud_sound')}Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn sbtn" data-act="sfxt">${simg('hud_sound')}Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn sbtn" data-act="replay">${simg('battle')}Replay intro</button><button class="btn sbtn" data-act="notify">${simg('hud_mail')}Enable notifications</button><button class="btn sbtn" data-act="gfx3d">${simg('city')}3D city (experimental): ${S.settings.gfx3d === true ? 'On' : 'Off'}</button><button class="btn sbtn" data-act="logincal">${simg('quests')}Royal Courier</button></div></div>
   <p class="muted">Progress is saved in this browser.</p><button class="btn" data-act="reset">Start a new realm</button>`);
 }
 

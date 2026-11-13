@@ -746,7 +746,7 @@ label.bt.auto{min-height:36px;display:inline-flex;align-items:center;gap:6px;cur
 .speech b{display:block;font:900 11px var(--display);color:#9c5a12;letter-spacing:.06em}.speech small{display:block;font-size:10px;color:#9c7a5a;font-weight:600;margin-top:2px}
 @keyframes speech{from{transform:translate(-50%,calc(-100% + 6px)) scale(.7);opacity:0}}
 /* hero collections */
-.cols h3{margin:6px 0}.colrow{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}.colrow::-webkit-scrollbar{display:none}
+.colsec h3{margin:6px 0}.colrow{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}.colrow::-webkit-scrollbar{display:none}
 .col{flex:none;width:176px;border-radius:14px;padding:8px;background:linear-gradient(160deg,color-mix(in srgb,var(--rc) 35%,#140f22),#140f22);border:1px solid color-mix(in srgb,var(--rc) 70%,transparent);display:flex;flex-direction:column;gap:5px}
 .col>b{font-size:12.5px}.col.done:not(.claimed){box-shadow:0 0 0 2px #ffd36b,0 0 16px #ffd36b66;animation:glowb 1.2s infinite alternate}
 .colfaces{display:flex;flex-wrap:wrap;gap:3px}.colfaces span{width:34px;height:34px;border-radius:8px;overflow:hidden;filter:grayscale(1) brightness(.35)}.colfaces span.own{filter:none;box-shadow:0 0 0 1.5px var(--rc)}
@@ -800,7 +800,7 @@ header.hud::after{content:"";position:absolute;left:50%;bottom:-9px;width:120px;
 @media(min-width:760px){#hudRes{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(min-width:760px){body nav.tabs.v2,body.painted-ui nav.tabs.v2{padding:6px max(10px,calc((100vw - 880px)/2)) calc(6px + var(--safe-b))}}
 @media(min-width:1100px){body nav.tabs.v2,body.painted-ui nav.tabs.v2{background:linear-gradient(90deg,#0d0819 0,#241843 calc(50% - 300px),#241843 calc(50% + 300px),#0d0819 100%)}}
-.cols{display:block!important;grid-template-columns:none!important}.cols .colrow{width:100%}
+.colsec{display:block}.colsec .colrow{width:100%}
 
 /* ---- Royal Forge of Power ---- */
 .forgehead{display:flex;gap:12px;align-items:center;margin:4px 0 12px;padding:12px;border-radius:16px;background:radial-gradient(circle at 15% 50%,#ffd36b33,transparent 55%),linear-gradient(110deg,#3a2410,#140f22 70%);border:1.5px solid #e8a33d}
@@ -921,3 +921,13 @@ dialog#sheet[open]{animation-duration:.18s}
 .drow.done .dmark{background:var(--good);border-color:var(--good);color:#0b3a22}
 /* honor shop: equal buttons */
 [data-act=hshop]{flex:1 1 100%;justify-content:flex-start}
+
+/* research: painted icon + level bar */
+.tech{display:flex;gap:10px;align-items:center}.tech>div{flex:1;min-width:0}
+.tk-ic{flex:none;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:radial-gradient(circle at 50% 35%,#3b2e66,#120b22 75%);box-shadow:0 0 0 1.5px #e8a33d88}
+.tk-ic img{width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 2px 2px #000a)}
+.tech.done .tk-ic{box-shadow:0 0 0 2px var(--good)}.tech.locked .tk-ic{filter:grayscale(.8) brightness(.6)}
+.tk-bar{height:5px;border-radius:3px;background:#0008;margin:4px 0 2px;overflow:hidden}.tk-bar i{display:block;height:100%;background:linear-gradient(90deg,#e8a33d,#ffd36b)}
+.tech.done .tk-bar i{background:var(--good)}
+/* settings buttons with painted icons */
+.sbtn{gap:8px;justify-content:flex-start}.sbtn img{width:26px;height:26px;object-fit:contain;margin:-4px 0}
