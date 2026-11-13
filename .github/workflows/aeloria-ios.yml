@@ -1,0 +1,65 @@
+# Compiles the Aeloria iOS app (unsigned, simulator) and smoke-tests that the bundled game loads.
+name: Aeloria iOS build
+
+on:
+  push:
+    paths:
+      - 'ios/aeloria/**'
+      - 'play/aeloria/**'
+      - '.github/workflows/aeloria-ios.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: aeloria-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios/aeloria
+        run: xcodegen generate
+
+      - name: Build for the iOS Simulator
+        working-directory: ios/aeloria
+        run: |
+          set -o pipefail
+          xcodebuild -project Aeloria.xcodeproj -scheme Aeloria -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error:|warning: .*Aeloria/|BUILD (SUCCEEDED|FAILED)|\*\*" || true
+          test -d build/Build/Products/Debug-iphonesimulator/Aeloria.app
+          test -f build/Build/Products/Debug-iphonesimulator/Aeloria.app/Game/index.html
+
+      - name: Launch in the simulator and check the game loads
+        working-directory: ios/aeloria
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          echo "Simulator $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/Aeloria.app
+          xcrun simctl launch --console-pty "$UDID" space.kinzhal.aeloria > launch.log 2>&1 &
+          sleep 40
+          xcrun simctl io "$UDID" screenshot simulator.png || true
+          grep -E "AELORIA_SMOKE|UMP|AdMob|StoreKit|Google Mobile Ads" launch.log | head -40 || true
+          grep -q 'AELORIA_SMOKE' launch.log
+          grep 'AELORIA_SMOKE' launch.log | grep -q '"art":true'
+          grep 'AELORIA_SMOKE' launch.log | grep -q '"ads":true'
+          grep 'AELORIA_SMOKE' launch.log | grep -q '"pay":true'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aeloria-ios-smoke
+          path: |
+            ios/aeloria/simulator.png
+            ios/aeloria/launch.log
+          if-no-files-found: ignore

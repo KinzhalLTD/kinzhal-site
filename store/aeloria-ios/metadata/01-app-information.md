@@ -41,4 +41,4 @@ The game shows Google AdMob ads, so the answer is **"Yes, we collect data from t
 - **Privacy manifest:**
   - The Google Mobile Ads SDK ships its own `PrivacyInfo.xcprivacy`.
   - The app's manifest declares `NSPrivacyTracking = true` and lists `NSPrivacyAccessedAPICategoryUserDefaults` (reason `CA92.1`) if the wrapper uses UserDefaults.
-- Bundle the Cinzel and Cairo fonts in the app, rather than loading them from Google Fonts.
+- The Cinzel and Cairo fonts are bundled in the game (`play/aeloria/fonts/`), so it makes no Google Fonts requests.

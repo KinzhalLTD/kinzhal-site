@@ -37,12 +37,12 @@ Thank you for reviewing Aeloria: Age of Crowns.
 
 ## Pre-submission checklist
 
-- [ ] `ITSAppUsesNonExemptEncryption = NO` in Info.plist
-- [ ] `PrivacyInfo.xcprivacy` included
-- [ ] Fonts bundled locally, so there are no Google Fonts requests
+- [x] `ITSAppUsesNonExemptEncryption = NO` in Info.plist (`ios/aeloria/Aeloria/Info.plist`)
+- [x] `PrivacyInfo.xcprivacy` included
+- [x] Fonts bundled locally, so there are no Google Fonts requests
 - [ ] StoreKit 2 bridge implements `window.AELORIA_PAYMENTS`, and all 13 IAP products are "Ready to Submit" and attached to this version
 - [ ] "Restore purchases" works for Remove Ads and Royal Season Track
-- [ ] `GADApplicationIdentifier`, `SKAdNetworkItems` and `NSUserTrackingUsageDescription` in Info.plist
+- [x] `GADApplicationIdentifier`, `SKAdNetworkItems` and `NSUserTrackingUsageDescription` in Info.plist
 - [ ] UMP consent → ATT → MobileAds start order verified on a fresh install
 - [ ] Ads tested with AdMob test devices; app-ads.txt shows as verified in AdMob
 - [ ] App icon 1024×1024 with no alpha channel (`icon/AppIcon-1024.png`)

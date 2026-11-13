@@ -72,9 +72,9 @@ The web view must fill the screen with `scrollView.contentInsetAdjustmentBehavio
 3. If `ConsentInformation.shared.canRequestAds`, call `MobileAds.shared.start()`, then preload.
 4. Load the game URL (`index.html` bundled in the app).
 
-## Swift starting point (Google Mobile Ads SDK 12 names, SPM `GoogleMobileAds` + `UserMessagingPlatform`)
+## Swift implementation
 
-Check it in Xcode against the SDK version you install. SDK 11 uses the `GAD…` prefixed names.
+The full, working version is in **`ios/aeloria/Aeloria/`** (`AdsBridge.swift`, `ConsentManager.swift`, `NativeAdCard.swift`). The sketch below shows the idea.
 
 ```swift
 import WebKit, GoogleMobileAds, UserMessagingPlatform, AppTrackingTransparency

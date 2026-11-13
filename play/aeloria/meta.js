@@ -319,9 +319,11 @@ const META = (() => {
     return `<p class="muted">Gems are earned in play: quests, achievements, the Season Road, daily gifts, trials and battles.</p><div class="packs">${GEM_PACKS.map((p, i) => `<div class="pack">${p.tag ? `<span class="tag">${p.tag}</span>` : ''}<div class="gempile">${Array.from({ length: Math.min(6, i + 1) }, (_, j) => `<span style="--j:${j}">${ART.icon('gem', 30 + i * 3)}</span>`).join('')}</div><h4>${p.name}</h4>${!(S.shop && S.shop.first && S.shop.first[p.id]) ? '<span class="x2">×2 first purchase</span>' : ''}<b class="amt">${fmt(p.gems)}${p.bonus ? ` <small>+${fmt(p.bonus)} bonus</small>` : ''}</b>${pay ? `<button class="btn gold" data-act="pack" data-id="${p.id}">${p.price}</button>` : `<button class="btn soon" data-act="soon">${p.price}</button>`}</div>`).join('')}</div>
       ${pay ? '' : '<p class="muted center">Gem purchases open with the mobile release. Everything in the Souq can already be earned by playing.</p>'}`;
   }
+  // Also called by the iOS app for purchases approved later (Ask to Buy).
+  function grantPack(id) { const p = GEM_PACKS.find(x => x.id === id); if (!p) return; S.shop ??= {}; S.shop.first ??= {}; const dbl = !S.shop.first[id]; S.shop.first[id] = 1; S.gems += p.gems + p.bonus + (dbl ? p.gems : 0); S.vip += p.gems; FX.confetti(); FX.sound('chest'); toast(`+${fmt(p.gems + p.bonus)} gems`, 'good'); save(); render(); }
   async function buyPack(id) {
     const p = GEM_PACKS.find(x => x.id === id), pay = window.AELORIA_PAYMENTS; if (!p || !pay) return;
-    try { if (await pay.buy(id)) { S.shop.first ??= {}; const dbl = !S.shop.first[id]; S.shop.first[id] = 1; S.gems += p.gems + p.bonus + (dbl ? p.gems : 0); S.vip += p.gems; FX.confetti(); FX.sound('chest'); toast(`+${fmt(p.gems + p.bonus)} gems`, 'good'); save(); render(); } } catch (e) { toast('Purchase cancelled', 'bad'); }
+    try { if (await pay.buy(id)) grantPack(id); } catch (e) { toast(e && e.message && e.message !== 'cancelled' ? e.message : 'Purchase cancelled', 'bad'); }
   }
   function itemsTab() {
     return `<div class="items">${Object.entries(ITEMS).filter(([, d]) => d.gems).map(([i, d]) => `<div class="item">${ART.icon(d.icon, 38)}<b>${d.name}</b><small>${d.desc}</small><span class="own">Owned ${S.items[i] || 0}</span><button class="mini gold" data-act="buy" data-i="${i}">${ART.icon('gem', 12)} ${d.gems}</button></div>`).join('')}</div>`;
@@ -360,5 +362,5 @@ const META = (() => {
     }
     return false;
   }
-  return { fundReady, busy: () => spinning, migrate, xp, grant, bubbles, readyCount, guide, loginPopup, achHTML, passHTML, renderStore, act, feather, rewardHTML, vipLvl };
+  return { grantPack, fundReady, busy: () => spinning, migrate, xp, grant, bubbles, readyCount, guide, loginPopup, achHTML, passHTML, renderStore, act, feather, rewardHTML, vipLvl };
 })();

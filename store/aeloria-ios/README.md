@@ -16,7 +16,8 @@ store/aeloria-ios/
 │   ├── iphone-6.1in_1179x2556/   8 captioned portrait screenshots
 │   └── iphone-6.3in_1206x2622/   8 captioned portrait screenshots
 ├── ads/
-│   └── ADMOB_INTEGRATION.md      AdMob IDs, placements, JS↔Swift bridge, Info.plist, consent/ATT order
+│   ├── ADMOB_INTEGRATION.md      AdMob IDs, placements, JS↔Swift bridge, Info.plist, consent/ATT order
+│   └── ADMOB_CONSOLE_SETUP.md    Consent, US-states and IDFA-explainer messages; blocking; linking the store listing
 ├── app-preview/
 │   ├── preview_886x1920.mp4      28.5 s gameplay, H.264 High 30 fps, AAC stereo, game soundtrack
 │   └── poster-frame_886x1920.png
@@ -30,8 +31,8 @@ The preview was recorded at 443×960 points and scaled 2× to 886×1920. Apple a
 
 ## Still needed before you can press "Submit"
 
-1. **A native iOS binary.** The game is HTML/JS today. Wrap `play/aeloria/` in a WKWebView app, with Capacitor or a small SwiftUI shell, and bundle every file so the app runs offline. Bundle the Google Fonts locally too.
-2. **StoreKit 2 payments.** Implement `window.AELORIA_PAYMENTS = { buy(id) → Promise<boolean>, restore() → Promise<string[]> }` in the wrapper, for the 13 products in `metadata/03-general-information.md`.
-3. **AdMob in the wrapper.** Add the Google Mobile Ads and UMP SDKs and the `aeloriaAds` message handler, as described in `ads/ADMOB_INTEGRATION.md`. The game already contains every placement and the unit IDs.
+1. **The iOS app** lives in `ios/aeloria/`, with AdMob, the consent SDK and StoreKit 2 included. Open it on a Mac with XcodeGen, set your Team ID, then Archive and upload. See `ios/aeloria/README.md`.
+2. **Create the 13 in-app purchase products** in App Store Connect (`metadata/03-general-information.md`). The app's StoreKit code is already wired to them.
+3. **AdMob console setup:** follow `ads/ADMOB_CONSOLE_SETUP.md` for the consent messages and blocking. Link the store listing on launch day.
 4. **Apple Developer account** (Kinzhal LTD Co. as the organization, with a D-U-N-S number), the bundle ID `space.kinzhal.aeloria`, and a phone number for the review contact.
 5. Complete **Paid Apps Agreement**, tax and banking in App Store Connect so the purchases can go live.

@@ -221,6 +221,9 @@ const LIVE = (() => {
     noads: { name: 'Remove Ads', price: 'SAR 9.99', once: true, value: 'Forever' },
     legend: { name: 'Legend Pack', price: 'SAR 14.99', value: '5× value', items: { gems: 1000, tokens: 5, items: { scroll: 6 } } }
   };
+  // The iOS app replaces the SAR labels with the App Store's localized prices (window.AELORIA_PRICES = { id: '$4.99' }).
+  function applyPrices() { const P = window.AELORIA_PRICES || {}; for (const [k, v] of Object.entries(P)) { if (PRODUCTS[k]) PRODUCTS[k].price = v; const g = GEM_PACKS.find(x => x.id === k); if (g) g.price = v; } if (typeof S !== 'undefined' && S && S.b) render(); }
+  window.addEventListener('aeloriaprices', applyPrices); window.AELORIA_GRANT = id => grantProduct(id); if (window.AELORIA_PRICES) setTimeout(applyPrices);
   const SKINS = {
     golden: { name: 'Golden Jubilee', gems: 800, pal: { wall: '#ecd08a', wall2: '#c9a24a', wall3: '#9c7a2a', roof: '#8a1f2a' } },
     moonlit: { name: 'Moonlit Citadel', gems: 800, pal: { wall: '#c9d6f0', wall2: '#9aa6c8', wall3: '#6a7698', roof: '#5a3a9a' } },
@@ -255,7 +258,13 @@ const LIVE = (() => {
   }
   async function buyProduct(id) {
     const P = PRODUCTS[id], p = pay(); if (!P || !p) return;
-    try { if (!(await p.buy(id))) return; } catch (e) { return toast('Purchase cancelled', 'bad'); }
+    try { if (!(await p.buy(id))) return; } catch (e) { return toast(e && e.message && e.message !== 'cancelled' ? e.message : 'Purchase cancelled', 'bad'); }
+    grantProduct(id);
+  }
+  // Grants a paid product. Also called by the iOS app (window.AELORIA_GRANT) for purchases approved later.
+  function grantProduct(id) {
+    if (!PRODUCTS[id]) return META.grantPack(id);
+    const P = PRODUCTS[id];
     if (id === 'card') { S.shop.card = Math.max(now(), S.shop.card) + 30 * DAY; S.shop.cardDay = ''; S.gems += 300; S.vip += 300; }
     else if (id === 'royal') S.shop.royalPass = true;
     else if (id === 'noads') S.shop.noAds = true;

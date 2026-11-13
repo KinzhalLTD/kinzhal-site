@@ -935,7 +935,7 @@ dialog#sheet[open]{animation-duration:.18s}
 /* ---------- AdMob slots: the page reserves the space, the iOS app draws the ad above it ---------- */
 .adslot{position:relative;margin:12px auto;border-radius:10px;background:#0c0818;border:1px dashed #ffffff1f}
 .adslot.banner{width:320px;max-width:100%;height:50px}
-.adslot.native{width:100%;height:132px}
+.adslot.native{width:100%;height:150px}
 .adslot small{position:absolute;left:8px;top:4px;font-size:10px;letter-spacing:.06em;color:#ffffff66;text-transform:uppercase}
 .result .adbtn{display:block;margin:8px auto 2px;animation:adpulse 1.6s ease-in-out infinite}
 @keyframes adpulse{50%{box-shadow:0 0 0 4px #6fd38a33}}

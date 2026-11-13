@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The app itself stores progress only in the web view's local storage. Ad data collection is declared
+	     by the Google Mobile Ads SDK's own privacy manifest, which Xcode merges into the privacy report. -->
+	<key>NSPrivacyTracking</key><true/>
+	<key>NSPrivacyTrackingDomains</key><array/>
+	<key>NSPrivacyCollectedDataTypes</key><array/>
+	<key>NSPrivacyAccessedAPITypes</key><array/>
+</dict>
+</plist>
