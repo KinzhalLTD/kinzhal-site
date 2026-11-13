@@ -891,3 +891,12 @@ header.hud::after{content:"";position:absolute;left:50%;bottom:-9px;width:120px;
 .chapter.cine .cboss{position:relative;width:74px;height:64px;flex:none}.cbfig{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);height:118px;width:auto;filter:drop-shadow(0 0 10px #ff3b2b88) drop-shadow(0 4px 6px #000)}
 .chapter.locked.cine .chead{filter:grayscale(.7) brightness(.7)}
 .chapter.cine{display:block!important}.chapter.cine .chead{width:auto}.chapter.cine .stages{width:auto}
+
+/* ---- responsiveness: no double-tap-zoom wait, instant press feedback ---- */
+html,body,button,[data-act],a,label,summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#map,.c3canvas,.timing{touch-action:none}
+.pressing:not(g):not(svg *){transform:scale(.94)!important;filter:brightness(1.18)!important;transition:transform .06s,filter .06s!important}
+g.pressing{filter:brightness(1.35) drop-shadow(0 0 6px #ffd36b)}
+nav.tabs.v2 button.pressing img{transform:translateY(-5px) scale(1.22)!important}
+dialog#sheet[open]{animation-duration:.18s}
+.btn{transition:transform .06s}

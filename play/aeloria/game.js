@@ -1669,6 +1669,11 @@ function welcomeBack(away, before) {
 function start() {
   if (!TERR) TERR = buildTerrain(S.seed); ART.setRealm(S.realm || 'greenhold', LIVE.skinPal()); document.title = `${GAME.name} · ${S.name}`;
   document.addEventListener('click', onAct); document.addEventListener('input', onInput);
+  // Instant feedback: buttons react the moment a finger lands, before the tap completes and the action runs.
+  let pressed = null; const unpress = () => { if (pressed) { pressed.classList.remove('pressing'); pressed = null; } };
+  document.addEventListener('pointerdown', e => { const el = e.target.closest('[data-act],button'); if (!el || el.disabled) return; unpress(); pressed = el; el.classList.add('pressing');
+    if (el.matches('nav.tabs button[data-tab]')) document.querySelectorAll('nav.tabs button').forEach(x => x.classList.toggle('on', x === el)); }, { passive: true, capture: true });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) document.addEventListener(ev, () => setTimeout(unpress, 90), { passive: true, capture: true });
   document.addEventListener('submit', e => { if (e.target.dataset.act === 'chat') { e.preventDefault(); const v = e.target.m.value.trim(); if (v) { S.house.chat.push({ from: S.name, t: v, at: now() }); setTimeout(() => { S.house.chat.push({ from: pick(HOUSE_NAMES), t: pick(['Well said!', 'Agreed, my lord.', 'Ha! Good one.', 'On it.', 'For the Dawn Falcon!']), at: now() }); if (tab === 'house') render(); }, 1500); render(); } } });
   $('#sheet').addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
   FX.setSfx(S.settings.sfx); $('#muteBtn').classList.toggle('muted', !(S.settings.music || S.settings.sfx));
