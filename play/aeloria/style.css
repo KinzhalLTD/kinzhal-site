@@ -943,3 +943,16 @@ dialog#sheet[open]{animation-duration:.18s}
 
 /* Hero gear forge: the Ember Essence mark, coloured so the cost cannot read as "+10" */
 .gslot .ess{font-style:normal;color:#9e2a08;margin-right:1px}
+
+/* ---------- Languages: fonts per script, Arabic text flow, language pickers ---------- */
+html[data-lang=zh]{--display:"Cinzel","PingFang SC","Hiragino Sans GB","Noto Serif SC","Songti SC",serif;--body:"Cairo","PingFang SC","Hiragino Sans GB","Noto Sans SC",system-ui,sans-serif}
+html[data-lang=ru]{--display:"Cinzel",Georgia,"Times New Roman",serif}
+html[data-lang=ar]{--display:"Cinzel","Cairo",serif;--body:"Cairo",system-ui,-apple-system,sans-serif}
+html[data-lang=ar] :is(p,h1,h2,h3,h4,li,small,em,b,label,summary,button,.btn,.toast,span,div){unicode-bidi:plaintext}
+html[data-lang=ar] :is(p:not(.center):not(.muted.center),li,.repbody p,.st-text){text-align:start}
+html[data-lang=zh] .ttl-sub,html[data-lang=zh] .tapgo{letter-spacing:.25em}
+.langsel{appearance:none;-webkit-appearance:none;background:#1c1430 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23ffd36b'/%3E%3C/svg%3E") no-repeat right 10px center;color:#fff1c4;border:1px solid #ffd36b88;border-radius:10px;padding:7px 28px 7px 12px;font:700 14px var(--body);min-height:36px}
+.langrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 12px;font-weight:700}
+#langTop{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px;z-index:30;display:flex;align-items:center;gap:6px;color:#ffd36b;font-size:18px}
+#intro[hidden] #langTop{display:none}
+.oddtab{width:100%;border-collapse:collapse;font-size:12.5px;margin:6px 0}.oddtab th,.oddtab td{padding:5px 4px;border-bottom:1px solid #ffffff14;text-align:center}.oddtab td:first-child,.oddtab th:first-child{text-align:start}.oddtab th{color:#ffd36b;font-weight:700}

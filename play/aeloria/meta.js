@@ -234,7 +234,7 @@ const META = (() => {
     const tabs = [['featured', 'Featured'], ['forge', 'Royal Forge'], ['market', 'Market'], ['offers', 'Offers'], ['summon', 'Crown Summon'], ['chests', 'Chests'], ['gems', 'Gems'], ['skins', 'City Skins'], ['items', 'Items'], ['bag', 'Bag'], ['vip', 'VIP ' + vipLvl()]];
     const head = `<div class="store-head"><h2>Royal Bazaar</h2><div class="wallet"><span data-res="gems2">${ART.icon('gem', 18)}<b>${fmt(S.gems)}</b></span><span>${feather(18)}<b>${S.tokens}</b></span><span>${ART.icon('gold', 18)}<b>${fmt(S.res.gold)}</b></span></div></div>
       <div class="subtabs">${tabs.map(([k, n]) => `<button class="${sub === k ? 'on' : ''}" data-act="sub" data-s="${k}">${n}</button>`).join('')}</div>`;
-    return head + ({ featured, forge: forgeTab, market: marketTab, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab, offers: LIVE.offersTab, skins: LIVE.skinsTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub])();
+    return head + ({ featured, forge: forgeTab, market: marketTab, summonTab, chests: chestsTab, gems: gemsTab, items: itemsTab, bag: renderBag, vip: vipTab, offers: LIVE.offersTab, skins: LIVE.skinsTab }[sub === 'summon' ? 'summonTab' : sub === 'chests' ? 'chests' : sub] || featured)();   // unknown tab (e.g. from an old save) shows Featured
   }
   /* ---------- Market: stalls paid in Gold, and one free spin of the wheel a day ---------- */
   const MARKET = [['grain', 'Grain wagon'], ['timber', 'Timber cart'], ['stone', 'Stone sledge'], ['ore', 'Iron ingots']].map(([k, n]) => ({ id: k, name: n, max: 5, gold: L => 500 * L, r: L => ({ [k]: 4000 * L }) })).concat([
@@ -312,7 +312,7 @@ const META = (() => {
       <div class="card"><h4>Odds</h4><p><span class="rar legendary">Legendary ${SUMMON.odds.legendary}%</span> ${SUMMON.legendary.map(id => HERO[id].name).join(', ')} · 10 shards</p><p><span class="rar epic">Epic ${SUMMON.odds.epic}%</span> ${SUMMON.epic.map(id => shortName(id)).join(', ')} · 5 shards</p><p><span class="rar rare">Rare ${SUMMON.odds.rare}%</span> any hero · 2 shards</p></div>`;
   }
   function chestsTab() {
-    return `<div class="chests">${Object.entries(CHESTS).map(([k, c]) => `<div class="chestcard" style="--c:${c.color}">${chestSVG(c.color, 110)}<h4>${c.name}</h4><p class="muted">${c.desc}</p><button class="btn gold" data-act="openchest" data-k="${k}">${c.cost.gems ? ART.icon('gem', 14) + ' ' + c.cost.gems : ART.icon('gold', 14) + ' ' + fmt(c.cost.gold)}</button></div>`).join('')}</div>`;
+    return `<div class="chests">${Object.entries(CHESTS).map(([k, c]) => `<div class="chestcard" style="--c:${c.color}">${chestSVG(c.color, 110)}<h4>${c.name}</h4><p class="muted">${c.desc}</p><button class="btn gold" data-act="openchest" data-k="${k}">${c.cost.gems ? ART.icon('gem', 14) + ' ' + c.cost.gems : ART.icon('gold', 14) + ' ' + fmt(c.cost.gold)}</button></div>`).join('')}</div><div class="card odds"><h4>Odds</h4><p class="muted">Each reward is drawn separately:</p><table class="oddtab"><tr><th></th><th>Merchant Chest</th><th>Noble Chest</th><th>Royal Chest</th></tr>${[['Resources', 35, 35, 35], ['Hourglasses', 25, 25, 25], ['Hero Tomes', 15, 15, 15], ['Supplies', 10, 10, 10], ['Gold', 15, 10, 10], ['Hero shards', 0, 5, 5]].map(([n, ...v]) => `<tr><td>${n}</td>${v.map(x => `<td>${x}%</td>`).join('')}</tr>`).join('')}</table><p class="muted">Royal Chest: the first reward is always 4 Epic or Legendary hero shards.</p></div>`;
   }
   function gemsTab() {
     const pay = window.AELORIA_PAYMENTS;

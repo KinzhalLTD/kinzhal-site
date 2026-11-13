@@ -21,7 +21,7 @@ export function bridgeScript({ payments }) {
     buy: function (id) { return send('buy', { product: id }).then(function (r) { if (r && r.ok) return true; throw new Error((r && r.error) || 'Purchase failed'); }); },
     restore: function () { return send('restore', {}).then(function (r) { if (r && r.ok) return r.owned || []; throw new Error('Restore failed'); }); }
   };` : ''}
-  window.AeloriaNative = { platform: 'ios', openSettings: function () { send('settings', {}); } };
+  window.AeloriaNative = { platform: 'ios', openSettings: function () { send('settings', {}); }, setLang: function (code) { send('lang', { code: code }); } };
   true;
 })();`;
 }

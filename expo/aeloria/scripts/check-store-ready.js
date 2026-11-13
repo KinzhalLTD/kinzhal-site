@@ -30,7 +30,7 @@ check(fs.existsSync(gh) && fs.statSync(gh).size > 1e6 && rd('src/gameHtml.js').i
 const ac = rd('src/appConfig.js');
 check(!/\[YOUR_|example\.com/.test(ac) && /https:\/\//.test(ac), 'privacy/terms/support URLs set', 'src/appConfig.js still has placeholders');
 check(rd('website/app-ads.txt').includes(`google.com, ${PUB}, DIRECT, f08c47fec0942fa0`), 'app-ads.txt line ready', 'website/app-ads.txt is missing the AdMob line');
-for (const f of ['store/listing-en.txt', 'store/listing-ar.txt']) check(!/\[YOUR_|TODO|XXXX/.test(rd(f)), `${f} complete`, `${f} has placeholders`);
+for (const f of ['store/listing-en.txt', 'store/listing-ar.txt', 'store/listing-zh.txt', 'store/listing-de.txt', 'store/listing-ru.txt']) check(!/\[YOUR_|TODO|XXXX/.test(rd(f)), `${f} complete`, `${f} has placeholders`);
 
 const pk = JSON.parse(rd('package.json'));
 check(pk.dependencies['react-native-iap'], 'in-app purchases module listed', 'react-native-iap missing from package.json', true);

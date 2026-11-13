@@ -15,7 +15,7 @@
     "ios": {
       "bundleIdentifier": "space.kinzhal.aeloria",
       "buildNumber": "1",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSUserTrackingUsageDescription": "Allow tracking to see ads that are more relevant to you. Aeloria stays free thanks to ads.",
@@ -24,7 +24,21 @@
         "LSApplicationQueriesSchemes": [
           "mailto"
         ],
-        "LSApplicationCategoryType": "public.app-category.strategy-games"
+        "LSApplicationCategoryType": "public.app-category.strategy-games",
+        "CFBundleLocalizations": [
+          "en",
+          "ar",
+          "zh-Hans",
+          "de",
+          "ru"
+        ],
+        "CFBundleAllowMixedLocalizations": true,
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -53,7 +67,8 @@
             ]
           }
         ]
-      }
+      },
+      "requireFullScreen": true
     },
     "plugins": [
       [
@@ -122,7 +137,14 @@
           "networks": []
         }
       ]
-    ]
+    ],
+    "locales": {
+      "en": "./locales/en.json",
+      "ar": "./locales/ar.json",
+      "zh-Hans": "./locales/zh.json",
+      "de": "./locales/de.json",
+      "ru": "./locales/ru.json"
+    }
   },
   "react-native-google-mobile-ads": {
     "ios_app_id": "ca-app-pub-5681105275743934~9324813833",

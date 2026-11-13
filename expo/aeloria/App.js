@@ -11,6 +11,7 @@ import GAME_HTML from './src/gameHtml';
 import { bridgeScript } from './src/bridge';
 import { AdManager, adsModule as GMA, privacyOptionsRequired, showPrivacyOptions, startAds } from './src/ads';
 import { Store, iapAvailable } from './src/iap';
+import { STRINGS } from './src/strings';
 import { APP_NAME, COMPANY, PRIVACY_URL, SHOW_NATIVE_SETTINGS_BUTTON, SUPPORT_EMAIL, SUPPORT_URL, TERMS_URL } from './src/appConfig';
 
 const BASE_URL = 'https://aeloria.app.local/';   // origin for the game's saved progress; nothing is fetched from it
@@ -29,6 +30,8 @@ export default function App() {
   const adsStarted = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [privacyRequired, setPrivacyRequired] = useState(false);
+  const [lang, setLang] = useState('en');
+  const L = STRINGS[lang] || STRINGS.en;
 
   const js = useCallback(code => { if (web.current) web.current.injectJavaScript(`${code}; true;`); }, []);
   const reply = useCallback((id, value) => js(`window.__rnReply && window.__rnReply(${id}, ${JSON.stringify(value === undefined ? null : value)})`), [js]);
@@ -77,7 +80,7 @@ export default function App() {
       if (cmd === 'init') { ads.setUnits(payload.units); return reply(id, true); }
       if (cmd === 'show') {
         if (!GMA) {   // Expo Go preview: simulate the ad so the reward flow can be tried
-          return Alert.alert('Ad preview', 'Real ads appear in the App Store build.', [{ text: 'Close', onPress: () => reply(id, true) }]);
+          return Alert.alert(L.adPreview, L.adPreviewBody, [{ text: L.close, onPress: () => reply(id, true) }]);
         }
         return ads.show(id, format);
       }
@@ -92,6 +95,7 @@ export default function App() {
     if (kind === 'buy') return reply(id, await store.buy(payload.product));
     if (kind === 'restore') return reply(id, await store.restore());
     if (kind === 'settings') { setSettingsOpen(true); return reply(id, true); }
+    if (kind === 'lang') { if (STRINGS[payload.code]) setLang(payload.code); return reply(id, true); }
   }, [ads, store, reply]);
 
   // Only the bundled game runs in the web view; any other link opens in Safari or Mail.
@@ -107,10 +111,10 @@ export default function App() {
   const mailSupport = () => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`${APP_NAME} support (v${VERSION})`)}`).catch(() => { });
   const restore = async () => {
     const r = await store.restore();
-    if (!r.ok) return Alert.alert('Restore purchases', 'Could not reach the App Store. Please try again.');
+    if (!r.ok) return Alert.alert(L.restore, L.noStore);
     // Same effect as the game's own "Restore purchases" button: set the owned flags, no repeat rewards.
     if (r.owned.length) js(`(function (o) { if (typeof S === 'undefined' || !S || !S.shop) return; if (o.indexOf('noads') >= 0) S.shop.noAds = true; if (o.indexOf('royal') >= 0) S.shop.royalPass = true; save(); render(); })(${JSON.stringify(r.owned)})`);
-    Alert.alert('Restore purchases', r.owned.length ? 'Your purchases have been restored.' : 'There are no purchases to restore on this Apple ID.');
+    Alert.alert(L.restore, r.owned.length ? L.restored : L.none);
   };
 
   const NativeCard = nativeRect && nativeAd && GMA && GMA.NativeAdView && !fullscreenAd ? (
@@ -169,19 +173,19 @@ export default function App() {
       <Modal visible={settingsOpen} animationType="slide" transparent onRequestClose={() => setSettingsOpen(false)}>
         <View style={styles.sheetWrap}>
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Privacy & Settings</Text>
+            <Text style={styles.sheetTitle}>{L.title}</Text>
             <ScrollView>
-              <Row label="Privacy Policy" onPress={() => Linking.openURL(PRIVACY_URL)} />
-              <Row label="Terms of Use" onPress={() => Linking.openURL(TERMS_URL)} />
-              {privacyRequired ? <Row label="Ad privacy choices" onPress={() => showPrivacyOptions()} /> : null}
-              <Row label="Ad tracking settings" onPress={() => Linking.openSettings()} />
-              {iapAvailable ? <Row label="Restore purchases" onPress={restore} /> : null}
-              <Row label="Contact support" onPress={mailSupport} />
-              <Row label="Support website" onPress={() => Linking.openURL(SUPPORT_URL)} />
-              <Text style={styles.note}>Aeloria is free to play with ads. "Remove Ads" in the Store turns off all ads except the optional reward videos. Your progress is saved only on this device.</Text>
-              <Text style={styles.small}>Version {VERSION} · © {new Date().getFullYear()} {COMPANY}</Text>
+              <Row label={L.privacy} onPress={() => Linking.openURL(PRIVACY_URL)} />
+              <Row label={L.terms} onPress={() => Linking.openURL(TERMS_URL)} />
+              {privacyRequired ? <Row label={L.adChoices} onPress={() => showPrivacyOptions()} /> : null}
+              <Row label={L.tracking} onPress={() => Linking.openSettings()} />
+              {iapAvailable ? <Row label={L.restore} onPress={restore} /> : null}
+              <Row label={L.contact} onPress={mailSupport} />
+              <Row label={L.site} onPress={() => Linking.openURL(SUPPORT_URL)} />
+              <Text style={[styles.note, lang === 'ar' && styles.rtl]}>{L.note}</Text>
+              <Text style={styles.small}>{L.version} {VERSION} · © {new Date().getFullYear()} {COMPANY}</Text>
             </ScrollView>
-            <Pressable onPress={() => setSettingsOpen(false)} style={styles.close}><Text style={styles.closeText}>Close</Text></Pressable>
+            <Pressable onPress={() => setSettingsOpen(false)} style={styles.close}><Text style={styles.closeText}>{L.close}</Text></Pressable>
           </View>
         </View>
       </Modal>
@@ -217,6 +221,7 @@ const styles = StyleSheet.create({
   sheetTitle: { color: CREAM, fontSize: 20, fontWeight: '800', marginBottom: 10, textAlign: 'center' },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.15)' },
   rowText: { color: '#FFFFFF', fontSize: 16 },
+  rtl: { writingDirection: 'rtl', textAlign: 'right' },
   chev: { color: GOLD, fontSize: 20 },
   note: { color: '#CFC6E6', fontSize: 13, marginTop: 14, lineHeight: 19 },
   small: { color: '#8F86A8', fontSize: 12, marginTop: 10, textAlign: 'center' },
