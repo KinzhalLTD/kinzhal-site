@@ -55,7 +55,9 @@
   "chapter1_w": "key/chapter1_w.webp",
   "chapter2_w": "key/chapter2_w.webp",
   "chapter3_w": "key/chapter3_w.webp",
-  "chapter4_w": "key/chapter4_w.webp"
+  "chapter4_w": "key/chapter4_w.webp",
+  "chapter5_w": "key/chapter5_w.webp",
+  "chapter6_w": "key/chapter6_w.webp"
  },
  "music": {
   "cine": "music/cine.mp3",

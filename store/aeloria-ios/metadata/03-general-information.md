@@ -11,7 +11,8 @@ App Store Connect → **Pricing and Availability**, and the version page.
 | Copyright | `2026 Kinzhal LTD Co.` |
 | Developer / Seller | Kinzhal LTD Co., Saudi Arabia |
 | Support email | it@kinbss.org |
-| Supported devices | iPhone and iPad (iOS 16+). Portrait primary; the layout also adapts to landscape and iPad. |
+| Supported devices | iPhone and iPad (iOS 16+). iPhone in portrait; iPad in all orientations. |
+| Languages | English, Arabic, Simplified Chinese, German, Russian |
 | Game Center | Not used in 1.0 |
 | Sign in | None. No account needed. |
 | Offline | Yes, playable offline. All content is bundled; ads need a connection. |

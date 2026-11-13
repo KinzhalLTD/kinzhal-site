@@ -41,7 +41,7 @@
 | Subtitle | Build a Kingdom, Lead Heroes |
 | Category | Games → Strategy; secondary Role Playing (**never Kids**) |
 | Content rights | Does not use third-party content (all art, music and story are original) |
-| Arabic | Add localisation **Arabic** and paste `store/listing-ar.txt` |
+| Localizations | Add **Arabic**, **Chinese (Simplified)**, **German** and **Russian** next to English (U.S.), and paste `store/listing-ar.txt`, `listing-zh.txt`, `listing-de.txt`, `listing-ru.txt` into each one's name, subtitle, promo text, keywords and description |
 
 ## 4. In-app purchases (Monetization → In-App Purchases)
 
@@ -107,6 +107,7 @@ Privacy Policy URL: https://kinzhal.space/aeloria/privacy/
 |---|---|
 | Screenshots, iPhone 6.9" (1320×2868) | `screenshots/iphone-6.9in_1320x2868/` from the store kit, 8 images in order |
 | Screenshots, 6.3" (1206×2622) and 6.1" (1179×2556) | Optional; the store kit has both sets |
+| **Screenshots, iPad 13" (2048×2732), required because the app supports iPad** | `screenshots/ipad-13in_2048x2732/` from the store kit, 8 images |
 | App preview | `app-preview/preview_886x1920.mp4` (optional; poster frame at 00:11) |
 | Promotional text, description, keywords | `store/listing-en.txt` |
 | Support URL | https://kinzhal.space/aeloria/support/ |
