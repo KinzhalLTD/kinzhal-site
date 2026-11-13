@@ -52,7 +52,8 @@
     "siege": "key/siege.webp",
     "sunveldt": "key/sunveldt.webp",
     "title_w": "key/title_w.webp",
-    "chapter1_w": "key/chapter1_w.webp"
+    "chapter1_w": "key/chapter1_w.webp",
+    "chapter2_w": "key/chapter2_w.webp"
   },
   "music": {
     "cine": "music/cine.mp3",
