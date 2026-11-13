@@ -782,7 +782,7 @@ function upgradeNow(key) {
 
 function trainHTML() {
   const sel = trainSel;
-  const rows = TYPES.map(t => `<button class="ttab ${sel.t === t ? 'on' : ''}" data-act="tsel" data-t="${t}">${ART.troop(t, sel.tier, 42)}<small>${TROOP[t].name}</small></button>`).join('');
+  const rows = TYPES.map(t => `<button class="ttab ${sel.t === t ? 'on' : ''}" data-act="tsel" data-t="${t}"><span class="tt-fig">${troopFig(t)}</span><small>${TROOP[t].name}</small></button>`).join('');
   const tiers = TIERS.map(n => `<button class="chip ${sel.tier === n ? 'on' : ''} ${tierOpen(n) ? '' : 'locked'}" data-act="tier" data-n="${n}">Tier ${'I'.repeat(n)}${tierOpen(n) ? '' : ' 🔒'}</button>`).join('');
   const d = TROOP[sel.t], m = TIER_MULT[sel.tier - 1], c = trainCost(sel.t, sel.tier, sel.n);
   return `<div class="train"><div class="ttabs">${rows}</div><div class="chips">${tiers}</div>
@@ -810,9 +810,13 @@ function openSpeed(kind, key) {
 }
 
 /* ======================= Army tab ======================= */
+// A troop type's painted figure (soldier cut-out, or the painted square for trebuchets).
+const troopFig = t => { const u = ART.asset('army', { inf: 'foot', rng: 'archer', cav: 'cav' }[t]); return u ? `<img class="tfig" src="${u}" alt="">` : ART.troop(t, 1, 64); };
 function renderArmy() {
   const all = {}; for (const m of S.marches) for (const [k, n] of Object.entries(m.troops)) all[k] = (all[k] || 0) + n;
-  return `<h2>Army</h2><div class="cards">${TYPES.map(t => `<div class="card"><h4>${TROOP[t].name}</h4><p class="muted">${TROOP[t].role}</p>${TIERS.map(n => `<div class="trow">${ART.troop(t, n, 40)}<div><b>${fmt(S.troops[tkey(t, n)] || 0)}</b> at home${all[tkey(t, n)] ? ` · ${fmt(all[tkey(t, n)])} marching` : ''}${S.wounded[tkey(t, n)] ? ` · <span class="neg">${fmt(S.wounded[tkey(t, n)])} wounded</span>` : ''}</div></div>`).join('')}</div>`).join('')}</div>
+  return `<h2>Army</h2><div class="acards">${TYPES.map(t => { const tot = TIERS.reduce((a, n) => a + (S.troops[tkey(t, n)] || 0) + (all[tkey(t, n)] || 0), 0);
+    return `<div class="acard t-${t}"><div class="a-fig">${troopFig(t)}</div><div class="a-body"><h4>${TROOP[t].name}<span>${fmt(tot)}</span></h4><small>${TROOP[t].role}</small><div class="a-tiers">${TIERS.map(n => { const h = S.troops[tkey(t, n)] || 0, mr = all[tkey(t, n)] || 0, w = S.wounded[tkey(t, n)] || 0, open = tierOpen(n);
+      return `<span class="a-t ${h || mr || w ? '' : 'zero'} ${open || h || mr ? '' : 'locked'}"><em>Tier ${'I'.repeat(n)}${open || h || mr ? '' : ' 🔒'}</em><b>${fmt(h)}</b>${mr ? `<i>${fmt(mr)} marching</i>` : ''}${w ? `<i class="neg">${fmt(w)} wounded</i>` : ''}</span>`; }).join('')}</div></div></div>`; }).join('')}</div>
   <div class="card"><h4>Counters</h4><p>Spearmen beat Cavalry · Cavalry beat Archers · Archers beat Spearmen. Trebuchets shine against Ramparts.</p><p>Total might from troops: ${ART.icon('might', 14)} ${fmt(troopMight(S.troops))} · Grain upkeep ${fmt(rates().upkeep)}/h</p>
   <button class="btn gold" data-act="bld" data-key="barracks">Train troops</button> ${S.b.infirmary ? '<button class="btn" data-act="bld" data-key="infirmary">Infirmary</button>' : ''}</div>`;
 }
@@ -1414,10 +1418,10 @@ function drawMap() {
   // minimap
   const mm = Math.min(120, w * .28), k2 = mm / W, ox = w - mm - 10, oy = 10;
   if (!mmCv || mmCv.width !== Math.round(mm * dpr) || t - mmAt > 2500) { mmCv = mmCv || document.createElement('canvas'); mmCv.width = mmCv.height = Math.round(mm * dpr); const mc = mmCv.getContext('2d'); mc.drawImage(TERR.canvas, 0, 0, mmCv.width, mmCv.height); const kk = mmCv.width / W; mc.drawImage(fogCanvas(), -kk, -kk, mmCv.width + 2 * kk, mmCv.height + 2 * kk); mmAt = t; }
-  ctx.fillStyle = '#140f22d9'; ctx.fillRect(ox - 3, oy - 3, mm + 6, mm + 6); ctx.drawImage(mmCv, ox, oy, mm, mm);
+  ctx.fillStyle = '#140f22e6'; ctx.beginPath(); ctx.roundRect(ox - 5, oy - 5, mm + 10, mm + 10, 10); ctx.fill(); ctx.strokeStyle = '#e8a33d'; ctx.lineWidth = 2; ctx.stroke(); ctx.save(); ctx.beginPath(); ctx.roundRect(ox, oy, mm, mm, 7); ctx.clip(); ctx.drawImage(mmCv, ox, oy, mm, mm);
   for (const o of S.world) { if (o.dead || !seen(o.x, o.y) || o.kind === 'node') continue; ctx.fillStyle = o.kind === 'city' ? o.color : o.kind === 'camp' ? '#ff5e3a' : '#ffd36b'; ctx.fillRect(ox + o.x * k2 - 1, oy + o.y * k2 - 1, 3, 3); }
   ctx.fillStyle = '#fff'; ctx.fillRect(ox + S.home.x * k2 - 2, oy + S.home.y * k2 - 2, 5, 5);
-  ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 1.2; ctx.strokeRect(ox + cam.x / s * k2, oy + cam.y / s * k2, w / s * k2, h / s * k2);
+  ctx.strokeStyle = '#ffd36b'; ctx.lineWidth = 1.2; ctx.strokeRect(ox + cam.x / s * k2, oy + cam.y / s * k2, w / s * k2, h / s * k2); ctx.restore();
 }
 let mapLast = 0, mapBusy = false, mmCv = null, mmAt = 0;
 function mapLoop(ts) { if (tab === 'world') { if (mapBusy || !ts || ts - mapLast > 30) { mapLast = ts || 0; drawMap(); } requestAnimationFrame(mapLoop); } }

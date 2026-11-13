@@ -900,3 +900,24 @@ g.pressing{filter:brightness(1.35) drop-shadow(0 0 6px #ffd36b)}
 nav.tabs.v2 button.pressing img{transform:translateY(-5px) scale(1.22)!important}
 dialog#sheet[open]{animation-duration:.18s}
 .btn{transition:transform .06s}
+
+/* ---- Army: painted figure per troop type, tier chips ---- */
+.acards{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.acard{display:flex;gap:10px;align-items:stretch;padding:10px;border-radius:16px;background:linear-gradient(110deg,#2a1f44,#160f29);border:1px solid #4a3a6e;box-shadow:inset 0 1px #ffffff14}
+.a-fig{flex:none;width:86px;border-radius:12px;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;background:radial-gradient(ellipse at 50% 85%,#3a5a9a88,transparent 65%),#0d0819;box-shadow:inset 0 0 0 1px #5ab0ff44}
+.a-fig .tfig{width:100%;height:108px;object-fit:contain;object-position:bottom;filter:drop-shadow(0 4px 4px #000a)}
+.a-fig .tpaint{width:86px!important;height:86px!important;margin:auto}
+.a-body{flex:1;min-width:0}.a-body h4{margin:0;display:flex;justify-content:space-between;align-items:baseline;color:var(--gold2)}.a-body h4 span{font:800 16px var(--body);color:#fff}
+.a-body>small{display:block;font-size:11.5px;color:var(--ink2);margin:1px 0 7px}
+.a-tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.a-t{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;border-radius:10px;background:#0006;border:1px solid #6e58a066;text-align:center}
+.a-t em{font-style:normal;font-size:9.5px;font-weight:800;color:var(--gold3);letter-spacing:.04em}.a-t b{font-size:15px}.a-t i{font-style:normal;font-size:9.5px;color:var(--teal)}.a-t i.neg{color:#ff9b7a}
+.a-t.zero{opacity:.45}.a-t.zero b{color:var(--ink2)}.a-t.locked{opacity:.3}
+/* barracks troop picker */
+.ttab .tt-fig{height:56px;display:flex;align-items:flex-end;justify-content:center}.ttab .tt-fig .tfig{height:58px;width:auto;filter:drop-shadow(0 3px 3px #000a)}.ttab .tt-fig .tpaint{width:46px!important;height:46px!important}
+.ttab.on{background:radial-gradient(ellipse at 50% 80%,#5ab0ff44,transparent 70%),var(--panel2)}
+/* daily deeds marks */
+.dmark{flex:none;width:18px;height:18px;margin-right:7px;border-radius:50%;border:2px solid #6e58a0;display:inline-grid;place-items:center;font-style:normal;font-size:11px;font-weight:900;vertical-align:-3px}
+.drow.done .dmark{background:var(--good);border-color:var(--good);color:#0b3a22}
+/* honor shop: equal buttons */
+[data-act=hshop]{flex:1 1 100%;justify-content:flex-start}
