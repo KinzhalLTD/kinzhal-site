@@ -7,8 +7,12 @@ const ART = (() => {
   const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = n >> 8 & 255, b = n & 255; const f = v => Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); return '#' + [f(r), f(g), f(b)].map(v => v.toString(16).padStart(2, '0')).join(''); };
 
   /* ---------- painted-art overrides (art/manifest.json) ---------- */
-  let MAN = {};
-  fetch('art/manifest.json').then(r => r.ok ? r.json() : {}).then(j => { MAN = j || {}; window.dispatchEvent(new Event('artready')); }).catch(() => { });
+  // The city and many screens wait for this list; retry with back-off so a slow or failed request never strands the drawn fallback.
+  let MAN = {}, READY = false;
+  const loadMan = (n = 0) => fetch('art/manifest.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(j => { MAN = j || {}; READY = true; window.dispatchEvent(new Event('artready')); })
+    .catch(() => { if (n < 5) setTimeout(() => loadMan(n + 1), 800 * 2 ** n); else { READY = true; window.dispatchEvent(new Event('artready')); } });
+  loadMan();
   const painted = (kind, id, s, cls = 'portrait') => MAN[kind] && MAN[kind][id] ? `<img src="art/${MAN[kind][id]}" width="${s}" height="${s}" class="${cls} painted" alt="" loading="lazy" decoding="async">` : null;
 
   /* ---------- emblem: crown over a radiant sun on a shield ---------- */
@@ -331,5 +335,5 @@ const ART = (() => {
   const asset = (kind, id) => MAN[kind] && MAN[kind][id] ? 'art/' + MAN[kind][id] : null;
   // Key art comes in a portrait cut for phones and a wide cut ("<id>_w") for tablets and PC; pick by the screen's shape.
   const keyUrl = (id, wide) => { if (!MAN.key) return null; wide ??= innerWidth > innerHeight * 1.05; const k = (wide && MAN.key[id + '_w']) || MAN.key[id] || MAN.key[id + '_w']; return k ? 'art/' + k : null; };
-  return { loopLen: k => (MAN.loops && MAN.loops[k]) || 0, iconSvg, asset, keyUrl, svg, shade, emblem, crownPath, icon, troop, portrait, enemy, building, cityBg, tree, mapPaint, setRealm, RARITY, painted, get P() { return P; } };
+  return { get ready() { return READY; }, loopLen: k => (MAN.loops && MAN.loops[k]) || 0, iconSvg, asset, keyUrl, svg, shade, emblem, crownPath, icon, troop, portrait, enemy, building, cityBg, tree, mapPaint, setRealm, RARITY, painted, get P() { return P; } };
 })();

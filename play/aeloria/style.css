@@ -881,3 +881,5 @@ header.hud::after{content:"";position:absolute;left:50%;bottom:-9px;width:120px;
 .result.painted{background-size:cover!important;animation:resbg 12s ease-out forwards}
 @keyframes resbg{from{background-size:130% auto}}
 @media(prefers-reduced-motion:reduce){.cine-rays,.cine-dust,#battle .arena.painted-bg,.intro-kb img{animation:none}}
+.cityload{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--gold3);font-size:15px}
+.cityload svg{width:90px;height:90px;animation:bob 1.2s ease-in-out infinite alternate;filter:drop-shadow(0 0 18px #e8a33d88)}
