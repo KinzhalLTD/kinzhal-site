@@ -218,6 +218,7 @@ const LIVE = (() => {
     pack5: { name: 'Citadel 5 Pack', price: 'SAR 9.99', value: '6× value', items: { gems: 1200, items: { builder: 1, sp60: 6 }, essence: 100 } },
     pack10: { name: 'Citadel 10 Pack', price: 'SAR 24.99', value: '6× value', items: { gems: 3000, items: { sp480: 2 }, tokens: 3, essence: 300 } },
     pack15: { name: 'Citadel 15 Pack', price: 'SAR 49.99', value: '6× value', items: { gems: 6500, tokens: 8, essence: 800 } },
+    noads: { name: 'Remove Ads', price: 'SAR 9.99', once: true, value: 'Forever' },
     legend: { name: 'Legend Pack', price: 'SAR 14.99', value: '5× value', items: { gems: 1000, tokens: 5, items: { scroll: 6 } } }
   };
   const SKINS = {
@@ -243,7 +244,8 @@ const LIVE = (() => {
     ${sh.founder ? '' : `<div class="offer-big founder"><div class="ob-art">${ART.portrait(HERO.saqr, 110)}</div><div><span class="tag2">${PRODUCTS.founder.value} · one time</span><h3>Founder's Pack</h3><p>1,500 gems · 10 Saqr shards (recruit her!) · 5 one-hour hourglasses · 5 Hero Tomes · the Founder's Crown city skin</p>${priceBtn('founder')}</div></div>`}
     <div class="offer-big card-o"><div class="ob-art">${ART.icon('chest', 96)}</div><div><span class="tag2">Best value</span><h3>Royal Monthly Card</h3><p>300 gems now, then <b>100 gems every day for 30 days</b>, +300 VIP points.</p>${cardLeft ? `<p><b>${cardLeft} days left</b></p>${cardClaim ? '<button class="btn gold" data-act="cardclaim">Claim today: 100 gems</button>' : '<span class="muted">Claimed today</span>'}` : priceBtn('card')}</div></div>
     ${sh.packs.map(p => `<div class="offer-big milestone"><div><span class="tag2">${PRODUCTS[p.id].value} · ends in ${fmtT((p.until - now()) / 1000)}</span><h3>${PRODUCTS[p.id].name}</h3><div class="rws">${META.rewardHTML(PRODUCTS[p.id].items)}</div>${priceBtn(p.id)}</div></div>`).join('')}
-    <div class="offer-big royal"><div><span class="tag2">Season Road</span><h3>Royal Season Track</h3><p>${PRODUCTS.royal.value}: a second reward row on all 30 tiers, claimable right away for tiers already reached.</p>${S.shop.royalPass ? '<b class="good">Unlocked</b>' : `${priceBtn('royal')} <button class="btn gold" data-act="royalgems">${ART.icon('gem', 14)} ${fmt(PRODUCTS.royal.gems)}</button>`}</div></div>`;
+    <div class="offer-big royal"><div><span class="tag2">Season Road</span><h3>Royal Season Track</h3><p>${PRODUCTS.royal.value}: a second reward row on all 30 tiers, claimable right away for tiers already reached.</p>${S.shop.royalPass ? '<b class="good">Unlocked</b>' : `${priceBtn('royal')} <button class="btn gold" data-act="royalgems">${ART.icon('gem', 14)} ${fmt(PRODUCTS.royal.gems)}</button>`}</div></div>
+    ${ADS.available() && !S.shop.noAds ? `<div class="offer-big noads"><div class="ob-art">${ART.emblem(90)}</div><div><span class="tag2">One time · forever</span><h3>Remove Ads</h3><p>No more interstitial, banner or app-open ads. Optional reward videos stay available for bonuses.</p>${priceBtn('noads')}</div></div>` : ''}`;
   }
   function skinsTab() {
     return `<p class="muted">City skins change your citadel's colours and trees. They are cosmetic only.</p><div class="chests">${Object.entries(SKINS).map(([k, sk]) => {
@@ -256,6 +258,7 @@ const LIVE = (() => {
     try { if (!(await p.buy(id))) return; } catch (e) { return toast('Purchase cancelled', 'bad'); }
     if (id === 'card') { S.shop.card = Math.max(now(), S.shop.card) + 30 * DAY; S.shop.cardDay = ''; S.gems += 300; S.vip += 300; }
     else if (id === 'royal') S.shop.royalPass = true;
+    else if (id === 'noads') S.shop.noAds = true;
     else { META.grant(P.items, P.name); if (P.skin && !S.skins.includes(P.skin)) S.skins.push(P.skin); if (id === 'founder') S.shop.founder = true; const pk = S.shop.packs.find(x => x.id === id); if (pk) pk.bought = true; }
     S.vip += 200; FX.confetti(); FX.sound('chest'); save(); render();
   }
@@ -270,13 +273,15 @@ const LIVE = (() => {
   function adButton(placement, label, extra = '') { return ads() ? `<button class="btn adbtn" data-act="ad" data-p="${placement}" ${extra}>▶ ${label}</button>` : ''; }
   async function watchAd(placement, d) {
     const a = ads(); if (!a) return; S.adsDay = S.adsDay === today() ? S.adsDay : today(); S.adsCount = S.adsDay === today() ? (S.adsCount || 0) : 0;
-    if ((S.adsCount || 0) >= 10) return toast('Daily ad rewards used up — come back tomorrow');
+    if ((S.adsCount || 0) >= ADS.dailyCap) return toast('Daily ad rewards used up — come back tomorrow');
     let ok = false; try { ok = await a.show(placement); } catch (e) { } if (!ok) return;
     S.adsCount = (S.adsCount || 0) + 1;
     if (placement === 'speed') { const t = timerRef(d.kind, d.key || undefined); if (t) t.end -= 15 * 60e3; toast('15 minutes skipped', 'good'); }
     else if (placement === 'arena') { S.arena.tickets++; toast('+1 Arena ticket', 'good'); }
     else if (placement === 'vigor') { S.vigor += 12; toast('+12 Vigor', 'good'); }
     else if (placement === 'chest') { give({ gems: 15 }, 'Ad reward'); }
+    else if (placement === 'victory') { const g = +d.g || 0; if (g) give({ gold: g }, 'Victory doubled'); document.querySelectorAll('.adbtn[data-p="victory"]').forEach(b => b.remove()); FX.confetti(); return save(); }
+    else if (placement === 'welcome') { const w = window.__wbGot; window.__wbGot = null; if (w) give(w, 'Harvest doubled'); FX.confetti(); }
     tick(); render();
   }
 
@@ -327,6 +332,8 @@ const LIVE = (() => {
       case 'buyskin': { const sk = SKINS[d.k]; if (S.gems < sk.gems) { toast('Not enough gems', 'bad'); return true; } spendGems(sk.gems); S.skins.push(d.k); S.skin = d.k; applySkin(); FX.confetti(); render(); return true; }
       case 'skin': S.skin = d.k; applySkin(); render(); toast(d.k ? `${SKINS[d.k].name} applied` : 'Realm default applied', 'good'); return true;
       case 'ad': watchAd(d.p, d); return true;
+      case 'adprivacy': ADS.privacy(); return true;
+      case 'restore': { const p = pay(); if (!p || !p.restore) return true; Promise.resolve(p.restore()).then(ids => { ids = ids || []; if (ids.includes('noads')) S.shop.noAds = true; if (ids.includes('royal')) S.shop.royalPass = true; save(); toast(ids.length ? 'Purchases restored' : 'Nothing to restore', ids.length ? 'good' : ''); render(); openMenu(); }).catch(() => toast('Restore failed — try again', 'bad')); return true; }
       case 'notify': askNotify(); return true;
     }
     return false;

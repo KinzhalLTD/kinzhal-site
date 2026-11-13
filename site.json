@@ -7,8 +7,7 @@
  "email": "it@kinbss.org",
  "updated": "2026-11-07",
  "adsTxt": [
-  "# Paste your real lines here (copy them from any game's website/app-ads.txt).",
-  "# One file covers every game. Example of the AdMob line:",
-  "# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0"
+  "# AdMob (Kinzhal LTD Co.): covers every app on this publisher account.",
+  "google.com, pub-5681105275743934, DIRECT, f08c47fec0942fa0"
  ]
 }

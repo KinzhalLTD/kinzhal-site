@@ -31,9 +31,9 @@ Scout a fog-covered continent, find treasure and merchants, conquer outposts and
 GROW WITHOUT LIMITS
 Research technologies, train elite troops, forge endless Royal Forge upgrades, complete Daily Deeds and climb the Season Road.
 
-• Play offline, with no account needed
+• No account needed
 • Progress saved on your device
-• No ads
+• Optional reward videos for bonus Vigor, gems and speed-ups
 • Bilingual flair: English with Arabic touches
 
 Aeloria: Age of Crowns is free to play. Optional gem packs are available as in-app purchases, and everything they buy can also be earned by playing.

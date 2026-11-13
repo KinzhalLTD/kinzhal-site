@@ -1225,7 +1225,7 @@ function endFight(win) {
     html = `<div class="res-rays"></div>${mvpArt ? `<div class="mvp"><img src="${mvpArt}" alt=""><span><b>MVP</b>${esc(mvp.name)} · ${fmt(mvp.dmg || 0)} damage</span></div>` : ''}<h2 class="win">Victory</h2>${f.joined ? `<div class="joined">${ART.asset('champions', f.joined) ? `<img class="jfig" src="${ART.asset('champions', f.joined)}" alt="">` : ART.portrait(HERO[f.joined], 64)}<div><small>New hero</small><b>${HERO[f.joined].name} joins your court!</b></div></div>` : ''}<div class="rstars">${[0, 1, 2].map(i => `<span class="${i < stars ? 'on' : ''}" style="--i:${i}">★</span>`).join('')}</div>
       <div class="rheroes">${f.heroes.map(h => `<div>${ART.portrait(h.hero, 54)}<small>Lv ${S.heroes[h.id].lvl}</small><em>+${xp} XP</em></div>`).join('')}</div>
       <div class="rskill"><span><b>${f.perfects || 0}</b>Perfect casts</span><span><b>${f.breaks || 0}</b>Charges broken</span><span><b>${f.bestChain ? '×' + (f.bestChain + 1) : '–'}</b>Best chain</span></div>
-      ${f.streakTxt ? `<div class="streak">${f.streakTxt}</div>` : ''}<div class="rloot">${META.rewardHTML(r)}</div>
+      ${f.streakTxt ? `<div class="streak">${f.streakTxt}</div>` : ''}<div class="rloot">${META.rewardHTML(r)}</div>${r.gold ? LIVE.adButton('victory', `Watch an ad: double gold (+${fmt(r.gold)})`, `data-g="${r.gold}"`) : ''}
       <div class="rbtns"><button class="btn" data-act="closefight">Leave</button><button class="btn" data-act="retry">Retry</button>${nextKey ? `<button class="btn gold" data-act="nextstage" data-key="${nextKey}">Next stage ›</button>` : ''}</div>`;
     FX.sound('win'); setTimeout(() => FX.confetti(), 300);
     [0, 1, 2].forEach(i => i < stars && setTimeout(() => FX.sound('coin'), 700 + i * 300));
@@ -1239,7 +1239,7 @@ function endFight(win) {
   if (win && f.joined && STORY.legend && STORY.legend[f.joined]) setTimeout(() => { if (fight === f) playStory(STORY.legend[f.joined], HERO[f.joined].origin || 'A Legend Answers', null); }, 1500);
   save();
 }
-function leaveFight() { BF.stop(); if (fight) { clearInterval(fight.timer); fight.over = true; } $('#battle').hidden = true; $('#battle').innerHTML = ''; fight = null; FX.setMood(tab === 'world' ? 'world' : 'city'); }
+function leaveFight() { if (fight && fight.over) setTimeout(() => ADS.afterBattle(), 400); BF.stop(); if (fight) { clearInterval(fight.timer); fight.over = true; } $('#battle').hidden = true; $('#battle').innerHTML = ''; fight = null; FX.setMood(tab === 'world' ? 'world' : 'city'); }
 
 /* ======================= Research tab ======================= */
 const TECH_IC = { agri: ['icons', 'grain'], forest: ['icons', 'timber'], mason: ['icons', 'stone'], metal: ['icons', 'ore'], build: ['icons', 'clock'], gather: ['icons', 'crate'], drill: ['army', 'foot'], blade: ['nav', 'battle'], armor: ['nav', 'house'], march: ['nav', 'hud_home'], tier2: ['army', 'cav'], tier3: ['army', 'archer'], slots: ['nav', 'arena'] };
@@ -1262,7 +1262,7 @@ function renderQuests() {
   <div class="card chest ${chest ? 'ready' : ''}">${ART.icon('chest', 42)}<div><h4>Supply chest</h4><p class="muted">The royal quartermaster sends supplies every 6 hours.</p></div>${chest ? '<button class="btn gold" data-act="chest">Open</button>' : `<span class="muted">${fmtT((S.chestAt - now()) / 1000)}</span>`}</div>
   ${q ? `<div class="card quest ${ready ? 'ready' : ''}"><small>Story quest ${S.quest + 1} / ${QUESTS.length}</small><h4>${q.t}</h4><p>Reward: ${rw(q.r)}</p>${ready ? '<button class="btn gold" data-act="claim">Claim</button>' : '<span class="muted">In progress</span>'}</div>` : '<div class="card"><h4>Every story quest complete. You rule the sands!</h4></div>'}
   <div class="card"><h4>Upcoming</h4>${QUESTS.slice(S.quest + 1, S.quest + 4).map(x => `<p class="muted">· ${x.t}</p>`).join('') || '<p class="muted">—</p>'}</div>
-  ${META.achHTML()}<div class="card"><h4>Rankings · Might</h4><ol class="rank">${ranking().map(r => `<li class="${r.me ? 'me' : ''}"><span style="color:${r.color}">■</span> ${esc(r.name)} <b>${fmt(r.m)}</b></li>`).join('')}</ol></div>`;
+  ${ADS.slot('banner')}${META.achHTML()}<div class="card"><h4>Rankings · Might</h4><ol class="rank">${ranking().map(r => `<li class="${r.me ? 'me' : ''}"><span style="color:${r.color}">■</span> ${esc(r.name)} <b>${fmt(r.m)}</b></li>`).join('')}</ol></div>`;
 }
 function ranking() {
   const list = S.world.filter(o => o.kind === 'city').map(o => ({ name: o.name, color: o.color, m: troopMight(o.troops) + o.lvl * o.lvl * 400 }));
@@ -1525,7 +1525,7 @@ function repIcon(r) {
 const repWhen = t => { const d = (now() - t) / 1000; return d < 60 ? 'just now' : d < 3600 ? `${Math.floor(d / 60)} min ago` : d < 86400 ? `${Math.floor(d / 3600)} h ago` : new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' }); };
 function openMail() {
   S.unread = 0; renderHud();
-  openSheet('Reports', S.reports.length ? S.reports.map((r, i) => { const ic = repIcon(r); return `<details class="rep ${r.kind}" ${i === 0 ? 'open' : ''}><summary><span class="repic ${ic.c}">${ic.h}</span><span class="reptx"><b>${r.title}</b><small>${repWhen(r.t)}</small></span>${r.kind === 'win' || r.kind === 'loss' ? `<em class="reptag ${r.kind}">${r.kind === 'win' ? 'Won' : 'Lost'}</em>` : ''}</summary><div class="repbody">${r.body}</div></details>`; }).join('') : '<p class="muted">No reports yet.</p>', true);
+  openSheet('Reports', ADS.slot('native') + (S.reports.length ? S.reports.map((r, i) => { const ic = repIcon(r); return `<details class="rep ${r.kind}" ${i === 0 ? 'open' : ''}><summary><span class="repic ${ic.c}">${ic.h}</span><span class="reptx"><b>${r.title}</b><small>${repWhen(r.t)}</small></span>${r.kind === 'win' || r.kind === 'loss' ? `<em class="reptag ${r.kind}">${r.kind === 'win' ? 'Won' : 'Lost'}</em>` : ''}</summary><div class="repbody">${r.body}</div></details>`; }).join('') : '<p class="muted">No reports yet.</p>'), true);
 }
 
 /* ======================= tabs & render ======================= */
@@ -1657,6 +1657,7 @@ function openMenu() {
   openSheet('Realm', `<div class="bhead">${ART.emblem(80)}<div><p><b>${esc(S.name)}</b></p><p>Might ${fmt(might())} · Citadel ${S.b.citadel}</p><p class="muted">${REALMS[S.realm].name} · ${REALMS[S.realm].bonusText} · Founded ${new Date(S.created).toLocaleDateString()}</p></div></div>
   <div class="card"><h4>How to play</h4><ul class="howto"><li>Upgrade fields to grow Grain, Timber, Stone and Iron. The Citadel caps everything else.</li><li>Train troops in the Barracks. Spearmen › Cavalry › Archers › Spearmen.</li><li>On the World map, explore the fog, gather resources, destroy Ashen outposts and scout Ash-sworn lords.</li><li>Lead heroes through the Story Campaign across six realms to earn XP, shards and new heroes. Your squad boosts every army.</li><li>From Citadel 4 rivals may raid you. Watch the warning, raise an Aegis Ward, or fight back.</li><li>Final goal: break the garrison of the Sunspire Throne at the heart of Aeloria.</li></ul></div>
   <div class="card"><h4>Settings</h4><div class="btns"><button class="btn sbtn" data-act="music">${simg('hud_sound')}Music: ${S.settings.music ? 'On' : 'Off'}</button><button class="btn sbtn" data-act="sfxt">${simg('hud_sound')}Sound effects: ${S.settings.sfx ? 'On' : 'Off'}</button><button class="btn sbtn" data-act="replay">${simg('battle')}Replay intro</button><button class="btn sbtn" data-act="notify">${simg('hud_mail')}Enable notifications</button><button class="btn sbtn" data-act="gfx3d">${simg('city')}3D city (experimental): ${S.settings.gfx3d === true ? 'On' : 'Off'}</button><button class="btn sbtn" data-act="logincal">${simg('quests')}Royal Courier</button></div></div>
+  ${ADS.available() ? `<div class="card"><h4>Ads & privacy</h4><div class="btns"><button class="btn sbtn" data-act="adprivacy">Ad privacy choices</button>${ADS.adFree() ? '<b class="good">Ad-free</b>' : '<button class="btn gold" data-act="sub" data-s="offers">Remove ads</button>'}${window.AELORIA_PAYMENTS && window.AELORIA_PAYMENTS.restore ? '<button class="btn" data-act="restore">Restore purchases</button>' : ''}</div></div>` : ''}
   <p class="muted">Progress is saved in this browser.</p><button class="btn" data-act="reset">Start a new realm</button>`);
 }
 
@@ -1669,8 +1670,8 @@ function openBestiary() {
 }
 function welcomeBack(away, before) {
   const got = {}; RES.forEach(k => { const v = Math.floor(S.res[k] - before[k]); if (v > 0) got[k] = v; }); if (!Object.keys(got).length) return;
-  const bonus = { gold: Math.min(20000, Math.round((got.gold || 0) * .1 + 200 * Math.max(1, S.b.citadel))) }; give(bonus);
-  openSheet('While you were away', `<div class="wb"><div class="wb-chest">${ART.icon('chest', 96)}</div><p>Your realm worked for <b>${fmtT(away)}</b>.</p><div class="rloot">${META.rewardHTML(got)}</div><p class="muted">The royal courier adds a purse for your return:</p><div class="rloot">${META.rewardHTML(bonus)}</div><button class="btn gold wide" data-act="close">Splendid</button></div>`);
+  const bonus = { gold: Math.min(20000, Math.round((got.gold || 0) * .1 + 200 * Math.max(1, S.b.citadel))) }; give(bonus); window.__wbGot = { ...got };
+  openSheet('While you were away', `<div class="wb"><div class="wb-chest">${ART.icon('chest', 96)}</div><p>Your realm worked for <b>${fmtT(away)}</b>.</p><div class="rloot">${META.rewardHTML(got)}</div><p class="muted">The royal courier adds a purse for your return:</p><div class="rloot">${META.rewardHTML(bonus)}</div>${LIVE.adButton('welcome', 'Watch an ad: double this harvest')}<button class="btn gold wide" data-act="close">Splendid</button></div>`);
   FX.sound('chest'); setTimeout(() => FX.confetti(), 250);
 }
 function start() {

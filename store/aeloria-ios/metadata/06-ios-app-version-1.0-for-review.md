@@ -21,7 +21,9 @@ App Store Connect → **iOS App → 1.0 Prepare for Submission**
 Thank you for reviewing Aeloria: Age of Crowns.
 
 - No account or login is needed. On first launch tap "Tap to begin", choose a home realm, enter any name and tap "Found my realm".
-- All game content is bundled in the app and works offline. Progress is saved on the device only. We collect no personal data and show no ads.
+- All game content is bundled in the app. Progress is saved on the device only.
+- Ads are served by Google AdMob. On first launch, the Google consent form (where required) and then Apple's App Tracking Transparency prompt appear before any ad is requested. Interstitial and app-open ads are paced (never in the first minutes, never during a battle, at most one every 3 minutes). Ad privacy choices are under Menu → Ads & privacy.
+- "Remove Ads" (non-consumable) turns off all non-rewarded ads. "Restore purchases" is under Menu → Ads & privacy.
 - Gem packs are consumable In-App Purchases through StoreKit. Everything gems buy can also be earned by playing (quests, achievements, Season Road, daily gifts).
 - Crown Summon is a random hero reward. Its odds are shown in the Store before purchase: Legendary 4%, Epic 21%, Rare 75%, with a guaranteed Legendary within 40 summons.
 - Alliance chat and arena rivals are computer-controlled characters. There is no communication between real users.
@@ -38,8 +40,11 @@ Thank you for reviewing Aeloria: Age of Crowns.
 - [ ] `ITSAppUsesNonExemptEncryption = NO` in Info.plist
 - [ ] `PrivacyInfo.xcprivacy` included
 - [ ] Fonts bundled locally, so there are no Google Fonts requests
-- [ ] StoreKit 2 bridge implements `window.AELORIA_PAYMENTS`, and the 5 IAP products are "Ready to Submit" and attached to this version
-- [ ] "Restore Purchases" is not needed (consumables only)
+- [ ] StoreKit 2 bridge implements `window.AELORIA_PAYMENTS`, and all 13 IAP products are "Ready to Submit" and attached to this version
+- [ ] "Restore purchases" works for Remove Ads and Royal Season Track
+- [ ] `GADApplicationIdentifier`, `SKAdNetworkItems` and `NSUserTrackingUsageDescription` in Info.plist
+- [ ] UMP consent → ATT → MobileAds start order verified on a fresh install
+- [ ] Ads tested with AdMob test devices; app-ads.txt shows as verified in AdMob
 - [ ] App icon 1024×1024 with no alpha channel (`icon/AppIcon-1024.png`)
 - [ ] Screenshots uploaded for 6.1"/6.3", and App Store Connect scales them for the other iPhone sizes
 - [ ] Age rating questionnaire completed

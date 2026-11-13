@@ -11,7 +11,7 @@ App Store Connect → **App Information → Age Rating → Edit**. Apple calcula
 | Unrestricted web access | No | The app does not open arbitrary web pages. |
 | User-generated content | No | There is no free-text sharing between players. Alliance chat and arena rivals are computer-controlled. |
 | Messaging and chat | No | |
-| Advertising | No | |
+| Advertising | **Yes** | Google AdMob: rewarded, interstitial, app-open, banner and native ads. AdMob's max ad content rating is set to G/PG and sensitive categories are blocked. |
 
 ## Mature themes
 

@@ -15,6 +15,8 @@ store/aeloria-ios/
 ├── screenshots/
 │   ├── iphone-6.1in_1179x2556/   8 captioned portrait screenshots
 │   └── iphone-6.3in_1206x2622/   8 captioned portrait screenshots
+├── ads/
+│   └── ADMOB_INTEGRATION.md      AdMob IDs, placements, JS↔Swift bridge, Info.plist, consent/ATT order
 ├── app-preview/
 │   ├── preview_886x1920.mp4      28.5 s gameplay, H.264 High 30 fps, AAC stereo, game soundtrack
 │   └── poster-frame_886x1920.png
@@ -29,6 +31,7 @@ The preview was recorded at 443×960 points and scaled 2× to 886×1920. Apple a
 ## Still needed before you can press "Submit"
 
 1. **A native iOS binary.** The game is HTML/JS today. Wrap `play/aeloria/` in a WKWebView app, with Capacitor or a small SwiftUI shell, and bundle every file so the app runs offline. Bundle the Google Fonts locally too.
-2. **StoreKit 2 payments.** Implement `window.AELORIA_PAYMENTS = { buy: packId => Promise<boolean> }` in the wrapper and map the five pack IDs to the products in `metadata/03-general-information.md`.
-3. **Apple Developer account** (Kinzhal LTD Co. as the organization, with a D-U-N-S number), the bundle ID `space.kinzhal.aeloria`, and a phone number for the review contact.
-4. Complete **Paid Apps Agreement**, tax and banking in App Store Connect so the purchases can go live.
+2. **StoreKit 2 payments.** Implement `window.AELORIA_PAYMENTS = { buy(id) → Promise<boolean>, restore() → Promise<string[]> }` in the wrapper, for the 13 products in `metadata/03-general-information.md`.
+3. **AdMob in the wrapper.** Add the Google Mobile Ads and UMP SDKs and the `aeloriaAds` message handler, as described in `ads/ADMOB_INTEGRATION.md`. The game already contains every placement and the unit IDs.
+4. **Apple Developer account** (Kinzhal LTD Co. as the organization, with a D-U-N-S number), the bundle ID `space.kinzhal.aeloria`, and a phone number for the review contact.
+5. Complete **Paid Apps Agreement**, tax and banking in App Store Connect so the purchases can go live.

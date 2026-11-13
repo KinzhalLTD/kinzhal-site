@@ -25,10 +25,20 @@ App Store Connect → your app → **General → App Information**
 
 ## App Privacy (General → App Privacy)
 
-- Privacy Policy URL: `https://kinzhal.space/privacy`
-- Data collection: **No, we do not collect data from this app.** Progress is saved only on the device (local storage). There are no accounts, analytics, ads or tracking.
-- Before you submit, make sure the native build bundles the Cinzel and Cairo fonts. The web version loads them from Google Fonts, which would send requests to a third party.
-- Privacy manifest (`PrivacyInfo.xcprivacy`):
-  - `NSPrivacyTracking` = false
-  - `NSPrivacyCollectedDataTypes` = empty
-  - Declare `NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1` if the wrapper stores the save in UserDefaults.
+The game shows Google AdMob ads, so the answer is **"Yes, we collect data from this app"**. Game progress itself stays on the device. These answers follow Google's own App Store privacy guidance for the Google Mobile Ads SDK.
+
+| Data type | Collected | Linked to user | Used for tracking | Purposes |
+|---|---|---|---|---|
+| Identifiers → **Device ID** (IDFA, only when the player allows tracking) | Yes | No | **Yes** | Third-party advertising |
+| Usage data → **Product interaction** | Yes | No | Yes | Third-party advertising, Analytics |
+| Usage data → **Advertising data** | Yes | No | Yes | Third-party advertising |
+| Location → **Coarse location** (from IP address) | Yes | No | Yes | Third-party advertising |
+| Diagnostics → **Crash data**, **Performance data**, **Other diagnostic data** | Yes | No | No | Third-party advertising (ad SDK health) |
+| Purchases → **Purchase history** | Yes | No | No | App functionality (StoreKit) |
+
+- Privacy Policy URL: `https://kinzhal.space/privacy`. It already covers AdMob, mediation, ATT and UMP consent.
+- **Tracking:** yes, so the app must show the App Tracking Transparency prompt (see `ads/ADMOB_INTEGRATION.md`).
+- **Privacy manifest:**
+  - The Google Mobile Ads SDK ships its own `PrivacyInfo.xcprivacy`.
+  - The app's manifest declares `NSPrivacyTracking = true` and lists `NSPrivacyAccessedAPICategoryUserDefaults` (reason `CA92.1`) if the wrapper uses UserDefaults.
+- Bundle the Cinzel and Cairo fonts in the app, rather than loading them from Google Fonts.
