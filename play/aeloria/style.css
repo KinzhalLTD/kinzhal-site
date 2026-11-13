@@ -883,3 +883,11 @@ header.hud::after{content:"";position:absolute;left:50%;bottom:-9px;width:120px;
 @media(prefers-reduced-motion:reduce){.cine-rays,.cine-dust,#battle .arena.painted-bg,.intro-kb img{animation:none}}
 .cityload{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--gold3);font-size:15px}
 .cityload svg{width:90px;height:90px;animation:bob 1.2s ease-in-out infinite alternate;filter:drop-shadow(0 0 18px #e8a33d88)}
+
+/* campaign chapters as cinematic banners */
+.chapter.cine{position:relative;overflow:hidden;padding:0 8px 8px}
+.chapter.cine .chead{position:relative;margin:0 -8px 8px;padding:42px 12px 10px;min-height:118px;align-items:flex-end;background:linear-gradient(180deg,#05030d10,#05030d55 45%,#0b0818f0),var(--kb) center 35%/cover;border-bottom:1px solid color-mix(in srgb,var(--rc) 60%,transparent)}
+.chapter.cine .chead h4{font-size:19px;text-shadow:0 2px 0 #000,0 0 14px #000}.chapter.cine .chead small,.chapter.cine .chead .muted{text-shadow:0 1px 3px #000}
+.chapter.cine .cboss{position:relative;width:74px;height:64px;flex:none}.cbfig{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);height:118px;width:auto;filter:drop-shadow(0 0 10px #ff3b2b88) drop-shadow(0 4px 6px #000)}
+.chapter.locked.cine .chead{filter:grayscale(.7) brightness(.7)}
+.chapter.cine{display:block!important}.chapter.cine .chead{width:auto}.chapter.cine .stages{width:auto}
