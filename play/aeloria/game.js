@@ -1652,7 +1652,7 @@ function onAct(e) {
     case 'march': openMarch(+d.id); break;
     case 'recall': recall(+d.id); closeSheet(); break;
     case 'goto': openTab('world'); centerOn(+d.x, +d.y); mapSel = { x: +d.x, y: +d.y }; break;
-    case 'home': if (tab === 'world') centerOn(S.home.x, S.home.y); else openTab('world'); break;
+    case 'home': if (tab === 'world') { centerOn(S.home.x, S.home.y); clampCam(); mapSel = { x: S.home.x, y: S.home.y, t: now() }; mapDirty = true; sfx('click'); } else openTab('world'); break;   // the brackets flash on your city as feedback
     case 'mail': openMail(); break;
     case 'incoming': openSheet('Incoming attack!', `<p><b>${esc(S.incoming.name)}</b> marches with about ${fmt(troopCount(S.incoming.troops) * (S.b.tower >= 3 ? 1 : 1.1))} troops. Arrives in ${fmtT((S.incoming.arrive - now()) / 1000)}.</p><p>Your defenders: ${fmt(troopCount(S.troops))} troops, Ramparts ${S.b.wall}.</p>${S.items.shield ? '<button class="btn gold" data-act="use" data-i="shield">Raise Aegis Ward</button>' : `<button class="btn gold" data-act="buy" data-i="shield">${ART.icon('gem', 12)} ${ITEMS.shield.gems} Buy Aegis Ward</button>`}`); break;
     case 'mute': { const on = !(S.settings.music || S.settings.sfx); S.settings.music = on; S.settings.sfx = on; FX.music(on); FX.setSfx(on); el.classList.toggle('muted', !on); break; }
