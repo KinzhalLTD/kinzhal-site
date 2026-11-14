@@ -1,0 +1,53 @@
+# XcodeGen spec for the Aeloria iOS app. Generate the Xcode project with:  brew install xcodegen && xcodegen
+name: Aeloria
+options:
+  bundleIdPrefix: space.kinzhal
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  GoogleMobileAds:
+    url: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
+    from: 12.0.0
+  GoogleUserMessagingPlatform:
+    url: https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git
+    from: 3.0.0
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ""          # set your Apple Team ID here (or in Xcode → Signing & Capabilities)
+    CODE_SIGN_STYLE: Automatic
+targets:
+  Aeloria:
+    type: application
+    platform: iOS
+    sources:
+      - path: Aeloria
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: space.kinzhal.aeloria
+        PRODUCT_NAME: Aeloria
+        INFOPLIST_FILE: Aeloria/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        OTHER_LDFLAGS: ["$(inherited)", "-ObjC"]
+    dependencies:
+      - package: GoogleMobileAds
+      - package: GoogleUserMessagingPlatform
+        product: GoogleUserMessagingPlatform
+      - sdk: StoreKit.framework
+      - sdk: AppTrackingTransparency.framework
+    postCompileScripts:
+      # Copies the web game (play/aeloria) into the app bundle on every build, so the app always ships the current game.
+      - name: Bundle game files
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          DEST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Game"
+          mkdir -p "$DEST"
+          rsync -a --delete --exclude tools --exclude '*.md' --exclude '.DS_Store' "${SRCROOT}/../../play/aeloria/" "$DEST/"
+    scheme:
+      environmentVariables: {}

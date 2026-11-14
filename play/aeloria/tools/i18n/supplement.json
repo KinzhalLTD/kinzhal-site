@@ -1,0 +1,176 @@
+{
+ "pts": {
+  "ar": "نقطة",
+  "zh": "分",
+  "de": "Pkt.",
+  "ru": "очк."
+ },
+ "rare": {
+  "ar": "نادر",
+  "zh": "稀有",
+  "de": "selten",
+  "ru": "редкий"
+ },
+ "epic": {
+  "ar": "ملحمي",
+  "zh": "史诗",
+  "de": "episch",
+  "ru": "эпический"
+ },
+ "legendary": {
+  "ar": "أسطوري",
+  "zh": "传说",
+  "de": "legendär",
+  "ru": "легендарный"
+ },
+ "summons": {
+  "ar": "استدعاءات",
+  "zh": "次召唤",
+  "de": "Beschwörungen",
+  "ru": "призывов"
+ },
+ ", +{0} VIP points.": {
+  "ar": "، +{0} نقطة VIP.",
+  "zh": "，+{0} VIP点数。",
+  "de": ", +{0} VIP-Punkte.",
+  "ru": ", +{0} очков VIP."
+ },
+ "/ {0} for next star.": {
+  "ar": "/ {0} للنجمة التالية.",
+  "zh": "/ {0}（升至下一星）。",
+  "de": "/ {0} für den nächsten Stern.",
+  "ru": "/ {0} до следующей звезды."
+ },
+ "complete a set for a one-time reward": {
+  "ar": "أكمل مجموعة لتحصل على مكافأة لمرة واحدة",
+  "zh": "集齐一套即可获得一次性奖励",
+  "de": "vervollständige ein Set für eine einmalige Belohnung",
+  "ru": "собери набор и получи разовую награду"
+ },
+ "{0} rounds": {
+  "ar": "{0} جولات",
+  "zh": "{0} 回合",
+  "de": "{0} Runden",
+  "ru": "Раундов: {0}"
+ },
+ "{0} round": {
+  "ar": "جولة {0}",
+  "zh": "{0} 回合",
+  "de": "{0} Runde",
+  "ru": "Раундов: {0}"
+ },
+ "{0} Crown Sigils": {
+  "ar": "{0} × ختم التاج",
+  "zh": "{0} × 王冠印记",
+  "de": "{0} × Kronensiegel",
+  "ru": "{0} × Печать короны"
+ },
+ "{0} Crown Sigil": {
+  "ar": "{0} × ختم التاج",
+  "zh": "{0} × 王冠印记",
+  "de": "{0} × Kronensiegel",
+  "ru": "{0} × Печать короны"
+ },
+ "Embassy": {
+  "ar": "السفارة",
+  "zh": "大使馆",
+  "de": "Botschaft",
+  "ru": "Посольство"
+ },
+ "Language": {
+  "ar": "اللغة",
+  "zh": "语言",
+  "de": "Sprache",
+  "ru": "Язык"
+ },
+ "Privacy & Settings": {
+  "ar": "الخصوصية والإعدادات",
+  "zh": "隐私与设置",
+  "de": "Datenschutz & Einstellungen",
+  "ru": "Конфиденциальность и настройки"
+ },
+ "Ads & privacy": {
+  "ar": "الإعلانات والخصوصية",
+  "zh": "广告与隐私",
+  "de": "Werbung & Datenschutz",
+  "ru": "Реклама и конфиденциальность"
+ },
+ "Ad privacy choices": {
+  "ar": "خيارات خصوصية الإعلانات",
+  "zh": "广告隐私选项",
+  "de": "Werbe-Datenschutzoptionen",
+  "ru": "Настройки конфиденциальности рекламы"
+ },
+ "Restore purchases": {
+  "ar": "استعادة المشتريات",
+  "zh": "恢复购买",
+  "de": "Käufe wiederherstellen",
+  "ru": "Восстановить покупки"
+ },
+ "Remove ads": {
+  "ar": "إزالة الإعلانات",
+  "zh": "移除广告",
+  "de": "Werbung entfernen",
+  "ru": "Убрать рекламу"
+ },
+ "Ad-free": {
+  "ar": "بلا إعلانات",
+  "zh": "无广告",
+  "de": "Werbefrei",
+  "ru": "Без рекламы"
+ },
+ "Each reward is drawn separately:": {
+  "ar": "تُسحب كل مكافأة على حدة:",
+  "zh": "每份奖励独立抽取：",
+  "de": "Jede Belohnung wird einzeln gezogen:",
+  "ru": "Каждая награда выпадает отдельно:"
+ },
+ "Resources": {
+  "ar": "الموارد",
+  "zh": "资源",
+  "de": "Ressourcen",
+  "ru": "Ресурсы"
+ },
+ "Hourglasses": {
+  "ar": "ساعات رملية",
+  "zh": "沙漏",
+  "de": "Sanduhren",
+  "ru": "Песочные часы"
+ },
+ "Hero Tomes": {
+  "ar": "كتب الأبطال",
+  "zh": "英雄典籍",
+  "de": "Heldenfolianten",
+  "ru": "Книги героев"
+ },
+ "Supplies": {
+  "ar": "مؤن",
+  "zh": "补给",
+  "de": "Vorräte",
+  "ru": "Припасы"
+ },
+ "Hero shards": {
+  "ar": "شظايا الأبطال",
+  "zh": "英雄碎片",
+  "de": "Heldensplitter",
+  "ru": "Осколки героев"
+ },
+ "Royal Chest: the first reward is always {0} Epic or Legendary hero shards.": {
+  "ar": "الصندوق الملكي: المكافأة الأولى دائماً {0} شظايا لبطل ملحمي أو أسطوري.",
+  "zh": "皇家宝箱：第一份奖励必定为 {0} 个史诗或传说英雄碎片。",
+  "de": "Königliche Truhe: Die erste Belohnung sind immer {0} epische oder legendäre Heldensplitter.",
+  "ru": "Королевский сундук: первая награда — всегда {0} осколка эпического или легендарного героя."
+ },
+ "Progress is saved on this device.": {
+  "ar": "يُحفظ تقدّمك على هذا الجهاز.",
+  "zh": "进度保存在本设备上。",
+  "de": "Der Fortschritt wird auf diesem Gerät gespeichert.",
+  "ru": "Прогресс сохраняется на этом устройстве."
+ },
+ "A game by Kinzhal LTD Co. · Progress is saved on this device.": {
+  "ar": "لعبة من شركة Kinzhal LTD Co. · يُحفظ تقدّمك على هذا الجهاز.",
+  "zh": "Kinzhal LTD Co. 出品 · 进度保存在本设备上。",
+  "de": "Ein Spiel von Kinzhal LTD Co. · Der Fortschritt wird auf diesem Gerät gespeichert.",
+  "ru": "Игра от Kinzhal LTD Co. · Прогресс сохраняется на этом устройстве."
+ }
+}

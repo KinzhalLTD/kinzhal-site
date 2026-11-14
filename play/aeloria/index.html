@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Aeloria: Age of Crowns</title>
+<meta name="description" content="Aeloria: Age of Crowns — rule a citadel in one of six realms, recruit heroes from across the world, defeat the Hollow King and reclaim the Sunspire Throne. A kingdom strategy game by Kinzhal LTD Co.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#140f22">
+<meta property="og:title" content="Aeloria: Age of Crowns">
+<meta property="og:description" content="Six realms. Twenty-one heroes. One shattered crown.">
+<meta property="og:image" content="icon-512.png">
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header class="hud">
+    <div class="hrow">
+      <span id="brand"></span>
+      <div class="who"><b id="hudName">Aeloria</b><span id="hudMight"></span></div>
+      <button class="hbtn" data-act="home" title="World map: my city" data-l="Map"><img src="art/nav/hud_home.webp" alt=""></button>
+      <button class="hbtn" data-act="sub" data-s="bag" title="Bag" data-l="Bag"><img src="art/nav/hud_bag.webp" alt=""></button>
+      <button class="hbtn" data-act="mail" title="Reports" data-l="Mail"><img src="art/nav/hud_mail.webp" alt=""><span class="dot" id="mailDot" hidden></span></button>
+      <button class="hbtn" data-act="mute" id="muteBtn" title="Music and sound" data-l="Sound"><img src="art/nav/hud_sound.webp" alt=""></button>
+      <button class="hbtn" data-act="menu" title="Menu and settings" data-l="Menu"><img src="art/nav/hud_menu.webp" alt=""></button>
+    </div>
+    <div id="hudRes"></div>
+    <div id="status"></div>
+  </header>
+  <main id="main">
+    <div id="cityView"></div>
+    <div id="city3d" hidden></div>
+    <div id="cityUi"></div>
+    <div id="worldView" hidden><canvas id="map"></canvas><div class="mapbtns"><button class="btn" data-act="home">My city</button><button class="mfind" data-act="mapfind" data-k="chest" title="Nearest treasure">💰</button><button class="mfind" data-act="mapfind" data-k="camp" title="Nearest outpost">⚔</button><button class="mfind" data-act="mapfind" data-k="res" title="Nearest resource site">⛏</button><button class="mfind" data-act="mapfind" data-k="merchant" title="Merchant">🛒</button><button class="mfind melite" data-act="mapfind" data-k="elite" title="Elite Warband">👑</button><button class="mfind mforge" data-act="sub" data-s="forge" title="Conquest upgrades">⚒</button></div><div class="mapzoom"><button class="mfind" data-act="mapzoom" data-d="1">＋</button><button class="mfind" data-act="mapzoom" data-d="-1">－</button></div></div>
+    <div id="panel" hidden></div>
+    <div id="queues"></div>
+  </main>
+  <nav class="tabs v2">
+    <button data-act="tab" data-tab="city" class="on"><img src="art/nav/city.webp" alt="">City</button>
+    <button data-act="tab" data-tab="world"><img src="art/nav/world.webp" alt="">World</button>
+    <button data-act="tab" data-tab="heroes"><img src="art/nav/heroes.webp" alt="">Heroes<span class="dot" id="heroDot" hidden>!</span></button>
+    <button data-act="stages" class="nbattle" title="Story campaign"><i><img src="art/nav/battle.webp" alt=""></i><b>Battle</b><em id="navVigor"></em></button>
+    <button data-act="tab" data-tab="quests" data-res="pass"><img src="art/nav/quests.webp" alt="">Quests<span class="dot" id="questDot" hidden>!</span></button>
+    <button data-act="tab" data-tab="store" class="store"><img src="art/nav/store.webp" alt="">Store<span class="dot" id="storeDot" hidden>!</span></button>
+    <button data-act="more" id="navMore"><img src="art/nav/more.webp" alt="">More<span class="dot" id="moreDot" hidden>!</span></button>
+  </nav>
+</div>
+<dialog id="sheet"><div class="shead"><h3 id="sheetTitle"></h3><button class="x" data-act="close" aria-label="Close">✕</button></div><div id="sheetBody"></div></dialog>
+<div id="battle" hidden></div>
+<div id="toasts"></div>
+<div id="intro" hidden>
+  <canvas id="introCv"></canvas>
+  <i class="lb top"></i><i class="lb bot"></i>
+  <div id="langTop" class="notr"></div>
+  <div id="introTap"><div id="introEmblem"></div><h1 class="ttl">AELORIA</h1><p class="ttl-sub">AGE OF CROWNS</p><p class="ttl-ar" lang="ar" dir="rtl">إيلوريا · عصر التيجان</p><p class="tapgo">TAP TO BEGIN</p></div>
+  <div id="introTitle"><div id="introEmblem2"></div><h1 class="ttl">AELORIA</h1><p class="ttl-sub">AGE OF CROWNS</p></div>
+  <div id="introLines"></div>
+  <button id="skipIntro" hidden>Skip ›</button>
+  <form class="introbox" id="introForm" hidden>
+    <p class="pick-t">Choose your home realm</p><div id="realms"></div><p id="realmDesc" class="muted"></p>
+    <input id="lordName" maxlength="24" placeholder="Name your lord" autocomplete="off">
+    <div id="colors"></div>
+    <button class="btn gold" style="font-size:17px;padding:11px 28px">Found my realm</button>
+    <p class="muted" style="margin:10px 0 0">A game by Kinzhal LTD Co. · Progress is saved on this device.</p>
+  </form>
+</div>
+<noscript>Aeloria needs JavaScript.</noscript>
+<script src="data.js"></script>
+<script src="i18n/ar.js"></script>
+<script src="i18n/zh.js"></script>
+<script src="i18n/de.js"></script>
+<script src="i18n/ru.js"></script>
+<script src="i18n.js"></script>
+<script src="art.js"></script>
+<script src="fx.js"></script>
+<script src="ads.js"></script>
+<script src="meta.js"></script>
+<script src="live.js"></script>
+<script src="battlefield.js"></script>
+<script src="game.js"></script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module" src="city3d.js"></script>
+</body>
+</html>

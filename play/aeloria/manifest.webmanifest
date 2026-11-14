@@ -1,0 +1,15 @@
+{
+  "name": "Aeloria: Age of Crowns",
+  "short_name": "Aeloria",
+  "description": "Six realms. Thirteen heroes. One shattered crown.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#140f22",
+  "theme_color": "#140f22",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
