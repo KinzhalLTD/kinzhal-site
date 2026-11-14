@@ -1,0 +1,145 @@
+GOAL
+Turn the kingdom in Aeloria: Age of Crowns into a living nation simulation: population and society, food and water supply, livestock, factories, businesses, a market and trade routes, a royal bank, ministers and politics, embassies and ambassadors, and justice (crime and jail). It must look as polished as the existing game. Keep every existing system, all graphics, all save data, the login system, ads and in-app purchases working exactly as they are now.
+
+CONTEXT (read before changing anything)
+1. This is an Expo (React Native) app. The game itself is plain JavaScript in www/ (index.html, data.js, art.js, fx.js, meta.js, live.js, battlefield.js, game.js, ads.js, i18n.js, i18n/<lang>.js, style.css, art/).
+2. App.js shows the game in a WebView. scripts/build-game.js packs www/ into ONE offline file, src/gameHtml.js: scripts and CSS are inlined, and every image and sound becomes a data URI. Nothing may load from the internet at runtime.
+3. Game state is the global object S, saved by save() (localStorage key "aeloria-save-v1"), and synced through the login system I added. The main loop is tick() in game.js. Screens are drawn by render() and openTab(). Buttons use data-act="..." handled in onAct (game.js), then META.act (meta.js), then LIVE.act (live.js).
+4. Painted art is listed in www/art/manifest.json and read with ART.asset(kind, id) and ART.icon(name, size).
+5. Languages: English, Arabic, Simplified Chinese, German, Russian. i18n.js translates visible English text automatically using the dictionaries in www/i18n/<lang>.js (key = exact English text; numbers become {0}, {1}…; the player's name becomes {name}).
+6. Read README.md, APP_STORE_SUBMISSION.md and www/game.js (tick, render, openTab, onAct, save, give) before writing code.
+
+PHASE 0: CHECKPOINT AND PLAN (then stop and report)
+0.1 Commit the current state with the message "Checkpoint before nation upgrade".
+0.2 Write docs/NATION_DESIGN.md: the data model, the formulas below, which files you will add or change, and how the nation state is saved and synced with my existing login. Do not write feature code in this phase.
+0.3 Show me the plan and wait for my "continue".
+
+DATA AND RULES (apply in every phase)
+D1. All new state lives in S.nation. On load, a migrate step fills any missing field with defaults (S.nation ??= {...}). Old saves must load with no errors and no lost progress.
+D2. The simulation runs inside the existing tick() once per second. Time away is caught up from timestamps (at most 12 hours), like the existing resources. After any update every value must be a finite number, clamped to its range (never NaN, Infinity or negative stock).
+D3. Put the new logic in new files: www/nation.js (simulation), www/nation-ui.js (screens), www/nation-data.js (definitions and balance numbers). Add their script tags to www/index.html after live.js and before game.js. Keep game.js changes small: hooks only.
+D4. All balance numbers live in nation-data.js as named constants, never scattered as magic numbers.
+D5. Buttons use the existing data-act pattern. Each action name must be unique: check meta.js, live.js and game.js first. A clash already broke the Forge buttons once.
+
+PHASE 1: PEOPLE, FOOD, WATER, LIVESTOCK (then stop and report)
+1.1 Population: S.nation.pop starts at 1,000 × Citadel level.
+  Growth per hour = pop × 0.5% × (happiness − 40)/60. It is 0 when food or water is short.
+  Housing cap = 2,000 + 1,500 × Housing level.
+1.2 Classes: farmers, workers, merchants, scholars and nobles, as shares that add up to 100%.
+  Players set job priorities. Unemployment = people without a job building.
+1.3 Happiness 0–100 is a weighted sum:
+  food 25%, water 20%, safety (100 − crime) 20%, tax level 15%, jobs 10%, culture buildings 10%.
+  Show every factor in a breakdown panel.
+1.4 Food: each citizen eats 1 food per hour. Production comes from existing farms, plus livestock, plus fishing (coastal realms).
+  New building: Granary (storage). Show "days of food left".
+1.5 Water: each citizen uses 1.5 water per hour. Supply comes from Wells (level × 400 per hour), an Aqueduct (level × 1,500 per hour, needs Stone and Iron) and Cisterns (storage).
+  Below 100% supply: happiness drops and growth stops.
+1.6 Livestock (pastures): Sheep (wool + food), Cattle (food + leather), Camels (desert realms; trade speed +5%), Poultry (food, fast).
+  Each herd needs pasture land, water and grain feed. Herds grow by 3% per day when fed, shrink when starving, and can be sold at the market.
+1.7 New "Nation" screen, opened from the More menu, with a painted header and KPI cards:
+  population, happiness, food days, water %, crime, treasury, GDP per day. Each card has a 24-hour sparkline.
+  Alerts appear in red when food or water drops below 2 days.
+
+PHASE 2: INDUSTRY, BUSINESSES, MARKET, TRADE (then stop and report)
+2.1 Factories turn raw materials into goods, using workers and time:
+  Sawmill: Timber → Planks
+  Smelter: Iron → Iron Bars
+  Weaver: Wool → Cloth
+  Tannery: Leather → Goods
+  Bakery: Grain → Bread
+  Potter: Stone → Pottery
+  Jeweller: Gold → Jewellery
+  Each factory has levels 1–20, worker slots, an input/output per hour and a visible production queue.
+2.2 Businesses are shops licensed by the crown (Inn/Caravanserai, Tailor, Smithy, Bakery shop, Bazaar stall, Jeweller shop).
+  They earn Gold per hour = level × workers × local demand. A manager can be hired from the population, adding 10–30%.
+  Businesses pay tax to the treasury.
+2.3 Market: a dynamic price for every good, based on supply and demand (±40% around its base price), with a 7-day price chart. Buy and sell with Gold.
+2.4 Trade routes: send caravans (land) or ships (coastal) to AI kingdoms (the rival cities already in S.world).
+  Travel time comes from distance. Profit = price difference − tariff.
+  Bandit risk is 5–25% and drops when an escort of troops is assigned.
+  Routes show on the world map as animated paths.
+2.5 Goods feed back into the existing game: Planks and Iron Bars are needed for building levels above 10, and Cloth and Leather for troop tiers above II.
+
+PHASE 3: BANK, TREASURY, GOVERNMENT, POLITICS (then stop and report)
+3.1 Royal Bank building:
+  Deposits earn 0.5% per hour, capped at 24 hours of interest.
+  Loans are up to 5× daily income at 8–20% interest, set by credit rating, with an automatic repayment schedule.
+  A credit rating A–E depends on repayment history.
+  A full ledger shows taxes, wages, upkeep, trade, interest and loans.
+  In-game Gold only: no real money, no gambling.
+3.2 Taxes: rates of 0–30% for income, trade and land. Higher taxes mean more treasury and less happiness, and the effect is shown before confirming.
+3.3 Council of Ministers: Treasury, Trade, Agriculture, Industry, Justice, Diplomacy, Defence.
+  Appoint a hero, or a generated noble with 2 traits (for example "Frugal: −10% upkeep", "Corrupt: +5% crime").
+  Each minister gives bonuses based on skill and loyalty 0–100.
+3.4 Factions (all fictional): the Noble Houses, the Merchants' Guild, the Farmers' League and the Scholars' Circle. Each has approval 0–100.
+  Policies and edicts move approval. Below 25: protests (−production). Below 10: an unrest event with choices.
+3.5 Edicts and policies: cards with trade-offs and cooldowns. Examples: Free Grain Day, Open Borders, Curfew, Public Works, Royal Festival. At most 3 active at once.
+3.6 Weekly council session: 3 decisions with 2–3 choices each. Outcomes are shown clearly before choosing.
+
+PHASE 4: DIPLOMACY, EMBASSIES, AMBASSADORS (then stop and report)
+4.1 Relations −100 to +100 with each AI kingdom and with the six realms. They are shown on a Diplomacy screen with painted banners.
+4.2 Use the existing Embassy building. Each level allows one more foreign embassy.
+  Assign an ambassador (a hero or a noble). The ambassador's skill adds relations per day.
+4.3 Actions: send gift (Gold or goods), trade agreement (−50% tariffs), non-aggression pact, alliance (shared defence: AI allies reinforce you), research exchange (+10% research speed).
+  Each action needs minimum relations and has a cooldown.
+4.4 Diplomatic incidents are random events (a border dispute, a spy caught, a royal wedding) with choices that change relations.
+4.5 Relations feed back into the game: hostile kingdoms (below −50) raid more often; allied kingdoms trade at better prices.
+
+PHASE 5: JUSTICE, CRIME, JAIL, LIVING EVENTS (then stop and report)
+5.1 Crime rate 0–100 per hour, driven by unemployment, hunger, low happiness, high taxes, inequality and too little policing.
+5.2 Buildings: City Watch (policing), Courthouse (trial speed) and Jail (capacity).
+  Caught offenders get a fine, community work (they add labour) or jail time (served in hours).
+  When the jail is full, crime rises. A jailbreak event can happen when the guards are underfunded.
+5.3 Crime types are all-ages and non-graphic: pickpocketing, smuggling, tax evasion, a thieves' guild, counterfeit coins.
+  Crime causes visible losses (Gold, goods, happiness), and these are shown in reports.
+5.4 A daily living event with choices, for example drought, bumper harvest, trade boom, plague of locusts, a scholar's invention, or a thieves' ring uncovered.
+  Each event has an illustration and its outcomes are shown in Reports.
+
+GRAPHICS AND UI (every phase)
+G1. Match the existing style: dark navy background (#140F22), gold accents (#E8A33D / #FFD36B), the Cinzel and Cairo fonts, rounded cards, the painted look.
+  Reuse the existing CSS variables and card classes.
+G2. New buildings, herds, factories, ministers' portraits, faction banners and event illustrations need original painted art in the same style as www/art/. Save each image as WebP under 200 KB in www/art/<kind>/ and register it in www/art/manifest.json.
+  If you cannot create painted art, draw clean SVG illustrations. Never show "placeholder", "TODO", "coming soon" or empty boxes to players.
+G3. New city buildings (Granary, Wells, Aqueduct, Cisterns, Pastures, the factories, the Royal Bank, City Watch, Courthouse, Jail) appear on the city map with labels, like the existing buildings.
+G4. Every screen must work on iPhone (393×852) and iPad (1024×1366, both orientations). Touch targets are at least 44 px, and nothing scrolls sideways.
+G5. Numbers use the existing fmt() helper. Animations stay subtle and respect prefers-reduced-motion.
+
+LANGUAGES (every phase)
+L1. Write all new text in English in the code. Translations are applied automatically when the English key exists in the dictionaries.
+L2. For every new string, add translations in new files www/i18n/nation-ar.js, nation-zh.js, nation-de.js and nation-ru.js, in this form:
+  Object.assign(window.AELORIA_I18N.ar, { "English text": "translation", ... });
+  Load each one right after its www/i18n/<lang>.js and before www/i18n.js.
+  Keep {0}, {1} and {name} exactly. Never build English plurals by gluing on "s"; write whole sentences instead.
+L3. Arabic must read right to left inside cards (the existing CSS handles this; don't override it).
+
+APPLE AND STORE RULES (must stay true)
+A1. No real-world countries, political parties, religions or real politicians. All nations and factions are fictional.
+  Content stays suitable for ages 9+: no gore, no drugs or alcohol, and jail is non-violent.
+A2. The bank and the market use in-game currency only. There is no real-money gambling, no random paid items without published odds, and no new purchases unless I ask.
+  The existing 13 in-app purchases, ads, consent and tracking flow, Restore purchases and Remove Ads must keep working.
+A3. Because the game now has login:
+  - There must be an in-app "Delete account" option that deletes the account and its server data (App Review 5.1.1(v)).
+  - If you offer Google or other third-party sign-in, Sign in with Apple must be offered too (4.8).
+  - The game must still be playable without an account, or the reviewer needs a demo account. Tell me which applies.
+A4. Never put API keys or secrets in code. Use Replit Secrets.
+A5. Everything stays offline-capable except login and sync. The packed build must not fetch any game file from the internet.
+
+GUARDRAILS
+X1. Do not rebuild the game from scratch, switch frameworks, rename existing files, or change the existing art, battles, story, heroes, store, ads, purchases or login screens.
+X2. Make small, focused changes to existing files. Put new systems in the new files.
+X3. Do not delete any file without asking me.
+X4. Commit at the end of every phase with a clear message.
+
+VERIFICATION (at the end of every phase; show me the output)
+V1. Create scripts/sim-nation-test.js. It loads the game logic in Node or a headless browser, simulates 7 in-game days for a new save and for a late-game save, and fails if any value is NaN, negative where it shouldn't be, or out of range. Run it.
+V2. Run: npm run build:game, then npm run check:store, then npx expo-doctor.
+V3. In the preview, open each new screen in English and in Arabic. Tap every new button and confirm it does something visible. Load an old save and confirm nothing is lost.
+V4. Confirm there are no errors in the browser console during play.
+
+REPORT BACK (after every phase)
+R1. The files created and changed.
+R2. What works now, with a screenshot of each new screen.
+R3. Anything skipped and why.
+R4. Balance numbers I may want to tune.
+R5. Any error messages, word for word.
+R6. Then stop and wait for my "continue" before the next phase.
