@@ -1592,7 +1592,7 @@ function onAct(e) {
   const el = e.target.closest('[data-act]'); if (!el) return; const a = el.dataset.act, d = el.dataset;
   if (['tn', 'sendn', 'auto'].includes(a) && e.type === 'click') return;
   switch (a) {
-    case 'tab': openTab(d.tab); break;
+    case 'tab': if (d.tab === tab && d.tab !== 'world' && d.tab !== 'city') { const pn = $('#panel'); if (pn) pn.scrollTo({ top: 0, behavior: 'smooth' }); sfx('click'); } else openTab(d.tab); break;
     case 'bld': openBuilding(d.key); break;
     case 'field': openField(+d.i); break;
     case 'lockedfield': toast(`Raise the Citadel to unlock more plots`); break;

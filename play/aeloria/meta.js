@@ -338,7 +338,7 @@ const META = (() => {
 
   function act(a, d, el) {
     switch (a) {
-      case 'sub': sub = d.s; if (tab !== 'store') openTab('store'); else render(); return true;
+      case 'sub': { const same = sub === d.s && tab === 'store'; sub = d.s; if (tab !== 'store') openTab('store'); else if (same) { const pn = document.getElementById('panel'); if (pn) pn.scrollTo({ top: 0, behavior: 'smooth' }); FX.sound('click'); } else render(); return true; }
       case 'summon': summon(+d.n); return true;
       case 'openchest': openChestKind(d.k); return true;
       case 'deal': buyDeal(+d.i); return true;
