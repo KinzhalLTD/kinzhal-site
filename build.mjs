@@ -209,6 +209,11 @@ const prompt = g => `Move this game's public links to the studio domain kinzhal.
 6. Run npm run check:store and show me the result and the four URLs.`;
 fs.writeFileSync('GAME_PROMPTS.md', '# Game prompts — one per game\n\nOpen each game project (Replit, Claude or any coding agent) and paste its block.\n\n' + GAMES.map(g => `## ${g.name}\n\n\`\`\`\n${prompt(g)}\n\`\`\`\n`).join('\n'));
 
+// Aeloria has accounts/cloud saves: do not serve the generic no-accounts policy.
+// Run after generation so the clean build cannot erase these reviewed pages.
+const { installLegal } = await import('./aeloria-legal/install-netlify-legal.mjs');
+await installLegal(OUT);
+
 const real = SITE.adsTxt.filter(l => l.trim() && !l.trim().startsWith('#'));
 console.log(`Built ${GAMES.length} games, ${urls.length} pages into ${OUT}/`);
 if (!real.length) console.warn('⚠  app-ads.txt has no real lines yet: paste your AdMob and mediation lines into site.json → adsTxt, then run the build again.');
