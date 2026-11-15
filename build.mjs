@@ -35,7 +35,8 @@ p,li{color:var(--ink2)}.card{background:var(--panel);border:1px solid var(--line
 .btn{display:inline-block;padding:10px 18px;border-radius:999px;border:1px solid var(--pink);color:var(--ink);text-decoration:none;font-weight:700;box-shadow:0 0 14px #ff2bd655;margin:4px 6px 4px 0}
 .ar{direction:rtl;text-align:right}
 footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--line);color:var(--ink2);font-size:14px;display:flex;gap:16px;flex-wrap:wrap}
-footer a{color:var(--cyan)}`;
+footer a{color:var(--cyan)}
+.legal section{margin:0}.legal ul{padding-inline-start:20px}.legal h3:first-of-type{margin-top:22px}.legal hr{display:none}`;
 
 const page = ({ title, desc, rel, body, noindex, icon }) => `<!doctype html>
 <html lang="en">
@@ -212,7 +213,19 @@ fs.writeFileSync('GAME_PROMPTS.md', '# Game prompts — one per game\n\nOpen eac
 // Aeloria has accounts/cloud saves: do not serve the generic no-accounts policy.
 // Run after generation so the clean build cannot erase these reviewed pages.
 const { installLegal } = await import('./aeloria-legal/install-netlify-legal.mjs');
-await installLegal(OUT);
+// Render the reviewed text inside the site's own template: English card, then Arabic card, same as every other game.
+const legalShell = (src, route) => {
+  const title = (src.match(/<title>([^<]*)<\/title>/) || [, 'Aeloria'])[1];
+  const [en, ar = ''] = src.split(/<main>/)[1].split('</main>')[0].split(/<hr\s*\/?>/);
+  const sub = s => s.replace(/<(\/?)h2\b/g, '<$1h3');
+  const arBody = sub(ar).replace(/<h1[^>]*>([\s\S]*?)<\/h1>/, '<h2 style="margin-top:0">$1</h2>').replace(/ lang="ar" dir="rtl"/g, '');
+  const kind = route.split('/')[1] === 'conditions' ? 'terms' : route.split('/')[1];
+  const g = GAMES.find(x => x.slug === 'aeloria');
+  const links = `<p class="muted" style="margin-top:22px"><a href="/aeloria/">${esc(g.name)}</a> · <a href="/aeloria/privacy/">Privacy policy</a> · <a href="/aeloria/terms/">Terms</a> · <a href="/aeloria/support/">Support</a></p>`;
+  return page({ title: `${title} · ${SITE.company}`, desc: `${title} for ${g.name}.`, rel: `aeloria/${kind}/`, icon: ICON.aeloria,
+    body: `<div class="card legal">${sub(en)}${links}</div>\n<div class="card ar legal" dir="rtl" lang="ar">${arBody}</div>` });
+};
+await installLegal(OUT, undefined, legalShell);
 
 const real = SITE.adsTxt.filter(l => l.trim() && !l.trim().startsWith('#'));
 console.log(`Built ${GAMES.length} games, ${urls.length} pages into ${OUT}/`);

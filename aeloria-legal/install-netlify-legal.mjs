@@ -3,7 +3,8 @@ import { readFile, mkdir, writeFile, stat, lstat, realpath } from 'node:fs/promi
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export async function installLegal(publishDir, sourceDir = path.dirname(fileURLToPath(import.meta.url))) {
+// wrap(html, route): optional. The site build passes its own page template so these pages match kinzhal.space.
+export async function installLegal(publishDir, sourceDir = path.dirname(fileURLToPath(import.meta.url)), wrap = (html) => html) {
   if (!publishDir) throw new Error('Supply the existing Netlify publish directory.');
   const root = path.resolve(publishDir);
   // A README-only checkout must not become a replacement for the live website.
@@ -11,7 +12,7 @@ export async function installLegal(publishDir, sourceDir = path.dirname(fileURLT
   if (!/<html\b/i.test(home) || !/Kinzhal/i.test(home)) {
     throw new Error('STOP: build the existing Kinzhal website first. No legal files were written.');
   }
-  const pages = await Promise.all(['privacy.html', 'terms.html'].map(async name => {
+  const pages = await Promise.all(['privacy.html', 'terms.html', 'support.html'].map(async name => {
     const html = await readFile(path.join(sourceDir, name), 'utf8');
     if (!/Aeloria/.test(html) || !/Kinzhal LTD Co\./.test(html) || !/lang="ar"/.test(html)) {
       throw new Error('STOP: policy source failed the bilingual publisher check.');
@@ -21,6 +22,7 @@ export async function installLegal(publishDir, sourceDir = path.dirname(fileURLT
   const routes = [
     ['aeloria/privacy/index.html', pages[0]], ['aeloria/terms/index.html', pages[1]],
     ['Aeloria/privacy/index.html', pages[0]], ['Aeloria/conditions/index.html', pages[1]],
+    ['aeloria/support/index.html', pages[2]],
   ];
   // Validate ALL destinations before touching any. Refuse symlinks/other content.
   for (const [route] of routes) {
@@ -45,7 +47,7 @@ export async function installLegal(publishDir, sourceDir = path.dirname(fileURLT
   for (const [route, html] of routes) {
     const target = path.join(root, route);
     await mkdir(path.dirname(target), { recursive: true });
-    await writeFile(target, html);
+    await writeFile(target, wrap(html, route));
   }
   return routes.map(([route]) => route);
 }
@@ -54,7 +56,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     const output = process.argv.find(arg => arg.startsWith('--publish-dir='))?.slice('--publish-dir='.length);
     const routes = await installLegal(output);
-    console.log(`Installed ${routes.length} bilingual Aeloria legal pages. Homepage, app-ads.txt and other games untouched.`);
+    console.log(`Installed ${routes.length} bilingual Aeloria pages. Homepage, app-ads.txt and other games untouched.`);
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
