@@ -239,5 +239,15 @@
   "color": "#ffb22e",
   "appStoreId": "",
   "steamAppId": ""
+ },
+ {
+  "slug": "aeloria",
+  "name": "Aeloria: Age of Crowns",
+  "nameAr": "إيلوريا: عصر التيجان",
+  "genre": "Strategy · kingdom building",
+  "genreAr": "استراتيجية · بناء الممالك",
+  "status": "dev",
+  "color": "#d9ac54",
+  "appStoreId": ""
  }
 ]
